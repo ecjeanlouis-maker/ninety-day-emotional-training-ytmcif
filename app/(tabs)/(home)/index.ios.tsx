@@ -93,6 +93,8 @@ export default function HomeScreen() {
     });
   };
 
+  const motivationalPhrase = 'BE THE BEST VERSION OF YOURSELF';
+
   if (!selectedProgram) {
     return (
       <SafeAreaView style={styles.container} edges={['top']}>
@@ -102,7 +104,33 @@ export default function HomeScreen() {
           showsVerticalScrollIndicator={false}
         >
           <Animated.View 
-            entering={FadeIn.duration(600)}
+            entering={FadeIn.duration(800)}
+            style={styles.motivationalBanner}
+          >
+            <LinearGradient
+              colors={[colors.primary, colors.accent]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+              style={styles.motivationalGradient}
+            >
+              <IconSymbol
+                ios_icon_name="star.fill"
+                android_material_icon_name="star"
+                size={28}
+                color="#FFFFFF"
+              />
+              <Text style={styles.motivationalText}>{motivationalPhrase}</Text>
+              <IconSymbol
+                ios_icon_name="star.fill"
+                android_material_icon_name="star"
+                size={28}
+                color="#FFFFFF"
+              />
+            </LinearGradient>
+          </Animated.View>
+
+          <Animated.View 
+            entering={FadeIn.delay(200).duration(600)}
             style={styles.selectionHeader}
           >
             <Text style={styles.selectionTitle}>Choose Your</Text>
@@ -113,7 +141,7 @@ export default function HomeScreen() {
           </Animated.View>
 
           <Animated.View 
-            entering={FadeInDown.delay(200).duration(600)}
+            entering={FadeInDown.delay(400).duration(600)}
             style={styles.programCardsContainer}
           >
             <TouchableOpacity
@@ -224,7 +252,7 @@ export default function HomeScreen() {
           </Animated.View>
 
           <Animated.View 
-            entering={FadeInDown.delay(400).duration(600)}
+            entering={FadeInDown.delay(600).duration(600)}
             style={styles.selectionFooter}
           >
             <Text style={styles.selectionFooterText}>
@@ -544,8 +572,33 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingBottom: 100,
   },
+  motivationalBanner: {
+    marginTop: 20,
+    marginBottom: 16,
+    borderRadius: 16,
+    overflow: 'hidden',
+    shadowColor: colors.primary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.25,
+    shadowRadius: 20,
+  },
+  motivationalGradient: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 20,
+    paddingHorizontal: 24,
+    gap: 12,
+  },
+  motivationalText: {
+    fontSize: 18,
+    fontWeight: '900',
+    color: '#FFFFFF',
+    textAlign: 'center',
+    letterSpacing: 1.2,
+  },
   selectionHeader: {
-    marginTop: 40,
+    marginTop: 24,
     marginBottom: 32,
     alignItems: 'center',
   },
