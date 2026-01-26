@@ -24,6 +24,7 @@ import Animated, {
   interpolate,
   Extrapolate,
 } from 'react-native-reanimated';
+import CongratulationsModal from '@/components/CongratulationsModal';
 
 const AnimatedTouchable = Animated.createAnimatedComponent(TouchableOpacity);
 
@@ -33,6 +34,12 @@ export default function HomeScreen() {
   const [selectedProgram, setSelectedProgram] = useState<ProgramType>(null);
   const [selectedTechnique, setSelectedTechnique] = useState<number | null>(null);
   const [completedTechniques, setCompletedTechniques] = useState<Set<number>>(new Set());
+  const [showCongratsModal, setShowCongratsModal] = useState(false);
+  const [completedTechniqueData, setCompletedTechniqueData] = useState<{
+    week: number;
+    title: string;
+    color: string;
+  } | null>(null);
   
   const currentDay = 1;
   const totalDays = 90;
@@ -80,17 +87,36 @@ export default function HomeScreen() {
 
   const handleCheckboxPress = (id: number) => {
     console.log('User toggled technique completion:', id);
-    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     
     setCompletedTechniques(prev => {
       const newSet = new Set(prev);
-      if (newSet.has(id)) {
+      const wasCompleted = newSet.has(id);
+      
+      if (wasCompleted) {
         newSet.delete(id);
       } else {
         newSet.add(id);
+        
+        const technique = techniques.find(t => t.id === id);
+        if (technique) {
+          const programColor = technique.category === 'emotional' ? colors.primary : colors.accent;
+          setCompletedTechniqueData({
+            week: technique.week,
+            title: technique.title,
+            color: programColor,
+          });
+          setShowCongratsModal(true);
+        }
       }
+      
       return newSet;
     });
+  };
+
+  const handleCloseCongratsModal = () => {
+    console.log('Closing congratulations modal');
+    setShowCongratsModal(false);
+    setCompletedTechniqueData(null);
   };
 
   const motivationalPhrase = 'BE THE BEST VERSION OF YOURSELF';
@@ -385,6 +411,16 @@ export default function HomeScreen() {
           </Text>
         </Animated.View>
       </ScrollView>
+
+      {completedTechniqueData && (
+        <CongratulationsModal
+          visible={showCongratsModal}
+          onClose={handleCloseCongratsModal}
+          weekNumber={completedTechniqueData.week}
+          techniqueTitle={completedTechniqueData.title}
+          categoryColor={completedTechniqueData.color}
+        />
+      )}
     </SafeAreaView>
   );
 }
