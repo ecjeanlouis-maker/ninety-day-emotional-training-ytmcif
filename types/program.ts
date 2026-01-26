@@ -6,7 +6,7 @@ export interface Technique {
   practiceSteps: string[];
   goal: string;
   icon: string;
-  category: 'emotional' | 'confidence';
+  category: 'emotional' | 'confidence' | 'anger' | 'stress' | 'social-anxiety' | 'thoughts';
   practiceFrequency: string;
   week: number;
 }
@@ -18,4 +18,4 @@ export interface DayProgress {
   notes?: string;
 }
 
-export type ProgramType = 'emotional' | 'confidence' | null;
+export type ProgramType = 'emotional' | 'confidence' | 'anger' | 'stress' | 'social-anxiety' | 'thoughts' | null;

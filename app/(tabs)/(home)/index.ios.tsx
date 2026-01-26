@@ -28,8 +28,59 @@ import CongratulationsModal from '@/components/CongratulationsModal';
 
 const AnimatedTouchable = Animated.createAnimatedComponent(TouchableOpacity);
 
+const PROGRAM_CONFIGS = {
+  emotional: {
+    title: 'Emotional Control',
+    subtitle: '12-Week Self-Regulation Training',
+    description: 'Master your emotions and respond with clarity through 12 powerful techniques',
+    icon: 'psychology',
+    iconIOS: 'brain',
+    color: colors.primary,
+  },
+  confidence: {
+    title: 'Confidence Development',
+    subtitle: '12-Week Solid Confidence Training',
+    description: 'Build unshakeable self-belief and inner strength with 12 proven methods',
+    icon: 'star',
+    iconIOS: 'star',
+    color: colors.accent,
+  },
+  anger: {
+    title: 'Anger Management',
+    subtitle: '12-Week Anger Control Training',
+    description: 'Transform anger into constructive action with 12 effective techniques',
+    icon: 'warning',
+    iconIOS: 'exclamationmark.triangle',
+    color: '#FF6B6B',
+  },
+  stress: {
+    title: 'Stress Management',
+    subtitle: '12-Week Stress Resilience Training',
+    description: 'Build resilience and manage stress effectively with 12 proven strategies',
+    icon: 'spa',
+    iconIOS: 'leaf',
+    color: '#4ECDC4',
+  },
+  'social-anxiety': {
+    title: 'Social Anxiety',
+    subtitle: '12-Week Social Confidence Training',
+    description: 'Overcome social fears and build authentic connections with 12 techniques',
+    icon: 'group',
+    iconIOS: 'person.3',
+    color: '#95E1D3',
+  },
+  thoughts: {
+    title: 'Thoughts Regulation',
+    subtitle: '12-Week Mental Mastery Training',
+    description: 'Master your mind and direct your thoughts intentionally with 12 methods',
+    icon: 'psychology',
+    iconIOS: 'brain.head.profile',
+    color: '#A8E6CF',
+  },
+};
+
 export default function HomeScreen() {
-  console.log('HomeScreen rendered (iOS)');
+  console.log('HomeScreen rendered');
   
   const [selectedProgram, setSelectedProgram] = useState<ProgramType>(null);
   const [selectedTechnique, setSelectedTechnique] = useState<number | null>(null);
@@ -64,7 +115,7 @@ export default function HomeScreen() {
     };
   });
 
-  const handleProgramSelect = (program: 'emotional' | 'confidence') => {
+  const handleProgramSelect = (program: 'emotional' | 'confidence' | 'anger' | 'stress' | 'social-anxiety' | 'thoughts') => {
     console.log('User selected program:', program);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     setSelectedProgram(program);
@@ -98,8 +149,8 @@ export default function HomeScreen() {
         newSet.add(id);
         
         const technique = techniques.find(t => t.id === id);
-        if (technique) {
-          const programColor = technique.category === 'emotional' ? colors.primary : colors.accent;
+        if (technique && selectedProgram) {
+          const programColor = PROGRAM_CONFIGS[selectedProgram].color;
           setCompletedTechniqueData({
             week: technique.week,
             title: technique.title,
@@ -170,111 +221,64 @@ export default function HomeScreen() {
             entering={FadeInDown.delay(400).duration(600)}
             style={styles.programCardsContainer}
           >
-            <TouchableOpacity
-              style={styles.programCard}
-              onPress={() => handleProgramSelect('emotional')}
-              activeOpacity={0.9}
-            >
-              <LinearGradient
-                colors={[colors.primary, colors.primary + 'DD']}
-                style={styles.programCardGradient}
-              >
-                <View style={styles.programCardIconContainer}>
-                  <IconSymbol
-                    ios_icon_name="brain"
-                    android_material_icon_name="psychology"
-                    size={48}
-                    color="#FFFFFF"
-                  />
-                </View>
-                <Text style={styles.programCardTitle}>Emotional Control</Text>
-                <Text style={styles.programCardDescription}>
-                  Master your emotions and respond with clarity through 12 powerful techniques
-                </Text>
-                <View style={styles.programCardStats}>
-                  <View style={styles.programCardStat}>
-                    <IconSymbol
-                      ios_icon_name="calendar"
-                      android_material_icon_name="calendar-today"
-                      size={16}
-                      color="#FFFFFF"
-                    />
-                    <Text style={styles.programCardStatText}>12 Weeks</Text>
-                  </View>
-                  <View style={styles.programCardStat}>
-                    <IconSymbol
-                      ios_icon_name="list"
-                      android_material_icon_name="list"
-                      size={16}
-                      color="#FFFFFF"
-                    />
-                    <Text style={styles.programCardStatText}>12 Techniques</Text>
-                  </View>
-                </View>
-                <View style={styles.programCardButton}>
-                  <Text style={styles.programCardButtonText}>Start Program</Text>
-                  <IconSymbol
-                    ios_icon_name="arrow.right"
-                    android_material_icon_name="arrow-forward"
-                    size={20}
-                    color="#FFFFFF"
-                  />
-                </View>
-              </LinearGradient>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={styles.programCard}
-              onPress={() => handleProgramSelect('confidence')}
-              activeOpacity={0.9}
-            >
-              <LinearGradient
-                colors={[colors.accent, colors.accent + 'DD']}
-                style={styles.programCardGradient}
-              >
-                <View style={styles.programCardIconContainer}>
-                  <IconSymbol
-                    ios_icon_name="star"
-                    android_material_icon_name="star"
-                    size={48}
-                    color="#FFFFFF"
-                  />
-                </View>
-                <Text style={styles.programCardTitle}>Confidence Development</Text>
-                <Text style={styles.programCardDescription}>
-                  Build unshakeable self-belief and inner strength with 12 proven methods
-                </Text>
-                <View style={styles.programCardStats}>
-                  <View style={styles.programCardStat}>
-                    <IconSymbol
-                      ios_icon_name="calendar"
-                      android_material_icon_name="calendar-today"
-                      size={16}
-                      color="#FFFFFF"
-                    />
-                    <Text style={styles.programCardStatText}>12 Weeks</Text>
-                  </View>
-                  <View style={styles.programCardStat}>
-                    <IconSymbol
-                      ios_icon_name="list"
-                      android_material_icon_name="list"
-                      size={16}
-                      color="#FFFFFF"
-                    />
-                    <Text style={styles.programCardStatText}>12 Techniques</Text>
-                  </View>
-                </View>
-                <View style={styles.programCardButton}>
-                  <Text style={styles.programCardButtonText}>Start Program</Text>
-                  <IconSymbol
-                    ios_icon_name="arrow.right"
-                    android_material_icon_name="arrow-forward"
-                    size={20}
-                    color="#FFFFFF"
-                  />
-                </View>
-              </LinearGradient>
-            </TouchableOpacity>
+            {(Object.keys(PROGRAM_CONFIGS) as Array<keyof typeof PROGRAM_CONFIGS>).map((programKey, index) => {
+              const config = PROGRAM_CONFIGS[programKey];
+              return (
+                <TouchableOpacity
+                  key={programKey}
+                  style={styles.programCard}
+                  onPress={() => handleProgramSelect(programKey)}
+                  activeOpacity={0.9}
+                >
+                  <LinearGradient
+                    colors={[config.color, config.color + 'DD']}
+                    style={styles.programCardGradient}
+                  >
+                    <View style={styles.programCardIconContainer}>
+                      <IconSymbol
+                        ios_icon_name={config.iconIOS}
+                        android_material_icon_name={config.icon}
+                        size={48}
+                        color="#FFFFFF"
+                      />
+                    </View>
+                    <Text style={styles.programCardTitle}>{config.title}</Text>
+                    <Text style={styles.programCardDescription}>
+                      {config.description}
+                    </Text>
+                    <View style={styles.programCardStats}>
+                      <View style={styles.programCardStat}>
+                        <IconSymbol
+                          ios_icon_name="calendar"
+                          android_material_icon_name="calendar-today"
+                          size={16}
+                          color="#FFFFFF"
+                        />
+                        <Text style={styles.programCardStatText}>12 Weeks</Text>
+                      </View>
+                      <View style={styles.programCardStat}>
+                        <IconSymbol
+                          ios_icon_name="list"
+                          android_material_icon_name="list"
+                          size={16}
+                          color="#FFFFFF"
+                        />
+                        <Text style={styles.programCardStatText}>12 Techniques</Text>
+                      </View>
+                    </View>
+                    <View style={styles.programCardButton}>
+                      <Text style={styles.programCardButtonText}>Start Program</Text>
+                      <IconSymbol
+                        ios_icon_name="arrow.right"
+                        android_material_icon_name="arrow-forward"
+                        size={20}
+                        color="#FFFFFF"
+                      />
+                    </View>
+                  </LinearGradient>
+                </TouchableOpacity>
+              );
+            })}
           </Animated.View>
 
           <Animated.View 
@@ -290,11 +294,12 @@ export default function HomeScreen() {
     );
   }
 
-  const programColor = selectedProgram === 'emotional' ? colors.primary : colors.accent;
-  const programTitle = selectedProgram === 'emotional' ? 'Emotional Control' : 'Confidence Development';
-  const programSubtitle = selectedProgram === 'emotional' ? '12-Week Self-Regulation Training' : '12-Week Solid Confidence Training';
-  const programIcon = selectedProgram === 'emotional' ? 'psychology' : 'star';
-  const programIconIOS = selectedProgram === 'emotional' ? 'brain' : 'star';
+  const programConfig = PROGRAM_CONFIGS[selectedProgram];
+  const programColor = programConfig.color;
+  const programTitle = programConfig.title;
+  const programSubtitle = programConfig.subtitle;
+  const programIcon = programConfig.icon;
+  const programIconIOS = programConfig.iconIOS;
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
@@ -614,10 +619,8 @@ const styles = StyleSheet.create({
     marginBottom: 16,
     borderRadius: 16,
     overflow: 'hidden',
-    shadowColor: colors.primary,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.25,
-    shadowRadius: 20,
+    boxShadow: '0px 4px 20px rgba(107, 76, 230, 0.25)',
+    elevation: 6,
   },
   motivationalGradient: {
     flexDirection: 'row',
@@ -660,10 +663,8 @@ const styles = StyleSheet.create({
   programCard: {
     borderRadius: 20,
     overflow: 'hidden',
-    shadowColor: colors.primary,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 16,
+    boxShadow: '0px 4px 16px rgba(107, 76, 230, 0.15)',
+    elevation: 4,
   },
   programCardGradient: {
     padding: 24,
@@ -775,10 +776,8 @@ const styles = StyleSheet.create({
     marginBottom: 24,
     borderWidth: 1,
     borderColor: colors.border,
-    shadowColor: colors.primary,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 8,
+    boxShadow: '0px 2px 8px rgba(107, 76, 230, 0.08)',
+    elevation: 2,
   },
   progressHeader: {
     flexDirection: 'row',
@@ -860,10 +859,8 @@ const styles = StyleSheet.create({
     marginBottom: 12,
     borderWidth: 1,
     borderColor: colors.border,
-    shadowColor: colors.primary,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 8,
+    boxShadow: '0px 2px 8px rgba(107, 76, 230, 0.08)',
+    elevation: 2,
   },
   techniqueHeader: {
     flexDirection: 'row',
