@@ -6,6 +6,7 @@ export interface Technique {
   icon: string;
   category: 'emotional' | 'confidence';
   practiceFrequency: string;
+  week: number;
 }
 
 export interface DayProgress {
@@ -14,3 +15,5 @@ export interface DayProgress {
   date: string;
   notes?: string;
 }
+
+export type ProgramType = 'emotional' | 'confidence' | null;

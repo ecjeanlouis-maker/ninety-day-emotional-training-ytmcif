@@ -12,6 +12,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { IconSymbol } from '@/components/IconSymbol';
 import { colors } from '@/styles/commonStyles';
 import { techniques } from '@/data/techniques';
+import { ProgramType } from '@/types/program';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
 import Animated, {
@@ -30,6 +31,7 @@ const AnimatedTouchable = Animated.createAnimatedComponent(TouchableOpacity);
 export default function HomeScreen() {
   console.log('HomeScreen rendered');
   
+  const [selectedProgram, setSelectedProgram] = useState<ProgramType>(null);
   const [selectedTechnique, setSelectedTechnique] = useState<number | null>(null);
   const [completedTechniques, setCompletedTechniques] = useState<Set<number>>(new Set());
   
@@ -40,8 +42,9 @@ export default function HomeScreen() {
   
   const progressAnimation = useSharedValue(0);
 
-  const emotionalTechniques = techniques.filter(t => t.category === 'emotional');
-  const confidenceTechniques = techniques.filter(t => t.category === 'confidence');
+  const programTechniques = selectedProgram 
+    ? techniques.filter(t => t.category === selectedProgram)
+    : [];
 
   useEffect(() => {
     console.log('Animating progress bar to:', progressPercentage);
@@ -54,6 +57,21 @@ export default function HomeScreen() {
       width: widthValue,
     };
   });
+
+  const handleProgramSelect = (program: 'emotional' | 'confidence') => {
+    console.log('User selected program:', program);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    setSelectedProgram(program);
+    setSelectedTechnique(null);
+    setCompletedTechniques(new Set());
+  };
+
+  const handleBackToSelection = () => {
+    console.log('User navigating back to program selection');
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setSelectedProgram(null);
+    setSelectedTechnique(null);
+  };
 
   const handleTechniquePress = (id: number) => {
     console.log('User tapped technique:', id);
@@ -76,6 +94,154 @@ export default function HomeScreen() {
     });
   };
 
+  if (!selectedProgram) {
+    return (
+      <SafeAreaView style={styles.container} edges={['top']}>
+        <ScrollView 
+          style={styles.scrollView}
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+        >
+          <Animated.View 
+            entering={FadeIn.duration(600)}
+            style={styles.selectionHeader}
+          >
+            <Text style={styles.selectionTitle}>Choose Your</Text>
+            <Text style={styles.selectionTitle}>12-Week Program</Text>
+            <Text style={styles.selectionSubtitle}>
+              Select one program to begin your 90-day transformation journey
+            </Text>
+          </Animated.View>
+
+          <Animated.View 
+            entering={FadeInDown.delay(200).duration(600)}
+            style={styles.programCardsContainer}
+          >
+            <TouchableOpacity
+              style={styles.programCard}
+              onPress={() => handleProgramSelect('emotional')}
+              activeOpacity={0.9}
+            >
+              <LinearGradient
+                colors={[colors.primary, colors.primary + 'DD']}
+                style={styles.programCardGradient}
+              >
+                <View style={styles.programCardIconContainer}>
+                  <IconSymbol
+                    ios_icon_name="brain"
+                    android_material_icon_name="psychology"
+                    size={48}
+                    color="#FFFFFF"
+                  />
+                </View>
+                <Text style={styles.programCardTitle}>Emotional Control</Text>
+                <Text style={styles.programCardDescription}>
+                  Master your emotions and respond with clarity through 12 powerful techniques
+                </Text>
+                <View style={styles.programCardStats}>
+                  <View style={styles.programCardStat}>
+                    <IconSymbol
+                      ios_icon_name="calendar"
+                      android_material_icon_name="calendar-today"
+                      size={16}
+                      color="#FFFFFF"
+                    />
+                    <Text style={styles.programCardStatText}>12 Weeks</Text>
+                  </View>
+                  <View style={styles.programCardStat}>
+                    <IconSymbol
+                      ios_icon_name="list"
+                      android_material_icon_name="list"
+                      size={16}
+                      color="#FFFFFF"
+                    />
+                    <Text style={styles.programCardStatText}>12 Techniques</Text>
+                  </View>
+                </View>
+                <View style={styles.programCardButton}>
+                  <Text style={styles.programCardButtonText}>Start Program</Text>
+                  <IconSymbol
+                    ios_icon_name="arrow.right"
+                    android_material_icon_name="arrow-forward"
+                    size={20}
+                    color="#FFFFFF"
+                  />
+                </View>
+              </LinearGradient>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.programCard}
+              onPress={() => handleProgramSelect('confidence')}
+              activeOpacity={0.9}
+            >
+              <LinearGradient
+                colors={[colors.accent, colors.accent + 'DD']}
+                style={styles.programCardGradient}
+              >
+                <View style={styles.programCardIconContainer}>
+                  <IconSymbol
+                    ios_icon_name="star"
+                    android_material_icon_name="star"
+                    size={48}
+                    color="#FFFFFF"
+                  />
+                </View>
+                <Text style={styles.programCardTitle}>Confidence Development</Text>
+                <Text style={styles.programCardDescription}>
+                  Build unshakeable self-belief and inner strength with 12 proven methods
+                </Text>
+                <View style={styles.programCardStats}>
+                  <View style={styles.programCardStat}>
+                    <IconSymbol
+                      ios_icon_name="calendar"
+                      android_material_icon_name="calendar-today"
+                      size={16}
+                      color="#FFFFFF"
+                    />
+                    <Text style={styles.programCardStatText}>12 Weeks</Text>
+                  </View>
+                  <View style={styles.programCardStat}>
+                    <IconSymbol
+                      ios_icon_name="list"
+                      android_material_icon_name="list"
+                      size={16}
+                      color="#FFFFFF"
+                    />
+                    <Text style={styles.programCardStatText}>12 Techniques</Text>
+                  </View>
+                </View>
+                <View style={styles.programCardButton}>
+                  <Text style={styles.programCardButtonText}>Start Program</Text>
+                  <IconSymbol
+                    ios_icon_name="arrow.right"
+                    android_material_icon_name="arrow-forward"
+                    size={20}
+                    color="#FFFFFF"
+                  />
+                </View>
+              </LinearGradient>
+            </TouchableOpacity>
+          </Animated.View>
+
+          <Animated.View 
+            entering={FadeInDown.delay(400).duration(600)}
+            style={styles.selectionFooter}
+          >
+            <Text style={styles.selectionFooterText}>
+              Each program contains 12 weekly techniques designed for the 12-week duration of your 90-day journey.
+            </Text>
+          </Animated.View>
+        </ScrollView>
+      </SafeAreaView>
+    );
+  }
+
+  const programColor = selectedProgram === 'emotional' ? colors.primary : colors.accent;
+  const programTitle = selectedProgram === 'emotional' ? 'Emotional Control' : 'Confidence Development';
+  const programIcon = selectedProgram === 'emotional' ? 'psychology' : 'star';
+  const programIconIOS = selectedProgram === 'emotional' ? 'brain' : 'star';
+
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <ScrollView 
@@ -87,9 +253,30 @@ export default function HomeScreen() {
           entering={FadeIn.duration(600)}
           style={styles.header}
         >
-          <Text style={styles.headerTitle}>Emotional Control &</Text>
-          <Text style={styles.headerTitle}>Confidence Development</Text>
-          <Text style={styles.headerSubtitle}>90-Day Transformation Program</Text>
+          <TouchableOpacity 
+            style={styles.backButton}
+            onPress={handleBackToSelection}
+            activeOpacity={0.7}
+          >
+            <IconSymbol
+              ios_icon_name="arrow.left"
+              android_material_icon_name="arrow-back"
+              size={24}
+              color={colors.text}
+            />
+            <Text style={styles.backButtonText}>Change Program</Text>
+          </TouchableOpacity>
+          
+          <View style={styles.headerTitleContainer}>
+            <IconSymbol
+              ios_icon_name={programIconIOS}
+              android_material_icon_name={programIcon}
+              size={32}
+              color={programColor}
+            />
+            <Text style={styles.headerTitle}>{programTitle}</Text>
+          </View>
+          <Text style={styles.headerSubtitle}>12-Week Transformation Program</Text>
         </Animated.View>
 
         <Animated.View 
@@ -101,7 +288,7 @@ export default function HomeScreen() {
               ios_icon_name="calendar"
               android_material_icon_name="calendar-today"
               size={24}
-              color={colors.primary}
+              color={programColor}
             />
             <Text style={styles.progressTitle}>Your Progress</Text>
           </View>
@@ -109,7 +296,7 @@ export default function HomeScreen() {
           <View style={styles.progressBarContainer}>
             <View style={styles.progressBarBackground}>
               <Animated.View 
-                style={[styles.progressBarFill, progressBarStyle]} 
+                style={[styles.progressBarFill, progressBarStyle, { backgroundColor: programColor }]} 
               />
             </View>
           </View>
@@ -118,12 +305,12 @@ export default function HomeScreen() {
           
           <View style={styles.statsRow}>
             <View style={styles.statItem}>
-              <Text style={styles.statNumber}>{completedTechniques.size}</Text>
-              <Text style={styles.statLabel}>Completed Today</Text>
+              <Text style={[styles.statNumber, { color: programColor }]}>{completedTechniques.size}</Text>
+              <Text style={styles.statLabel}>Completed</Text>
             </View>
             <View style={styles.statDivider} />
             <View style={styles.statItem}>
-              <Text style={styles.statNumber}>{techniques.length}</Text>
+              <Text style={[styles.statNumber, { color: programColor }]}>{programTechniques.length}</Text>
               <Text style={styles.statLabel}>Total Techniques</Text>
             </View>
           </View>
@@ -131,28 +318,19 @@ export default function HomeScreen() {
 
         <Animated.View 
           entering={FadeInDown.delay(300).duration(600)}
-          style={styles.categorySection}
+          style={styles.techniquesHeader}
         >
-          <View style={styles.categorySectionHeader}>
-            <IconSymbol
-              ios_icon_name="brain"
-              android_material_icon_name="psychology"
-              size={28}
-              color={colors.primary}
-            />
-            <Text style={styles.categorySectionTitle}>Emotional Control</Text>
-          </View>
-          <Text style={styles.categorySectionSubtitle}>
-            Master your emotions and respond with clarity
+          <Text style={styles.techniquesHeaderTitle}>12 Weekly Techniques</Text>
+          <Text style={styles.techniquesHeaderSubtitle}>
+            One technique per week for 12 weeks
           </Text>
         </Animated.View>
 
         <View style={styles.techniquesContainer}>
-          {emotionalTechniques.map((technique, index) => {
+          {programTechniques.map((technique, index) => {
             const isExpanded = selectedTechnique === technique.id;
             const isCompleted = completedTechniques.has(technique.id);
-            const categoryColor = colors.primary;
-            const categoryLabel = 'Emotional Control';
+            const weekText = `Week ${technique.week}`;
 
             return (
               <TechniqueCard
@@ -161,8 +339,8 @@ export default function HomeScreen() {
                 index={index}
                 isExpanded={isExpanded}
                 isCompleted={isCompleted}
-                categoryColor={categoryColor}
-                categoryLabel={categoryLabel}
+                categoryColor={programColor}
+                weekText={weekText}
                 onPress={() => handleTechniquePress(technique.id)}
                 onCheckboxPress={() => handleCheckboxPress(technique.id)}
               />
@@ -172,51 +350,10 @@ export default function HomeScreen() {
 
         <Animated.View 
           entering={FadeInDown.delay(400).duration(600)}
-          style={styles.categorySection}
-        >
-          <View style={styles.categorySectionHeader}>
-            <IconSymbol
-              ios_icon_name="star"
-              android_material_icon_name="star"
-              size={28}
-              color={colors.accent}
-            />
-            <Text style={styles.categorySectionTitle}>Confidence Development</Text>
-          </View>
-          <Text style={styles.categorySectionSubtitle}>
-            Build unshakeable self-belief and inner strength
-          </Text>
-        </Animated.View>
-
-        <View style={styles.techniquesContainer}>
-          {confidenceTechniques.map((technique, index) => {
-            const isExpanded = selectedTechnique === technique.id;
-            const isCompleted = completedTechniques.has(technique.id);
-            const categoryColor = colors.accent;
-            const categoryLabel = 'Confidence Development';
-
-            return (
-              <TechniqueCard
-                key={technique.id}
-                technique={technique}
-                index={index}
-                isExpanded={isExpanded}
-                isCompleted={isCompleted}
-                categoryColor={categoryColor}
-                categoryLabel={categoryLabel}
-                onPress={() => handleTechniquePress(technique.id)}
-                onCheckboxPress={() => handleCheckboxPress(technique.id)}
-              />
-            );
-          })}
-        </View>
-
-        <Animated.View 
-          entering={FadeInDown.delay(500).duration(600)}
           style={styles.footer}
         >
           <Text style={styles.footerText}>
-            Consistency is key. Practice these techniques daily for 90 days to see lasting transformation.
+            Practice each technique for one week. Consistency over 12 weeks creates lasting transformation.
           </Text>
         </Animated.View>
       </ScrollView>
@@ -230,7 +367,7 @@ interface TechniqueCardProps {
   isExpanded: boolean;
   isCompleted: boolean;
   categoryColor: string;
-  categoryLabel: string;
+  weekText: string;
   onPress: () => void;
   onCheckboxPress: () => void;
 }
@@ -241,7 +378,7 @@ function TechniqueCard({
   isExpanded,
   isCompleted,
   categoryColor,
-  categoryLabel,
+  weekText,
   onPress,
   onCheckboxPress,
 }: TechniqueCardProps) {
@@ -338,16 +475,13 @@ function TechniqueCard({
         </View>
         
         <View style={styles.techniqueInfo}>
-          <Text style={styles.techniqueNumber}>Technique {technique.id}</Text>
+          <Text style={styles.techniqueNumber}>{weekText}</Text>
           <Text style={[
             styles.techniqueTitle,
             isCompleted && styles.techniqueTitleCompleted
           ]}>
             {technique.title}
           </Text>
-          <View style={[styles.categoryBadge, { backgroundColor: categoryColor }]}>
-            <Text style={styles.categoryText}>{categoryLabel}</Text>
-          </View>
         </View>
 
         <Animated.View style={chevronStyle}>
@@ -394,22 +528,137 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingBottom: 100,
   },
-  header: {
-    marginTop: 20,
-    marginBottom: 24,
+  selectionHeader: {
+    marginTop: 40,
+    marginBottom: 32,
+    alignItems: 'center',
   },
-  headerTitle: {
-    fontSize: 28,
+  selectionTitle: {
+    fontSize: 32,
     fontWeight: '800',
     color: colors.text,
     textAlign: 'center',
   },
-  headerSubtitle: {
+  selectionSubtitle: {
     fontSize: 16,
     fontWeight: '500',
     color: colors.textSecondary,
     textAlign: 'center',
-    marginTop: 8,
+    marginTop: 12,
+    paddingHorizontal: 20,
+    lineHeight: 24,
+  },
+  programCardsContainer: {
+    gap: 20,
+  },
+  programCard: {
+    borderRadius: 20,
+    overflow: 'hidden',
+    boxShadow: '0px 4px 16px rgba(107, 76, 230, 0.15)',
+    elevation: 4,
+  },
+  programCardGradient: {
+    padding: 24,
+  },
+  programCardIconContainer: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  programCardTitle: {
+    fontSize: 24,
+    fontWeight: '800',
+    color: '#FFFFFF',
+    marginBottom: 12,
+  },
+  programCardDescription: {
+    fontSize: 15,
+    fontWeight: '500',
+    color: '#FFFFFF',
+    lineHeight: 22,
+    marginBottom: 20,
+    opacity: 0.95,
+  },
+  programCardStats: {
+    flexDirection: 'row',
+    gap: 16,
+    marginBottom: 20,
+  },
+  programCardStat: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  programCardStatText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#FFFFFF',
+  },
+  programCardButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    paddingVertical: 14,
+    paddingHorizontal: 24,
+    borderRadius: 12,
+    gap: 8,
+  },
+  programCardButtonText: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+  selectionFooter: {
+    marginTop: 32,
+    marginBottom: 20,
+    padding: 20,
+    backgroundColor: colors.highlight,
+    borderRadius: 16,
+  },
+  selectionFooterText: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: colors.text,
+    textAlign: 'center',
+    lineHeight: 22,
+  },
+  header: {
+    marginTop: 20,
+    marginBottom: 24,
+  },
+  backButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 16,
+  },
+  backButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: colors.text,
+  },
+  headerTitleContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 12,
+    marginBottom: 8,
+  },
+  headerTitle: {
+    fontSize: 26,
+    fontWeight: '800',
+    color: colors.text,
+  },
+  headerSubtitle: {
+    fontSize: 15,
+    fontWeight: '500',
+    color: colors.textSecondary,
+    textAlign: 'center',
   },
   progressCard: {
     backgroundColor: colors.card,
@@ -443,7 +692,6 @@ const styles = StyleSheet.create({
   },
   progressBarFill: {
     height: '100%',
-    backgroundColor: colors.primary,
     borderRadius: 6,
   },
   progressText: {
@@ -466,7 +714,6 @@ const styles = StyleSheet.create({
   statNumber: {
     fontSize: 24,
     fontWeight: '800',
-    color: colors.primary,
   },
   statLabel: {
     fontSize: 12,
@@ -479,27 +726,19 @@ const styles = StyleSheet.create({
     height: 40,
     backgroundColor: colors.border,
   },
-  categorySection: {
-    marginTop: 32,
+  techniquesHeader: {
     marginBottom: 20,
   },
-  categorySectionHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  categorySectionTitle: {
-    fontSize: 24,
+  techniquesHeaderTitle: {
+    fontSize: 22,
     fontWeight: '800',
     color: colors.text,
-    marginLeft: 12,
+    marginBottom: 4,
   },
-  categorySectionSubtitle: {
+  techniquesHeaderSubtitle: {
     fontSize: 14,
-    fontWeight: '400',
+    fontWeight: '500',
     color: colors.textSecondary,
-    lineHeight: 20,
-    marginLeft: 40,
   },
   techniquesContainer: {
     marginTop: 16,
@@ -555,21 +794,9 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '700',
     color: colors.text,
-    marginBottom: 6,
   },
   techniqueTitleCompleted: {
     color: colors.textSecondary,
-  },
-  categoryBadge: {
-    alignSelf: 'flex-start',
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 12,
-  },
-  categoryText: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: '#FFFFFF',
   },
   techniqueDetails: {
     marginTop: 16,
