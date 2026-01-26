@@ -11,7 +11,6 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { IconSymbol } from '@/components/IconSymbol';
 import { colors } from '@/styles/commonStyles';
 import { techniques } from '@/data/techniques';
-import { welcomeContent } from '@/data/welcomeContent';
 import { ProgramType } from '@/types/program';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
@@ -32,7 +31,6 @@ export default function HomeScreen() {
   console.log('HomeScreen rendered (iOS)');
   
   const [selectedProgram, setSelectedProgram] = useState<ProgramType>(null);
-  const [showWelcome, setShowWelcome] = useState(false);
   const [selectedTechnique, setSelectedTechnique] = useState<number | null>(null);
   const [completedTechniques, setCompletedTechniques] = useState<Set<number>>(new Set());
   
@@ -63,22 +61,14 @@ export default function HomeScreen() {
     console.log('User selected program:', program);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     setSelectedProgram(program);
-    setShowWelcome(true);
     setSelectedTechnique(null);
     setCompletedTechniques(new Set());
-  };
-
-  const handleContinueFromWelcome = () => {
-    console.log('User continuing from welcome screen');
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    setShowWelcome(false);
   };
 
   const handleBackToSelection = () => {
     console.log('User navigating back to program selection');
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     setSelectedProgram(null);
-    setShowWelcome(false);
     setSelectedTechnique(null);
   };
 
@@ -250,159 +240,6 @@ export default function HomeScreen() {
   const programTitle = selectedProgram === 'emotional' ? 'Emotional Control' : 'Confidence Development';
   const programIcon = selectedProgram === 'emotional' ? 'psychology' : 'star';
   const programIconIOS = selectedProgram === 'emotional' ? 'brain' : 'star';
-  const content = welcomeContent[selectedProgram];
-
-  if (showWelcome) {
-    return (
-      <SafeAreaView style={styles.container} edges={['top']}>
-        <ScrollView 
-          style={styles.scrollView}
-          contentContainerStyle={styles.scrollContent}
-          showsVerticalScrollIndicator={false}
-        >
-          <Animated.View 
-            entering={FadeIn.duration(600)}
-            style={styles.welcomeHeader}
-          >
-            <View style={styles.welcomeIconContainer}>
-              <LinearGradient
-                colors={[programColor, programColor + 'DD']}
-                style={styles.welcomeIconGradient}
-              >
-                <IconSymbol
-                  ios_icon_name={programIconIOS}
-                  android_material_icon_name={programIcon}
-                  size={64}
-                  color="#FFFFFF"
-                />
-              </LinearGradient>
-            </View>
-            <Text style={styles.welcomeTitle}>Welcome!</Text>
-            <Text style={[styles.welcomeProgramTitle, { color: programColor }]}>
-              {programTitle}
-            </Text>
-          </Animated.View>
-
-          <Animated.View 
-            entering={FadeInDown.delay(200).duration(600)}
-            style={styles.welcomeMessageCard}
-          >
-            <View style={styles.welcomeMessageHeader}>
-              <IconSymbol
-                ios_icon_name="info.circle"
-                android_material_icon_name="info"
-                size={24}
-                color={programColor}
-              />
-              <Text style={styles.welcomeMessageTitle}>Your Journey Begins</Text>
-            </View>
-            <Text style={styles.welcomeMessageText}>{content.welcomeMessage}</Text>
-          </Animated.View>
-
-          <Animated.View 
-            entering={FadeInDown.delay(300).duration(600)}
-            style={styles.quoteCard}
-          >
-            <View style={styles.quoteIconContainer}>
-              <IconSymbol
-                ios_icon_name="quote"
-                android_material_icon_name="format-quote"
-                size={32}
-                color={programColor}
-              />
-            </View>
-            <Text style={styles.quoteText}>{content.motivationalQuote}</Text>
-            <Text style={styles.quoteAuthor}>{content.quoteAuthor}</Text>
-          </Animated.View>
-
-          <Animated.View 
-            entering={FadeInDown.delay(400).duration(600)}
-            style={styles.testimoniesSection}
-          >
-            <View style={styles.testimoniesHeader}>
-              <IconSymbol
-                ios_icon_name="person.2"
-                android_material_icon_name="group"
-                size={24}
-                color={programColor}
-              />
-              <Text style={styles.testimoniesTitle}>Success Stories</Text>
-            </View>
-            <Text style={styles.testimoniesSubtitle}>
-              Hear from others who transformed their lives
-            </Text>
-
-            {content.testimonies.map((testimony, index) => (
-              <Animated.View
-                key={testimony.id}
-                entering={FadeInDown.delay(500 + index * 100).duration(600)}
-                style={styles.testimonyCard}
-              >
-                <View style={styles.testimonyHeader}>
-                  <View style={styles.testimonyAvatar}>
-                    <IconSymbol
-                      ios_icon_name="person"
-                      android_material_icon_name="person"
-                      size={24}
-                      color={programColor}
-                    />
-                  </View>
-                  <View style={styles.testimonyInfo}>
-                    <Text style={styles.testimonyName}>{testimony.name}</Text>
-                    <View style={styles.testimonyRating}>
-                      {[...Array(testimony.rating)].map((_, i) => (
-                        <IconSymbol
-                          key={i}
-                          ios_icon_name="star.fill"
-                          android_material_icon_name="star"
-                          size={14}
-                          color={programColor}
-                        />
-                      ))}
-                    </View>
-                  </View>
-                </View>
-                <Text style={styles.testimonyText}>{testimony.text}</Text>
-              </Animated.View>
-            ))}
-          </Animated.View>
-
-          <Animated.View 
-            entering={FadeInDown.delay(800).duration(600)}
-            style={styles.welcomeFooter}
-          >
-            <TouchableOpacity
-              style={[styles.continueButton, { backgroundColor: programColor }]}
-              onPress={handleContinueFromWelcome}
-              activeOpacity={0.8}
-            >
-              <Text style={styles.continueButtonText}>Begin Your Journey</Text>
-              <IconSymbol
-                ios_icon_name="arrow.right"
-                android_material_icon_name="arrow-forward"
-                size={24}
-                color="#FFFFFF"
-              />
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={styles.backLink}
-              onPress={handleBackToSelection}
-              activeOpacity={0.7}
-            >
-              <IconSymbol
-                ios_icon_name="arrow.left"
-                android_material_icon_name="arrow-back"
-                size={18}
-                color={colors.textSecondary}
-              />
-              <Text style={styles.backLinkText}>Choose Different Program</Text>
-            </TouchableOpacity>
-          </Animated.View>
-        </ScrollView>
-      </SafeAreaView>
-    );
-  }
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
@@ -789,196 +626,6 @@ const styles = StyleSheet.create({
     color: colors.text,
     textAlign: 'center',
     lineHeight: 22,
-  },
-  welcomeHeader: {
-    marginTop: 40,
-    marginBottom: 32,
-    alignItems: 'center',
-  },
-  welcomeIconContainer: {
-    marginBottom: 24,
-  },
-  welcomeIconGradient: {
-    width: 120,
-    height: 120,
-    borderRadius: 60,
-    justifyContent: 'center',
-    alignItems: 'center',
-    shadowColor: colors.primary,
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.25,
-    shadowRadius: 24,
-  },
-  welcomeTitle: {
-    fontSize: 36,
-    fontWeight: '800',
-    color: colors.text,
-    marginBottom: 8,
-  },
-  welcomeProgramTitle: {
-    fontSize: 24,
-    fontWeight: '700',
-    textAlign: 'center',
-  },
-  welcomeMessageCard: {
-    backgroundColor: colors.card,
-    borderRadius: 16,
-    padding: 20,
-    marginBottom: 20,
-    borderWidth: 1,
-    borderColor: colors.border,
-    shadowColor: colors.primary,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 8,
-  },
-  welcomeMessageHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  welcomeMessageTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: colors.text,
-    marginLeft: 8,
-  },
-  welcomeMessageText: {
-    fontSize: 15,
-    fontWeight: '400',
-    color: colors.textSecondary,
-    lineHeight: 24,
-  },
-  quoteCard: {
-    backgroundColor: colors.card,
-    borderRadius: 16,
-    padding: 24,
-    marginBottom: 20,
-    borderWidth: 1,
-    borderColor: colors.border,
-    shadowColor: colors.primary,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 8,
-    alignItems: 'center',
-  },
-  quoteIconContainer: {
-    marginBottom: 16,
-  },
-  quoteText: {
-    fontSize: 16,
-    fontWeight: '500',
-    color: colors.text,
-    lineHeight: 26,
-    textAlign: 'center',
-    fontStyle: 'italic',
-    marginBottom: 12,
-  },
-  quoteAuthor: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: colors.textSecondary,
-    textAlign: 'center',
-  },
-  testimoniesSection: {
-    marginBottom: 20,
-  },
-  testimoniesHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  testimoniesTitle: {
-    fontSize: 22,
-    fontWeight: '800',
-    color: colors.text,
-    marginLeft: 8,
-  },
-  testimoniesSubtitle: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: colors.textSecondary,
-    marginBottom: 16,
-  },
-  testimonyCard: {
-    backgroundColor: colors.card,
-    borderRadius: 16,
-    padding: 16,
-    marginBottom: 12,
-    borderWidth: 1,
-    borderColor: colors.border,
-    shadowColor: colors.primary,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 8,
-  },
-  testimonyHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  testimonyAvatar: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: colors.highlight,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 12,
-  },
-  testimonyInfo: {
-    flex: 1,
-  },
-  testimonyName: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: colors.text,
-    marginBottom: 4,
-  },
-  testimonyRating: {
-    flexDirection: 'row',
-    gap: 2,
-  },
-  testimonyText: {
-    fontSize: 14,
-    fontWeight: '400',
-    color: colors.textSecondary,
-    lineHeight: 22,
-  },
-  welcomeFooter: {
-    marginTop: 12,
-    marginBottom: 20,
-  },
-  continueButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 16,
-    paddingHorizontal: 32,
-    borderRadius: 16,
-    gap: 12,
-    shadowColor: colors.primary,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.25,
-    shadowRadius: 16,
-    marginBottom: 16,
-  },
-  continueButtonText: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#FFFFFF',
-  },
-  backLink: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-    paddingVertical: 12,
-  },
-  backLinkText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: colors.textSecondary,
   },
   header: {
     marginTop: 20,
