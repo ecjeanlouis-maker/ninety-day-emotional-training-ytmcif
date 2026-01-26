@@ -13,6 +13,7 @@ export const colors = {
   highlight: '#E8E3FF',    // Very Light Purple
   success: '#4CAF50',      // Green for completed
   border: '#E0DBF5',       // Light Purple Border
+  goal: '#FF6B9D',         // Attractive Pink for goals
 };
 
 export const buttonStyles = StyleSheet.create({

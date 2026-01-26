@@ -497,8 +497,26 @@ function TechniqueCard({
       <Animated.View style={[styles.techniqueDetails, detailsStyle]}>
         <View style={styles.divider} />
         
-        <Text style={styles.detailLabel}>Description</Text>
-        <Text style={styles.detailText}>{technique.description}</Text>
+        <Text style={styles.detailLabel}>Practice Steps</Text>
+        <View style={styles.bulletPointsContainer}>
+          {technique.practiceSteps.map((step: string, stepIndex: number) => (
+            <View key={stepIndex} style={styles.bulletPointRow}>
+              <Text style={styles.bulletPoint}>•</Text>
+              <Text style={styles.bulletPointText}>{step}</Text>
+            </View>
+          ))}
+        </View>
+        
+        <Text style={styles.detailLabel}>Goal</Text>
+        <View style={styles.goalContainer}>
+          <IconSymbol
+            ios_icon_name="target"
+            android_material_icon_name="flag"
+            size={18}
+            color={colors.goal}
+          />
+          <Text style={styles.goalText}>{technique.goal}</Text>
+        </View>
         
         <Text style={styles.detailLabel}>Practice Frequency</Text>
         <View style={styles.frequencyContainer}>
@@ -810,13 +828,46 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '700',
     color: colors.text,
-    marginBottom: 6,
+    marginBottom: 8,
     marginTop: 12,
   },
-  detailText: {
+  bulletPointsContainer: {
+    marginBottom: 8,
+  },
+  bulletPointRow: {
+    flexDirection: 'row',
+    marginBottom: 8,
+    paddingLeft: 4,
+  },
+  bulletPoint: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: colors.textSecondary,
+    marginRight: 8,
+    lineHeight: 20,
+  },
+  bulletPointText: {
+    flex: 1,
     fontSize: 14,
     fontWeight: '400',
     color: colors.textSecondary,
+    lineHeight: 20,
+  },
+  goalContainer: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    backgroundColor: colors.highlight,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderRadius: 10,
+    marginBottom: 8,
+    gap: 8,
+  },
+  goalText: {
+    flex: 1,
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.goal,
     lineHeight: 20,
   },
   frequencyContainer: {
