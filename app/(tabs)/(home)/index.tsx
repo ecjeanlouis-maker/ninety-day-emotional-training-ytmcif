@@ -12,14 +12,12 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { IconSymbol } from '@/components/IconSymbol';
 import { colors } from '@/styles/commonStyles';
 import { techniques } from '@/data/techniques';
-import { welcomeContent } from '@/data/welcomeContent';
 import { ProgramType } from '@/types/program';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
 import Animated, {
   FadeInDown,
   FadeIn,
-  FadeOut,
   useAnimatedStyle,
   withSpring,
   withTiming,
@@ -36,8 +34,6 @@ export default function HomeScreen() {
   const [selectedProgram, setSelectedProgram] = useState<ProgramType>(null);
   const [selectedTechnique, setSelectedTechnique] = useState<number | null>(null);
   const [completedTechniques, setCompletedTechniques] = useState<Set<number>>(new Set());
-  const [emotionalTestimonyIndex, setEmotionalTestimonyIndex] = useState(0);
-  const [confidenceTestimonyIndex, setConfidenceTestimonyIndex] = useState(0);
   
   const currentDay = 1;
   const totalDays = 90;
@@ -54,26 +50,6 @@ export default function HomeScreen() {
     console.log('Animating progress bar to:', progressPercentage);
     progressAnimation.value = withTiming(progressPercentage, { duration: 1500 });
   }, [progressPercentage]);
-
-  useEffect(() => {
-    console.log('Starting testimony rotation timers');
-    const emotionalTimer = setInterval(() => {
-      setEmotionalTestimonyIndex((prev) => 
-        (prev + 1) % welcomeContent.emotional.testimonies.length
-      );
-    }, 5000);
-
-    const confidenceTimer = setInterval(() => {
-      setConfidenceTestimonyIndex((prev) => 
-        (prev + 1) % welcomeContent.confidence.testimonies.length
-      );
-    }, 5000);
-
-    return () => {
-      clearInterval(emotionalTimer);
-      clearInterval(confidenceTimer);
-    };
-  }, []);
 
   const progressBarStyle = useAnimatedStyle(() => {
     const widthValue = `${progressAnimation.value}%`;
@@ -119,8 +95,6 @@ export default function HomeScreen() {
   };
 
   const motivationalPhrase = 'BE THE BEST VERSION OF YOURSELF';
-  const currentEmotionalTestimony = welcomeContent.emotional.testimonies[emotionalTestimonyIndex];
-  const currentConfidenceTestimony = welcomeContent.confidence.testimonies[confidenceTestimonyIndex];
 
   if (!selectedProgram) {
     return (
@@ -212,40 +186,6 @@ export default function HomeScreen() {
                     <Text style={styles.programCardStatText}>12 Techniques</Text>
                   </View>
                 </View>
-
-                <View style={styles.testimonyContainer}>
-                  <Animated.View
-                    key={`emotional-${emotionalTestimonyIndex}`}
-                    entering={FadeIn.duration(500)}
-                    exiting={FadeOut.duration(500)}
-                    style={styles.testimonyContent}
-                  >
-                    <View style={styles.testimonyHeader}>
-                      <IconSymbol
-                        ios_icon_name="quote.opening"
-                        android_material_icon_name="format-quote"
-                        size={20}
-                        color="#FFFFFF"
-                      />
-                      <Text style={styles.testimonyName}>{currentEmotionalTestimony.name}</Text>
-                      <View style={styles.testimonyStars}>
-                        {[...Array(currentEmotionalTestimony.rating)].map((_, i) => (
-                          <IconSymbol
-                            key={i}
-                            ios_icon_name="star.fill"
-                            android_material_icon_name="star"
-                            size={12}
-                            color="#FFD700"
-                          />
-                        ))}
-                      </View>
-                    </View>
-                    <Text style={styles.testimonyText} numberOfLines={3}>
-                      {currentEmotionalTestimony.text}
-                    </Text>
-                  </Animated.View>
-                </View>
-
                 <View style={styles.programCardButton}>
                   <Text style={styles.programCardButtonText}>Start Program</Text>
                   <IconSymbol
@@ -299,40 +239,6 @@ export default function HomeScreen() {
                     <Text style={styles.programCardStatText}>12 Techniques</Text>
                   </View>
                 </View>
-
-                <View style={styles.testimonyContainer}>
-                  <Animated.View
-                    key={`confidence-${confidenceTestimonyIndex}`}
-                    entering={FadeIn.duration(500)}
-                    exiting={FadeOut.duration(500)}
-                    style={styles.testimonyContent}
-                  >
-                    <View style={styles.testimonyHeader}>
-                      <IconSymbol
-                        ios_icon_name="quote.opening"
-                        android_material_icon_name="format-quote"
-                        size={20}
-                        color="#FFFFFF"
-                      />
-                      <Text style={styles.testimonyName}>{currentConfidenceTestimony.name}</Text>
-                      <View style={styles.testimonyStars}>
-                        {[...Array(currentConfidenceTestimony.rating)].map((_, i) => (
-                          <IconSymbol
-                            key={i}
-                            ios_icon_name="star.fill"
-                            android_material_icon_name="star"
-                            size={12}
-                            color="#FFD700"
-                          />
-                        ))}
-                      </View>
-                    </View>
-                    <Text style={styles.testimonyText} numberOfLines={3}>
-                      {currentConfidenceTestimony.text}
-                    </Text>
-                  </Animated.View>
-                </View>
-
                 <View style={styles.programCardButton}>
                   <Text style={styles.programCardButtonText}>Start Program</Text>
                   <IconSymbol
@@ -749,7 +655,7 @@ const styles = StyleSheet.create({
   programCardStats: {
     flexDirection: 'row',
     gap: 16,
-    marginBottom: 16,
+    marginBottom: 20,
   },
   programCardStat: {
     flexDirection: 'row',
@@ -760,39 +666,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
     color: '#FFFFFF',
-  },
-  testimonyContainer: {
-    backgroundColor: 'rgba(255, 255, 255, 0.15)',
-    borderRadius: 12,
-    padding: 12,
-    marginBottom: 16,
-    minHeight: 90,
-  },
-  testimonyContent: {
-    flex: 1,
-  },
-  testimonyHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 8,
-    gap: 6,
-  },
-  testimonyName: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: '#FFFFFF',
-    flex: 1,
-  },
-  testimonyStars: {
-    flexDirection: 'row',
-    gap: 2,
-  },
-  testimonyText: {
-    fontSize: 12,
-    fontWeight: '500',
-    color: '#FFFFFF',
-    lineHeight: 18,
-    opacity: 0.95,
   },
   programCardButton: {
     flexDirection: 'row',
