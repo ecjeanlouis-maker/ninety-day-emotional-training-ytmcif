@@ -40,6 +40,9 @@ export default function HomeScreen() {
   
   const progressAnimation = useSharedValue(0);
 
+  const emotionalTechniques = techniques.filter(t => t.category === 'emotional');
+  const confidenceTechniques = techniques.filter(t => t.category === 'confidence');
+
   useEffect(() => {
     console.log('Animating progress bar to:', progressPercentage);
     progressAnimation.value = withTiming(progressPercentage, { duration: 1500 });
@@ -128,24 +131,28 @@ export default function HomeScreen() {
 
         <Animated.View 
           entering={FadeInDown.delay(300).duration(600)}
-          style={styles.section}
+          style={styles.categorySection}
         >
-          <Text style={styles.sectionTitle}>12 Core Techniques</Text>
-          <Text style={styles.sectionSubtitle}>
-            Practice these techniques daily to build emotional mastery and unshakeable confidence
+          <View style={styles.categorySectionHeader}>
+            <IconSymbol
+              ios_icon_name="brain"
+              android_material_icon_name="psychology"
+              size={28}
+              color={colors.primary}
+            />
+            <Text style={styles.categorySectionTitle}>Emotional Control</Text>
+          </View>
+          <Text style={styles.categorySectionSubtitle}>
+            Master your emotions and respond with clarity
           </Text>
         </Animated.View>
 
         <View style={styles.techniquesContainer}>
-          {techniques.map((technique, index) => {
+          {emotionalTechniques.map((technique, index) => {
             const isExpanded = selectedTechnique === technique.id;
             const isCompleted = completedTechniques.has(technique.id);
-            const categoryColor = technique.category === 'emotional' 
-              ? colors.primary 
-              : colors.accent;
-            const categoryLabel = technique.category === 'emotional' 
-              ? 'Emotional Control' 
-              : 'Confidence';
+            const categoryColor = colors.primary;
+            const categoryLabel = 'Emotional Control';
 
             return (
               <TechniqueCard
@@ -165,6 +172,47 @@ export default function HomeScreen() {
 
         <Animated.View 
           entering={FadeInDown.delay(400).duration(600)}
+          style={styles.categorySection}
+        >
+          <View style={styles.categorySectionHeader}>
+            <IconSymbol
+              ios_icon_name="star"
+              android_material_icon_name="star"
+              size={28}
+              color={colors.accent}
+            />
+            <Text style={styles.categorySectionTitle}>Confidence Development</Text>
+          </View>
+          <Text style={styles.categorySectionSubtitle}>
+            Build unshakeable self-belief and inner strength
+          </Text>
+        </Animated.View>
+
+        <View style={styles.techniquesContainer}>
+          {confidenceTechniques.map((technique, index) => {
+            const isExpanded = selectedTechnique === technique.id;
+            const isCompleted = completedTechniques.has(technique.id);
+            const categoryColor = colors.accent;
+            const categoryLabel = 'Confidence Development';
+
+            return (
+              <TechniqueCard
+                key={technique.id}
+                technique={technique}
+                index={index}
+                isExpanded={isExpanded}
+                isCompleted={isCompleted}
+                categoryColor={categoryColor}
+                categoryLabel={categoryLabel}
+                onPress={() => handleTechniquePress(technique.id)}
+                onCheckboxPress={() => handleCheckboxPress(technique.id)}
+              />
+            );
+          })}
+        </View>
+
+        <Animated.View 
+          entering={FadeInDown.delay(500).duration(600)}
           style={styles.footer}
         >
           <Text style={styles.footerText}>
@@ -324,7 +372,7 @@ function TechniqueCard({
             ios_icon_name="clock"
             android_material_icon_name="schedule"
             size={16}
-            color={colors.primary}
+            color={categoryColor}
           />
           <Text style={styles.frequencyText}>{technique.practiceFrequency}</Text>
         </View>
@@ -431,20 +479,27 @@ const styles = StyleSheet.create({
     height: 40,
     backgroundColor: colors.border,
   },
-  section: {
+  categorySection: {
+    marginTop: 32,
     marginBottom: 20,
   },
-  sectionTitle: {
-    fontSize: 22,
-    fontWeight: '700',
-    color: colors.text,
+  categorySectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
     marginBottom: 8,
   },
-  sectionSubtitle: {
+  categorySectionTitle: {
+    fontSize: 24,
+    fontWeight: '800',
+    color: colors.text,
+    marginLeft: 12,
+  },
+  categorySectionSubtitle: {
     fontSize: 14,
     fontWeight: '400',
     color: colors.textSecondary,
     lineHeight: 20,
+    marginLeft: 40,
   },
   techniquesContainer: {
     marginTop: 16,
@@ -549,7 +604,7 @@ const styles = StyleSheet.create({
   frequencyText: {
     fontSize: 13,
     fontWeight: '600',
-    color: colors.primary,
+    color: colors.text,
     marginLeft: 6,
   },
   footer: {
