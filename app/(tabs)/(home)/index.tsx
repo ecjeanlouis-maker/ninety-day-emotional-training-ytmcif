@@ -267,6 +267,7 @@ export default function HomeScreen() {
 
   const programColor = selectedProgram === 'emotional' ? colors.primary : colors.accent;
   const programTitle = selectedProgram === 'emotional' ? 'Emotional Control' : 'Confidence Development';
+  const programSubtitle = selectedProgram === 'emotional' ? '12-Week Self-Regulation Training' : '12-Week Transformation Program';
   const programIcon = selectedProgram === 'emotional' ? 'psychology' : 'star';
   const programIconIOS = selectedProgram === 'emotional' ? 'brain' : 'star';
 
@@ -304,7 +305,7 @@ export default function HomeScreen() {
             />
             <Text style={styles.headerTitle}>{programTitle}</Text>
           </View>
-          <Text style={styles.headerSubtitle}>12-Week Transformation Program</Text>
+          <Text style={styles.headerSubtitle}>{programSubtitle}</Text>
         </Animated.View>
 
         <Animated.View 
