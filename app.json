@@ -1,7 +1,7 @@
 {
   "expo": {
     "name": "Control & Confidence",
-    "slug": "Control & Confidence",
+    "slug": "ninety-day-emotional-training-ytmcif",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/natively-dark.png",
@@ -25,7 +25,7 @@
         "backgroundColor": "#000000"
       },
       "edgeToEdgeEnabled": true,
-      "package": "com.anonymous.Natively"
+      "package": "com.NEXTECH.SELF-MASTERY"
     },
     "web": {
       "favicon": "./assets/images/final_quest_240x240.png",
@@ -36,12 +36,13 @@
       "expo-router",
       "expo-web-browser"
     ],
-    "scheme": "natively",
+    "scheme": "Control & Confidence",
     "experiments": {
       "typedRoutes": true
     },
     "extra": {
-      "router": {}
+      "router": {},
+      "backendUrl": "https://yt8rvpzc3a4km4e9x2umpgmuhs7cvhdm.app.specular.dev"
     }
   },
   "scheme": "Control & Confidence"
