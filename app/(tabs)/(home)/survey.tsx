@@ -294,6 +294,12 @@ export default function Survey({ onComplete, onBack }: SurveyProps) {
     }
   };
 
+  const handleSkipSurvey = () => {
+    console.log('User skipped survey');
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    onComplete([]);
+  };
+
   const handleSelectProgram = (program: ProgramType) => {
     console.log('User selected program from results:', program);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
@@ -488,19 +494,35 @@ export default function Survey({ onComplete, onBack }: SurveyProps) {
           entering={FadeIn.duration(600)}
           style={styles.header}
         >
-          <TouchableOpacity 
-            style={styles.backButton}
-            onPress={handleBack}
-            activeOpacity={0.7}
-          >
-            <IconSymbol
-              ios_icon_name="arrow.left"
-              android_material_icon_name="arrow-back"
-              size={24}
-              color={colors.text}
-            />
-            <Text style={styles.backButtonText}>Back</Text>
-          </TouchableOpacity>
+          <View style={styles.headerRow}>
+            <TouchableOpacity 
+              style={styles.backButton}
+              onPress={handleBack}
+              activeOpacity={0.7}
+            >
+              <IconSymbol
+                ios_icon_name="arrow.left"
+                android_material_icon_name="arrow-back"
+                size={24}
+                color={colors.text}
+              />
+              <Text style={styles.backButtonText}>Back</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity 
+              style={styles.skipButton}
+              onPress={handleSkipSurvey}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.skipButtonText}>Skip</Text>
+              <IconSymbol
+                ios_icon_name="arrow.right"
+                android_material_icon_name="arrow-forward"
+                size={20}
+                color={colors.primary}
+              />
+            </TouchableOpacity>
+          </View>
           
           <Text style={styles.headerTitle}>Assessment</Text>
         </Animated.View>
@@ -604,16 +626,37 @@ const styles = StyleSheet.create({
     marginTop: 20,
     marginBottom: 24,
   },
+  headerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 16,
+  },
   backButton: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    marginBottom: 16,
   },
   backButtonText: {
     fontSize: 16,
     fontWeight: '600',
     color: colors.text,
+  },
+  skipButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    backgroundColor: colors.highlight,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: colors.primary,
+  },
+  skipButtonText: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: colors.primary,
   },
   headerTitle: {
     fontSize: 32,
