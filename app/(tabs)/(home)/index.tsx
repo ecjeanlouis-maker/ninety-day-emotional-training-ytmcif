@@ -68,7 +68,7 @@ const PROGRAM_CONFIGS = {
     description: 'Overcome social fears and build authentic connections with 12 techniques',
     icon: 'group',
     iconIOS: 'person.3',
-    color: '#95E1D3',
+    color: '#9B59B6',
   },
   thoughts: {
     title: 'Thoughts Regulation',
@@ -76,7 +76,7 @@ const PROGRAM_CONFIGS = {
     description: 'Master your mind and direct your thoughts intentionally with 12 methods',
     icon: 'psychology',
     iconIOS: 'brain.head.profile',
-    color: '#A8E6CF',
+    color: '#27AE60',
   },
 };
 

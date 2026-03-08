@@ -1,7 +1,7 @@
 {
   "expo": {
     "name": "Control & Confidence",
-    "slug": "ninety-day-emotional-training-ytmcif",
+    "slug": "control-confidence",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/natively-dark.png",
@@ -36,7 +36,7 @@
       "expo-router",
       "expo-web-browser"
     ],
-    "scheme": "Control & Confidence",
+    "scheme": "controlconfidence",
     "experiments": {
       "typedRoutes": true
     },
