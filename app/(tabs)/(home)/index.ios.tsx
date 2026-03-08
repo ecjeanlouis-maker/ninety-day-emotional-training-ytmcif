@@ -25,6 +25,7 @@ import Animated, {
   Extrapolate,
 } from 'react-native-reanimated';
 import CongratulationsModal from '@/components/CongratulationsModal';
+import Survey from './survey.ios';
 
 const AnimatedTouchable = Animated.createAnimatedComponent(TouchableOpacity);
 
@@ -80,9 +81,10 @@ const PROGRAM_CONFIGS = {
 };
 
 export default function HomeScreen() {
-  console.log('HomeScreen rendered');
+  console.log('HomeScreen rendered (iOS)');
   
   const [showWelcome, setShowWelcome] = useState(true);
+  const [showSurvey, setShowSurvey] = useState(false);
   const [selectedProgram, setSelectedProgram] = useState<ProgramType>(null);
   const [selectedTechnique, setSelectedTechnique] = useState<number | null>(null);
   const [completedTechniques, setCompletedTechniques] = useState<Set<number>>(new Set());
@@ -120,6 +122,21 @@ export default function HomeScreen() {
     console.log('User tapped Begin Assessment');
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     setShowWelcome(false);
+    setShowSurvey(true);
+  };
+
+  const handleSurveyComplete = (recommendedPrograms: ProgramType[]) => {
+    console.log('Survey completed with recommendations:', recommendedPrograms);
+    setShowSurvey(false);
+    if (recommendedPrograms.length > 0) {
+      setSelectedProgram(recommendedPrograms[0]);
+    }
+  };
+
+  const handleSurveyBack = () => {
+    console.log('User navigating back from survey');
+    setShowSurvey(false);
+    setShowWelcome(true);
   };
 
   const handleProgramSelect = (program: 'emotional' | 'confidence' | 'anger' | 'stress' | 'social-anxiety' | 'thoughts') => {
@@ -176,6 +193,15 @@ export default function HomeScreen() {
     setShowCongratsModal(false);
     setCompletedTechniqueData(null);
   };
+
+  if (showSurvey) {
+    return (
+      <Survey 
+        onComplete={handleSurveyComplete}
+        onBack={handleSurveyBack}
+      />
+    );
+  }
 
   if (showWelcome) {
     return (
