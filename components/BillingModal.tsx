@@ -141,7 +141,7 @@ export default function BillingModal({
                 <IconSymbol
                   ios_icon_name="xmark"
                   android_material_icon_name="close"
-                  size={24}
+                  size={20}
                   color={colors.text}
                 />
               </TouchableOpacity>
@@ -156,7 +156,7 @@ export default function BillingModal({
                   <IconSymbol
                     ios_icon_name="lock.open.fill"
                     android_material_icon_name="lock-open"
-                    size={48}
+                    size={36}
                     color="#FFFFFF"
                   />
                 </LinearGradient>
@@ -184,7 +184,7 @@ export default function BillingModal({
                       <IconSymbol
                         ios_icon_name="calendar"
                         android_material_icon_name="calendar-today"
-                        size={28}
+                        size={20}
                         color={displayProgramColor}
                       />
                     </View>
@@ -204,7 +204,7 @@ export default function BillingModal({
                     <IconSymbol
                       ios_icon_name="clock"
                       android_material_icon_name="schedule"
-                      size={16}
+                      size={12}
                       color={colors.textSecondary}
                     />
                     <Text style={styles.planDurationText}>For 90 days (3 months)</Text>
@@ -217,7 +217,7 @@ export default function BillingModal({
                       <IconSymbol
                         ios_icon_name="checkmark.circle.fill"
                         android_material_icon_name="check-circle"
-                        size={20}
+                        size={14}
                         color={colors.success}
                       />
                       <Text style={styles.featureText}>Access to {displayProgramTitle}</Text>
@@ -226,7 +226,7 @@ export default function BillingModal({
                       <IconSymbol
                         ios_icon_name="checkmark.circle.fill"
                         android_material_icon_name="check-circle"
-                        size={20}
+                        size={14}
                         color={colors.success}
                       />
                       <Text style={styles.featureText}>12 weekly techniques</Text>
@@ -235,7 +235,7 @@ export default function BillingModal({
                       <IconSymbol
                         ios_icon_name="checkmark.circle.fill"
                         android_material_icon_name="check-circle"
-                        size={20}
+                        size={14}
                         color={colors.success}
                       />
                       <Text style={styles.featureText}>Progress tracking</Text>
@@ -244,7 +244,7 @@ export default function BillingModal({
                       <IconSymbol
                         ios_icon_name="checkmark.circle.fill"
                         android_material_icon_name="check-circle"
-                        size={20}
+                        size={14}
                         color={colors.success}
                       />
                       <Text style={styles.featureText}>Cancel anytime</Text>
@@ -261,7 +261,7 @@ export default function BillingModal({
                     <IconSymbol
                       ios_icon_name="arrow.right"
                       android_material_icon_name="arrow-forward"
-                      size={20}
+                      size={14}
                       color={displayProgramColor}
                     />
                   </View>
@@ -278,7 +278,7 @@ export default function BillingModal({
                   <IconSymbol
                     ios_icon_name="star.fill"
                     android_material_icon_name="star"
-                    size={16}
+                    size={12}
                     color="#FFFFFF"
                   />
                   <Text style={styles.popularBadgeText}>BEST VALUE</Text>
@@ -300,7 +300,7 @@ export default function BillingModal({
                       <IconSymbol
                         ios_icon_name="crown.fill"
                         android_material_icon_name="workspace-premium"
-                        size={28}
+                        size={20}
                         color="#FFB84D"
                       />
                     </View>
@@ -327,7 +327,7 @@ export default function BillingModal({
                       <IconSymbol
                         ios_icon_name="checkmark.circle.fill"
                         android_material_icon_name="check-circle"
-                        size={20}
+                        size={14}
                         color={colors.success}
                       />
                       <Text style={styles.featureText}>Access to ALL 6 programs</Text>
@@ -336,7 +336,7 @@ export default function BillingModal({
                       <IconSymbol
                         ios_icon_name="checkmark.circle.fill"
                         android_material_icon_name="check-circle"
-                        size={20}
+                        size={14}
                         color={colors.success}
                       />
                       <Text style={styles.featureText}>72 total techniques</Text>
@@ -345,7 +345,7 @@ export default function BillingModal({
                       <IconSymbol
                         ios_icon_name="checkmark.circle.fill"
                         android_material_icon_name="check-circle"
-                        size={20}
+                        size={14}
                         color={colors.success}
                       />
                       <Text style={styles.featureText}>Unlimited access forever</Text>
@@ -354,7 +354,7 @@ export default function BillingModal({
                       <IconSymbol
                         ios_icon_name="checkmark.circle.fill"
                         android_material_icon_name="check-circle"
-                        size={20}
+                        size={14}
                         color={colors.success}
                       />
                       <Text style={styles.featureText}>Switch programs anytime</Text>
@@ -363,7 +363,7 @@ export default function BillingModal({
                       <IconSymbol
                         ios_icon_name="checkmark.circle.fill"
                         android_material_icon_name="check-circle"
-                        size={20}
+                        size={14}
                         color={colors.success}
                       />
                       <Text style={styles.featureText}>Future updates included</Text>
@@ -372,7 +372,7 @@ export default function BillingModal({
                       <IconSymbol
                         ios_icon_name="checkmark.circle.fill"
                         android_material_icon_name="check-circle"
-                        size={20}
+                        size={14}
                         color={colors.success}
                       />
                       <Text style={styles.featureText}>Priority support</Text>
@@ -384,7 +384,7 @@ export default function BillingModal({
                     <IconSymbol
                       ios_icon_name="arrow.right"
                       android_material_icon_name="arrow-forward"
-                      size={20}
+                      size={14}
                       color="#FFB84D"
                     />
                   </View>
@@ -406,7 +406,7 @@ export default function BillingModal({
                       <IconSymbol
                         ios_icon_name="infinity"
                         android_material_icon_name="all-inclusive"
-                        size={28}
+                        size={20}
                         color={colors.accent}
                       />
                     </View>
@@ -433,7 +433,7 @@ export default function BillingModal({
                       <IconSymbol
                         ios_icon_name="checkmark.circle.fill"
                         android_material_icon_name="check-circle"
-                        size={20}
+                        size={14}
                         color={colors.success}
                       />
                       <Text style={styles.featureText}>Access to ALL 6 programs</Text>
@@ -442,7 +442,7 @@ export default function BillingModal({
                       <IconSymbol
                         ios_icon_name="checkmark.circle.fill"
                         android_material_icon_name="check-circle"
-                        size={20}
+                        size={14}
                         color={colors.success}
                       />
                       <Text style={styles.featureText}>72 total techniques</Text>
@@ -451,7 +451,7 @@ export default function BillingModal({
                       <IconSymbol
                         ios_icon_name="checkmark.circle.fill"
                         android_material_icon_name="check-circle"
-                        size={20}
+                        size={14}
                         color={colors.success}
                       />
                       <Text style={styles.featureText}>Unlimited access forever</Text>
@@ -460,7 +460,7 @@ export default function BillingModal({
                       <IconSymbol
                         ios_icon_name="checkmark.circle.fill"
                         android_material_icon_name="check-circle"
-                        size={20}
+                        size={14}
                         color={colors.success}
                       />
                       <Text style={styles.featureText}>Switch programs anytime</Text>
@@ -469,7 +469,7 @@ export default function BillingModal({
                       <IconSymbol
                         ios_icon_name="checkmark.circle.fill"
                         android_material_icon_name="check-circle"
-                        size={20}
+                        size={14}
                         color={colors.success}
                       />
                       <Text style={styles.featureText}>Future updates included</Text>
@@ -481,7 +481,7 @@ export default function BillingModal({
                     <IconSymbol
                       ios_icon_name="arrow.right"
                       android_material_icon_name="arrow-forward"
-                      size={20}
+                      size={14}
                       color={colors.accent}
                     />
                   </View>
@@ -494,7 +494,7 @@ export default function BillingModal({
                 <IconSymbol
                   ios_icon_name="lock.shield.fill"
                   android_material_icon_name="verified-user"
-                  size={20}
+                  size={14}
                   color={colors.success}
                 />
                 <Text style={styles.secureText}>Secure payment processing</Text>
@@ -534,9 +534,9 @@ const styles = StyleSheet.create({
     padding: 16,
   },
   closeButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     backgroundColor: colors.card,
     justifyContent: 'center',
     alignItems: 'center',
@@ -552,25 +552,25 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   iconGradient: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
+    width: 80,
+    height: 80,
+    borderRadius: 40,
     justifyContent: 'center',
     alignItems: 'center',
   },
   modalTitle: {
-    fontSize: 32,
+    fontSize: 28,
     fontWeight: '900',
     color: colors.text,
     textAlign: 'center',
   },
   modalSubtitle: {
-    fontSize: 15,
+    fontSize: 13,
     fontWeight: '500',
     color: colors.textSecondary,
     textAlign: 'center',
     marginTop: 12,
-    lineHeight: 22,
+    lineHeight: 20,
   },
   plansContainer: {
     paddingHorizontal: 20,
@@ -583,13 +583,13 @@ const styles = StyleSheet.create({
   popularBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 20,
-    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+    gap: 4,
   },
   popularBadgeText: {
-    fontSize: 12,
+    fontSize: 10,
     fontWeight: '800',
     color: '#FFFFFF',
     letterSpacing: 1,
@@ -597,7 +597,7 @@ const styles = StyleSheet.create({
   planCard: {
     backgroundColor: colors.card,
     borderRadius: 20,
-    padding: 24,
+    padding: 20,
     borderWidth: 2,
     borderColor: colors.border,
     boxShadow: '0px 4px 16px rgba(107, 76, 230, 0.1)',
@@ -622,28 +622,28 @@ const styles = StyleSheet.create({
   planHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 20,
+    marginBottom: 16,
   },
   planIconCircle: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     backgroundColor: colors.highlight,
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 12,
+    marginRight: 10,
   },
   planHeaderText: {
     flex: 1,
   },
   planTitle: {
-    fontSize: 20,
+    fontSize: 17,
     fontWeight: '800',
     color: colors.text,
     marginBottom: 2,
   },
   planSubtitle: {
-    fontSize: 14,
+    fontSize: 12,
     fontWeight: '600',
     color: colors.textSecondary,
   },
@@ -651,20 +651,20 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'baseline',
     justifyContent: 'center',
-    marginBottom: 12,
+    marginBottom: 10,
   },
   priceSymbol: {
-    fontSize: 28,
+    fontSize: 24,
     fontWeight: '800',
     color: colors.text,
   },
   priceAmount: {
-    fontSize: 48,
+    fontSize: 40,
     fontWeight: '900',
     color: colors.text,
   },
   pricePeriod: {
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: '600',
     color: colors.textSecondary,
     marginLeft: 4,
@@ -673,44 +673,44 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 6,
-    marginBottom: 16,
+    gap: 4,
+    marginBottom: 14,
   },
   planDurationText: {
-    fontSize: 14,
+    fontSize: 12,
     fontWeight: '600',
     color: colors.textSecondary,
   },
   savingsBadge: {
     backgroundColor: colors.accent,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 12,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 10,
     alignSelf: 'center',
-    marginBottom: 16,
+    marginBottom: 14,
   },
   savingsBadgeText: {
-    fontSize: 13,
+    fontSize: 11,
     fontWeight: '700',
     color: '#FFFFFF',
   },
   divider: {
     height: 1,
     backgroundColor: colors.border,
-    marginVertical: 16,
+    marginVertical: 14,
   },
   featuresContainer: {
-    gap: 12,
-    marginBottom: 20,
+    gap: 10,
+    marginBottom: 16,
   },
   featureRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
+    gap: 8,
   },
   featureText: {
     flex: 1,
-    fontSize: 15,
+    fontSize: 13,
     fontWeight: '600',
     color: colors.text,
   },
@@ -719,18 +719,18 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     backgroundColor: colors.highlight,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderRadius: 12,
-    marginBottom: 16,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 10,
+    marginBottom: 14,
   },
   totalCostLabel: {
-    fontSize: 14,
+    fontSize: 12,
     fontWeight: '600',
     color: colors.textSecondary,
   },
   totalCostAmount: {
-    fontSize: 20,
+    fontSize: 17,
     fontWeight: '800',
     color: colors.text,
   },
@@ -739,13 +739,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: colors.highlight,
-    paddingVertical: 16,
-    paddingHorizontal: 24,
-    borderRadius: 12,
-    gap: 8,
+    paddingVertical: 14,
+    paddingHorizontal: 20,
+    borderRadius: 10,
+    gap: 6,
   },
   selectButtonText: {
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: '700',
     color: colors.text,
   },
@@ -757,19 +757,19 @@ const styles = StyleSheet.create({
   secureContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-    marginBottom: 12,
+    gap: 6,
+    marginBottom: 10,
   },
   secureText: {
-    fontSize: 14,
+    fontSize: 12,
     fontWeight: '600',
     color: colors.success,
   },
   footerText: {
-    fontSize: 13,
+    fontSize: 11,
     fontWeight: '500',
     color: colors.textSecondary,
     textAlign: 'center',
-    lineHeight: 20,
+    lineHeight: 18,
   },
 });
