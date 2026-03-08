@@ -83,6 +83,7 @@ const PROGRAM_CONFIGS = {
 export default function HomeScreen() {
   console.log('HomeScreen rendered');
   
+  const [showWelcome, setShowWelcome] = useState(true);
   const [selectedProgram, setSelectedProgram] = useState<ProgramType>(null);
   const [selectedTechnique, setSelectedTechnique] = useState<number | null>(null);
   const [completedTechniques, setCompletedTechniques] = useState<Set<number>>(new Set());
@@ -115,6 +116,12 @@ export default function HomeScreen() {
       width: widthValue,
     };
   });
+
+  const handleBeginAssessment = () => {
+    console.log('User tapped Begin Assessment');
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    setShowWelcome(false);
+  };
 
   const handleProgramSelect = (program: 'emotional' | 'confidence' | 'anger' | 'stress' | 'social-anxiety' | 'thoughts') => {
     console.log('User selected program:', program);
@@ -170,6 +177,129 @@ export default function HomeScreen() {
     setShowCongratsModal(false);
     setCompletedTechniqueData(null);
   };
+
+  if (showWelcome) {
+    return (
+      <SafeAreaView style={styles.container} edges={['top']}>
+        <ScrollView 
+          style={styles.scrollView}
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+        >
+          <Animated.View 
+            entering={FadeIn.duration(1000)}
+            style={styles.welcomeHero}
+          >
+            <LinearGradient
+              colors={[colors.primary, colors.accent]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={styles.welcomeHeroGradient}
+            >
+              <View style={styles.welcomeIconContainer}>
+                <IconSymbol
+                  ios_icon_name="star.fill"
+                  android_material_icon_name="star"
+                  size={64}
+                  color="#FFFFFF"
+                />
+              </View>
+              <Text style={styles.welcomeTitle}>Welcome to Your</Text>
+              <Text style={styles.welcomeTitle}>Transformation Journey</Text>
+              <Text style={styles.welcomeSubtitle}>
+                90 days to become the best version of yourself
+              </Text>
+            </LinearGradient>
+          </Animated.View>
+
+          <Animated.View 
+            entering={FadeInDown.delay(300).duration(800)}
+            style={styles.welcomeContent}
+          >
+            <Text style={styles.welcomeQuestion}>
+              What psychological goal are you trying to achieve?
+            </Text>
+            <Text style={styles.welcomeDescription}>
+              Choose the area you want to focus on for the next 12 weeks. Each program contains 12 powerful techniques designed to create lasting transformation.
+            </Text>
+          </Animated.View>
+
+          <Animated.View 
+            entering={FadeInDown.delay(500).duration(800)}
+            style={styles.welcomeStats}
+          >
+            <View style={styles.welcomeStatItem}>
+              <IconSymbol
+                ios_icon_name="calendar"
+                android_material_icon_name="calendar-today"
+                size={32}
+                color={colors.primary}
+              />
+              <Text style={styles.welcomeStatNumber}>90</Text>
+              <Text style={styles.welcomeStatLabel}>Days</Text>
+            </View>
+            <View style={styles.welcomeStatDivider} />
+            <View style={styles.welcomeStatItem}>
+              <IconSymbol
+                ios_icon_name="list.bullet"
+                android_material_icon_name="list"
+                size={32}
+                color={colors.primary}
+              />
+              <Text style={styles.welcomeStatNumber}>12</Text>
+              <Text style={styles.welcomeStatLabel}>Techniques</Text>
+            </View>
+            <View style={styles.welcomeStatDivider} />
+            <View style={styles.welcomeStatItem}>
+              <IconSymbol
+                ios_icon_name="chart.line.uptrend.xyaxis"
+                android_material_icon_name="trending-up"
+                size={32}
+                color={colors.primary}
+              />
+              <Text style={styles.welcomeStatNumber}>100%</Text>
+              <Text style={styles.welcomeStatLabel}>Growth</Text>
+            </View>
+          </Animated.View>
+
+          <Animated.View 
+            entering={FadeInDown.delay(700).duration(800)}
+            style={styles.welcomeButtonContainer}
+          >
+            <TouchableOpacity
+              style={styles.welcomeButton}
+              onPress={handleBeginAssessment}
+              activeOpacity={0.9}
+            >
+              <LinearGradient
+                colors={[colors.primary, colors.secondary]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+                style={styles.welcomeButtonGradient}
+              >
+                <Text style={styles.welcomeButtonText}>Begin Assessment</Text>
+                <IconSymbol
+                  ios_icon_name="arrow.right"
+                  android_material_icon_name="arrow-forward"
+                  size={24}
+                  color="#FFFFFF"
+                />
+              </LinearGradient>
+            </TouchableOpacity>
+          </Animated.View>
+
+          <Animated.View 
+            entering={FadeInDown.delay(900).duration(800)}
+            style={styles.welcomeFooter}
+          >
+            <Text style={styles.welcomeFooterText}>
+              Join thousands who have transformed their lives through our proven 12-week programs
+            </Text>
+          </Animated.View>
+        </ScrollView>
+      </SafeAreaView>
+    );
+  }
 
   const motivationalPhrase = 'BE THE BEST VERSION OF YOURSELF';
 
@@ -615,6 +745,130 @@ const styles = StyleSheet.create({
   scrollContent: {
     paddingHorizontal: 20,
     paddingBottom: 100,
+  },
+  welcomeHero: {
+    marginTop: 20,
+    marginBottom: 32,
+    borderRadius: 24,
+    overflow: 'hidden',
+    boxShadow: '0px 8px 32px rgba(107, 76, 230, 0.3)',
+    elevation: 8,
+  },
+  welcomeHeroGradient: {
+    paddingVertical: 48,
+    paddingHorizontal: 32,
+    alignItems: 'center',
+  },
+  welcomeIconContainer: {
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 24,
+  },
+  welcomeTitle: {
+    fontSize: 32,
+    fontWeight: '900',
+    color: '#FFFFFF',
+    textAlign: 'center',
+    letterSpacing: 0.5,
+  },
+  welcomeSubtitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#FFFFFF',
+    textAlign: 'center',
+    marginTop: 12,
+    opacity: 0.95,
+  },
+  welcomeContent: {
+    marginBottom: 32,
+  },
+  welcomeQuestion: {
+    fontSize: 24,
+    fontWeight: '800',
+    color: colors.text,
+    textAlign: 'center',
+    marginBottom: 16,
+    lineHeight: 32,
+  },
+  welcomeDescription: {
+    fontSize: 16,
+    fontWeight: '500',
+    color: colors.textSecondary,
+    textAlign: 'center',
+    lineHeight: 24,
+    paddingHorizontal: 8,
+  },
+  welcomeStats: {
+    flexDirection: 'row',
+    backgroundColor: colors.card,
+    borderRadius: 20,
+    padding: 24,
+    marginBottom: 32,
+    borderWidth: 1,
+    borderColor: colors.border,
+    boxShadow: '0px 4px 16px rgba(107, 76, 230, 0.1)',
+    elevation: 4,
+  },
+  welcomeStatItem: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  welcomeStatNumber: {
+    fontSize: 32,
+    fontWeight: '900',
+    color: colors.primary,
+    marginTop: 8,
+  },
+  welcomeStatLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.textSecondary,
+    marginTop: 4,
+  },
+  welcomeStatDivider: {
+    width: 1,
+    backgroundColor: colors.border,
+    marginHorizontal: 8,
+  },
+  welcomeButtonContainer: {
+    marginBottom: 24,
+  },
+  welcomeButton: {
+    borderRadius: 16,
+    overflow: 'hidden',
+    boxShadow: '0px 4px 20px rgba(107, 76, 230, 0.3)',
+    elevation: 6,
+  },
+  welcomeButtonGradient: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 18,
+    paddingHorizontal: 32,
+    gap: 12,
+  },
+  welcomeButtonText: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: '#FFFFFF',
+    letterSpacing: 0.5,
+  },
+  welcomeFooter: {
+    padding: 20,
+    backgroundColor: colors.highlight,
+    borderRadius: 16,
+    marginBottom: 20,
+  },
+  welcomeFooterText: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: colors.text,
+    textAlign: 'center',
+    lineHeight: 22,
   },
   motivationalBanner: {
     marginTop: 20,
