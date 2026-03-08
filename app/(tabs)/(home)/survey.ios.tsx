@@ -18,6 +18,7 @@ import Animated, {
   FadeOut,
 } from 'react-native-reanimated';
 import { ProgramType } from '@/types/program';
+import BillingModal from '@/components/BillingModal';
 
 interface Question {
   id: number;
@@ -228,6 +229,8 @@ export default function Survey({ onComplete, onBack }: SurveyProps) {
   const [answers, setAnswers] = useState<number[]>([]);
   const [showResults, setShowResults] = useState(false);
   const [recommendedPrograms, setRecommendedPrograms] = useState<ProgramType[]>([]);
+  const [showBillingModal, setShowBillingModal] = useState(false);
+  const [selectedProgramForBilling, setSelectedProgramForBilling] = useState<ProgramType | undefined>(undefined);
 
   const handleAnswer = (optionIndex: number) => {
     console.log('User selected option:', optionIndex, 'for question:', currentQuestion);
@@ -293,135 +296,181 @@ export default function Survey({ onComplete, onBack }: SurveyProps) {
   const handleSelectProgram = (program: ProgramType) => {
     console.log('User selected program from results:', program);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    onComplete([program]);
+    setSelectedProgramForBilling(program);
+    setShowBillingModal(true);
+  };
+
+  const handleBillingComplete = (planType: 'monthly' | 'lifetime', programType?: ProgramType) => {
+    console.log('Billing completed:', planType, programType);
+    setShowBillingModal(false);
+    
+    if (planType === 'lifetime') {
+      onComplete(recommendedPrograms);
+    } else if (programType) {
+      onComplete([programType]);
+    }
+  };
+
+  const handleBrowseAllPrograms = () => {
+    console.log('User wants to browse all programs');
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    setShowBillingModal(true);
+    setSelectedProgramForBilling(undefined);
   };
 
   const progressPercentage = ((currentQuestion + 1) / SURVEY_QUESTIONS.length) * 100;
   const progressText = `Question ${currentQuestion + 1} of ${SURVEY_QUESTIONS.length}`;
 
   if (showResults) {
+    const selectedProgramInfo = selectedProgramForBilling ? PROGRAM_INFO[selectedProgramForBilling] : undefined;
+    
     return (
-      <SafeAreaView style={styles.container} edges={['top']}>
-        <ScrollView 
-          style={styles.scrollView}
-          contentContainerStyle={styles.scrollContent}
-          showsVerticalScrollIndicator={false}
-        >
-          <Animated.View 
-            entering={FadeIn.duration(800)}
-            style={styles.resultsHeader}
+      <>
+        <SafeAreaView style={styles.container} edges={['top']}>
+          <ScrollView 
+            style={styles.scrollView}
+            contentContainerStyle={styles.scrollContent}
+            showsVerticalScrollIndicator={false}
           >
-            <View style={styles.resultsIconContainer}>
-              <LinearGradient
-                colors={[colors.primary, colors.accent]}
-                style={styles.resultsIconGradient}
-              >
-                <IconSymbol
-                  ios_icon_name="checkmark.circle.fill"
-                  android_material_icon_name="check-circle"
-                  size={64}
-                  color="#FFFFFF"
-                />
-              </LinearGradient>
-            </View>
-            
-            <Text style={styles.resultsTitle}>Assessment Complete!</Text>
-            <Text style={styles.resultsSubtitle}>
-              Based on your responses, we recommend the following programs:
-            </Text>
-          </Animated.View>
-
-          <View style={styles.recommendedProgramsContainer}>
-            {recommendedPrograms.map((program, index) => {
-              const programInfo = PROGRAM_INFO[program];
-              const delayValue = 200 + (index * 150);
-              
-              return (
-                <Animated.View
-                  key={program}
-                  entering={FadeInDown.delay(delayValue).duration(600)}
+            <Animated.View 
+              entering={FadeIn.duration(800)}
+              style={styles.resultsHeader}
+            >
+              <View style={styles.resultsIconContainer}>
+                <LinearGradient
+                  colors={[colors.primary, colors.accent]}
+                  style={styles.resultsIconGradient}
                 >
-                  <TouchableOpacity
-                    style={styles.resultProgramCard}
-                    onPress={() => handleSelectProgram(program)}
-                    activeOpacity={0.9}
+                  <IconSymbol
+                    ios_icon_name="checkmark.circle.fill"
+                    android_material_icon_name="check-circle"
+                    size={64}
+                    color="#FFFFFF"
+                  />
+                </LinearGradient>
+              </View>
+              
+              <Text style={styles.resultsTitle}>Assessment Complete!</Text>
+              <Text style={styles.resultsSubtitle}>
+                Based on your responses, we recommend the following programs:
+              </Text>
+            </Animated.View>
+
+            <View style={styles.recommendedProgramsContainer}>
+              {recommendedPrograms.map((program, index) => {
+                const programInfo = PROGRAM_INFO[program];
+                const delayValue = 200 + (index * 150);
+                
+                return (
+                  <Animated.View
+                    key={program}
+                    entering={FadeInDown.delay(delayValue).duration(600)}
                   >
-                    <LinearGradient
-                      colors={[programInfo.color, programInfo.color + 'DD']}
-                      style={styles.resultProgramGradient}
+                    <TouchableOpacity
+                      style={styles.resultProgramCard}
+                      onPress={() => handleSelectProgram(program)}
+                      activeOpacity={0.9}
                     >
-                      {index === 0 && (
-                        <View style={styles.bestMatchBadge}>
+                      <LinearGradient
+                        colors={[programInfo.color, programInfo.color + 'DD']}
+                        style={styles.resultProgramGradient}
+                      >
+                        {index === 0 && (
+                          <View style={styles.bestMatchBadge}>
+                            <IconSymbol
+                              ios_icon_name="star.fill"
+                              android_material_icon_name="star"
+                              size={16}
+                              color="#FFFFFF"
+                            />
+                            <Text style={styles.bestMatchText}>Best Match</Text>
+                          </View>
+                        )}
+                        
+                        <View style={styles.resultProgramIconContainer}>
                           <IconSymbol
-                            ios_icon_name="star.fill"
-                            android_material_icon_name="star"
-                            size={16}
+                            ios_icon_name={programInfo.iconIOS}
+                            android_material_icon_name={programInfo.icon}
+                            size={48}
                             color="#FFFFFF"
                           />
-                          <Text style={styles.bestMatchText}>Best Match</Text>
                         </View>
-                      )}
-                      
-                      <View style={styles.resultProgramIconContainer}>
-                        <IconSymbol
-                          ios_icon_name={programInfo.iconIOS}
-                          android_material_icon_name={programInfo.icon}
-                          size={48}
-                          color="#FFFFFF"
-                        />
-                      </View>
-                      
-                      <Text style={styles.resultProgramTitle}>{programInfo.title}</Text>
-                      <Text style={styles.resultProgramDescription}>
-                        {programInfo.description}
-                      </Text>
-                      
-                      <View style={styles.resultProgramButton}>
-                        <Text style={styles.resultProgramButtonText}>Start This Program</Text>
-                        <IconSymbol
-                          ios_icon_name="arrow.right"
-                          android_material_icon_name="arrow-forward"
-                          size={20}
-                          color="#FFFFFF"
-                        />
-                      </View>
-                    </LinearGradient>
-                  </TouchableOpacity>
-                </Animated.View>
-              );
-            })}
-          </View>
+                        
+                        <Text style={styles.resultProgramTitle}>{programInfo.title}</Text>
+                        <Text style={styles.resultProgramDescription}>
+                          {programInfo.description}
+                        </Text>
+                        
+                        <View style={styles.resultProgramButton}>
+                          <Text style={styles.resultProgramButtonText}>View Pricing</Text>
+                          <IconSymbol
+                            ios_icon_name="arrow.right"
+                            android_material_icon_name="arrow-forward"
+                            size={20}
+                            color="#FFFFFF"
+                          />
+                        </View>
+                      </LinearGradient>
+                    </TouchableOpacity>
+                  </Animated.View>
+                );
+              })}
+            </View>
 
-          <Animated.View 
-            entering={FadeInDown.delay(800).duration(600)}
-            style={styles.resultsFooter}
-          >
-            <Text style={styles.resultsFooterText}>
-              You can start with any of these programs. Each contains 12 weekly techniques designed for lasting transformation.
-            </Text>
-            
-            <TouchableOpacity
-              style={styles.retakeButton}
-              onPress={() => {
-                console.log('User retaking survey');
-                setCurrentQuestion(0);
-                setAnswers([]);
-                setShowResults(false);
-                setRecommendedPrograms([]);
-              }}
-              activeOpacity={0.7}
+            <Animated.View 
+              entering={FadeInDown.delay(800).duration(600)}
+              style={styles.resultsFooter}
             >
-              <IconSymbol
-                ios_icon_name="arrow.counterclockwise"
-                android_material_icon_name="refresh"
-                size={20}
-                color={colors.primary}
-              />
-              <Text style={styles.retakeButtonText}>Retake Assessment</Text>
-            </TouchableOpacity>
-          </Animated.View>
-        </ScrollView>
-      </SafeAreaView>
+              <Text style={styles.resultsFooterText}>
+                You can start with any of these programs. Each contains 12 weekly techniques designed for lasting transformation.
+              </Text>
+              
+              <TouchableOpacity
+                style={styles.browseAllButton}
+                onPress={handleBrowseAllPrograms}
+                activeOpacity={0.7}
+              >
+                <IconSymbol
+                  ios_icon_name="square.grid.2x2"
+                  android_material_icon_name="apps"
+                  size={20}
+                  color={colors.primary}
+                />
+                <Text style={styles.browseAllButtonText}>Browse All Programs</Text>
+              </TouchableOpacity>
+              
+              <TouchableOpacity
+                style={styles.retakeButton}
+                onPress={() => {
+                  console.log('User retaking survey');
+                  setCurrentQuestion(0);
+                  setAnswers([]);
+                  setShowResults(false);
+                  setRecommendedPrograms([]);
+                }}
+                activeOpacity={0.7}
+              >
+                <IconSymbol
+                  ios_icon_name="arrow.counterclockwise"
+                  android_material_icon_name="refresh"
+                  size={20}
+                  color={colors.textSecondary}
+                />
+                <Text style={styles.retakeButtonText}>Retake Assessment</Text>
+              </TouchableOpacity>
+            </Animated.View>
+          </ScrollView>
+        </SafeAreaView>
+
+        <BillingModal
+          visible={showBillingModal}
+          onClose={() => setShowBillingModal(false)}
+          onSelectPlan={handleBillingComplete}
+          selectedProgram={selectedProgramForBilling}
+          programTitle={selectedProgramInfo?.title}
+          programColor={selectedProgramInfo?.color}
+        />
+      </>
     );
   }
 
@@ -779,6 +828,23 @@ const styles = StyleSheet.create({
     lineHeight: 22,
     marginBottom: 16,
   },
+  browseAllButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingVertical: 14,
+    paddingHorizontal: 24,
+    backgroundColor: colors.card,
+    borderRadius: 12,
+    borderWidth: 2,
+    borderColor: colors.primary,
+    marginBottom: 12,
+  },
+  browseAllButtonText: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: colors.primary,
+  },
   retakeButton: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -793,6 +859,6 @@ const styles = StyleSheet.create({
   retakeButtonText: {
     fontSize: 15,
     fontWeight: '600',
-    color: colors.primary,
+    color: colors.textSecondary,
   },
 });
