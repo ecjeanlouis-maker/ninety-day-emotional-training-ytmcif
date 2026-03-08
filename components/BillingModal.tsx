@@ -27,7 +27,7 @@ const { width: SCREEN_WIDTH } = Dimensions.get('window');
 interface BillingModalProps {
   visible: boolean;
   onClose: () => void;
-  onSelectPlan: (planType: 'monthly' | 'lifetime', programType?: ProgramType) => void;
+  onSelectPlan: (planType: 'monthly' | 'lifetime' | 'premium-lifetime', programType?: ProgramType) => void;
   selectedProgram?: ProgramType;
   programTitle?: string;
   programColor?: string;
@@ -43,9 +43,10 @@ export default function BillingModal({
 }: BillingModalProps) {
   console.log('BillingModal rendered with program:', selectedProgram);
   
-  const [selectedPlanType, setSelectedPlanType] = useState<'monthly' | 'lifetime' | null>(null);
+  const [selectedPlanType, setSelectedPlanType] = useState<'monthly' | 'lifetime' | 'premium-lifetime' | null>(null);
   const scaleMonthly = useSharedValue(1);
   const scaleLifetime = useSharedValue(1);
+  const scalePremiumLifetime = useSharedValue(1);
 
   const monthlyCardStyle = useAnimatedStyle(() => {
     const scaleValue = scaleMonthly.value;
@@ -56,6 +57,13 @@ export default function BillingModal({
 
   const lifetimeCardStyle = useAnimatedStyle(() => {
     const scaleValue = scaleLifetime.value;
+    return {
+      transform: [{ scale: scaleValue }],
+    };
+  });
+
+  const premiumLifetimeCardStyle = useAnimatedStyle(() => {
+    const scaleValue = scalePremiumLifetime.value;
     return {
       transform: [{ scale: scaleValue }],
     };
@@ -83,6 +91,18 @@ export default function BillingModal({
     
     // TODO: Backend Integration - POST /api/subscriptions with { planType: 'lifetime', amount: 10.99 } → { subscriptionId, status }
     onSelectPlan('lifetime');
+  };
+
+  const handleSelectPremiumLifetime = () => {
+    console.log('User selected premium lifetime plan');
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    setSelectedPlanType('premium-lifetime');
+    scalePremiumLifetime.value = withSpring(0.95, {}, () => {
+      scalePremiumLifetime.value = withSpring(1);
+    });
+    
+    // TODO: Backend Integration - POST /api/subscriptions with { planType: 'premium-lifetime', amount: 59.99 } → { subscriptionId, status }
+    onSelectPlan('premium-lifetime');
   };
 
   const handleClose = () => {
@@ -264,6 +284,112 @@ export default function BillingModal({
                   <Text style={styles.popularBadgeText}>BEST VALUE</Text>
                 </LinearGradient>
               </View>
+
+              <Animated.View style={premiumLifetimeCardStyle}>
+                <TouchableOpacity
+                  style={[
+                    styles.planCard,
+                    styles.planCardPremium,
+                    selectedPlanType === 'premium-lifetime' && styles.planCardSelected,
+                  ]}
+                  onPress={handleSelectPremiumLifetime}
+                  activeOpacity={0.9}
+                >
+                  <View style={styles.planHeader}>
+                    <View style={styles.planIconCircle}>
+                      <IconSymbol
+                        ios_icon_name="crown.fill"
+                        android_material_icon_name="workspace-premium"
+                        size={28}
+                        color="#FFB84D"
+                      />
+                    </View>
+                    <View style={styles.planHeaderText}>
+                      <Text style={styles.planTitle}>Premium Lifetime</Text>
+                      <Text style={styles.planSubtitle}>All Programs Forever</Text>
+                    </View>
+                  </View>
+
+                  <View style={styles.priceContainer}>
+                    <Text style={styles.priceSymbol}>$</Text>
+                    <Text style={styles.priceAmount}>59.99</Text>
+                    <Text style={styles.pricePeriod}>one-time</Text>
+                  </View>
+
+                  <View style={styles.savingsBadge}>
+                    <Text style={styles.savingsBadgeText}>Save $29.85 vs 6 Monthly Programs</Text>
+                  </View>
+
+                  <View style={styles.divider} />
+
+                  <View style={styles.featuresContainer}>
+                    <View style={styles.featureRow}>
+                      <IconSymbol
+                        ios_icon_name="checkmark.circle.fill"
+                        android_material_icon_name="check-circle"
+                        size={20}
+                        color={colors.success}
+                      />
+                      <Text style={styles.featureText}>Access to ALL 6 programs</Text>
+                    </View>
+                    <View style={styles.featureRow}>
+                      <IconSymbol
+                        ios_icon_name="checkmark.circle.fill"
+                        android_material_icon_name="check-circle"
+                        size={20}
+                        color={colors.success}
+                      />
+                      <Text style={styles.featureText}>72 total techniques</Text>
+                    </View>
+                    <View style={styles.featureRow}>
+                      <IconSymbol
+                        ios_icon_name="checkmark.circle.fill"
+                        android_material_icon_name="check-circle"
+                        size={20}
+                        color={colors.success}
+                      />
+                      <Text style={styles.featureText}>Unlimited access forever</Text>
+                    </View>
+                    <View style={styles.featureRow}>
+                      <IconSymbol
+                        ios_icon_name="checkmark.circle.fill"
+                        android_material_icon_name="check-circle"
+                        size={20}
+                        color={colors.success}
+                      />
+                      <Text style={styles.featureText}>Switch programs anytime</Text>
+                    </View>
+                    <View style={styles.featureRow}>
+                      <IconSymbol
+                        ios_icon_name="checkmark.circle.fill"
+                        android_material_icon_name="check-circle"
+                        size={20}
+                        color={colors.success}
+                      />
+                      <Text style={styles.featureText}>Future updates included</Text>
+                    </View>
+                    <View style={styles.featureRow}>
+                      <IconSymbol
+                        ios_icon_name="checkmark.circle.fill"
+                        android_material_icon_name="check-circle"
+                        size={20}
+                        color={colors.success}
+                      />
+                      <Text style={styles.featureText}>Priority support</Text>
+                    </View>
+                  </View>
+
+                  <View style={styles.selectButton}>
+                    <Text style={styles.selectButtonText}>Select Premium Plan</Text>
+                    <IconSymbol
+                      ios_icon_name="arrow.right"
+                      android_material_icon_name="arrow-forward"
+                      size={20}
+                      color="#FFB84D"
+                    />
+                  </View>
+                </TouchableOpacity>
+              </Animated.View>
 
               <Animated.View style={lifetimeCardStyle}>
                 <TouchableOpacity
@@ -480,6 +606,12 @@ const styles = StyleSheet.create({
   planCardLifetime: {
     borderColor: colors.accent,
     borderWidth: 2,
+  },
+  planCardPremium: {
+    borderColor: '#FFB84D',
+    borderWidth: 2,
+    boxShadow: '0px 6px 20px rgba(255, 184, 77, 0.2)',
+    elevation: 6,
   },
   planCardSelected: {
     borderColor: colors.primary,
