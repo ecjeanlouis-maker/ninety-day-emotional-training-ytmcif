@@ -25,6 +25,7 @@ import Animated, {
   Extrapolate,
 } from 'react-native-reanimated';
 import CongratulationsModal from '@/components/CongratulationsModal';
+import BillingModal from '@/components/BillingModal';
 import Survey from './survey.ios';
 
 const AnimatedTouchable = Animated.createAnimatedComponent(TouchableOpacity);
@@ -94,6 +95,8 @@ export default function HomeScreen() {
     title: string;
     color: string;
   } | null>(null);
+  const [showBillingModal, setShowBillingModal] = useState(false);
+  const [selectedProgramForBilling, setSelectedProgramForBilling] = useState<ProgramType | undefined>(undefined);
   
   const currentDay = 1;
   const totalDays = 90;
@@ -145,6 +148,27 @@ export default function HomeScreen() {
     setSelectedProgram(program);
     setSelectedTechnique(null);
     setCompletedTechniques(new Set());
+  };
+
+  const handleViewPricing = (program: ProgramType, event: any) => {
+    console.log('User tapped View Pricing for program:', program);
+    event.stopPropagation();
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    setSelectedProgramForBilling(program);
+    setShowBillingModal(true);
+  };
+
+  const handleBillingComplete = (planType: 'monthly' | 'lifetime' | 'premium-lifetime', programType?: ProgramType) => {
+    console.log('Billing completed:', planType, programType);
+    setShowBillingModal(false);
+    
+    if (planType === 'monthly' && programType) {
+      setSelectedProgram(programType);
+    } else if (planType === 'lifetime' || planType === 'premium-lifetime') {
+      if (selectedProgramForBilling) {
+        setSelectedProgram(selectedProgramForBilling);
+      }
+    }
   };
 
   const handleBackToSelection = () => {
@@ -329,124 +353,153 @@ export default function HomeScreen() {
   const motivationalPhrase = 'BE THE BEST VERSION OF YOURSELF';
 
   if (!selectedProgram) {
+    const selectedProgramInfo = selectedProgramForBilling ? PROGRAM_CONFIGS[selectedProgramForBilling] : undefined;
+    
     return (
-      <SafeAreaView style={styles.container} edges={['top']}>
-        <ScrollView 
-          style={styles.scrollView}
-          contentContainerStyle={styles.scrollContent}
-          showsVerticalScrollIndicator={false}
-        >
-          <Animated.View 
-            entering={FadeIn.duration(800)}
-            style={styles.motivationalBanner}
+      <>
+        <SafeAreaView style={styles.container} edges={['top']}>
+          <ScrollView 
+            style={styles.scrollView}
+            contentContainerStyle={styles.scrollContent}
+            showsVerticalScrollIndicator={false}
           >
-            <LinearGradient
-              colors={[colors.primary, colors.accent]}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 0 }}
-              style={styles.motivationalGradient}
+            <Animated.View 
+              entering={FadeIn.duration(800)}
+              style={styles.motivationalBanner}
             >
-              <IconSymbol
-                ios_icon_name="star.fill"
-                android_material_icon_name="star"
-                size={28}
-                color="#FFFFFF"
-              />
-              <Text style={styles.motivationalText}>{motivationalPhrase}</Text>
-              <IconSymbol
-                ios_icon_name="star.fill"
-                android_material_icon_name="star"
-                size={28}
-                color="#FFFFFF"
-              />
-            </LinearGradient>
-          </Animated.View>
+              <LinearGradient
+                colors={[colors.primary, colors.accent]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+                style={styles.motivationalGradient}
+              >
+                <IconSymbol
+                  ios_icon_name="star.fill"
+                  android_material_icon_name="star"
+                  size={28}
+                  color="#FFFFFF"
+                />
+                <Text style={styles.motivationalText}>{motivationalPhrase}</Text>
+                <IconSymbol
+                  ios_icon_name="star.fill"
+                  android_material_icon_name="star"
+                  size={28}
+                  color="#FFFFFF"
+                />
+              </LinearGradient>
+            </Animated.View>
 
-          <Animated.View 
-            entering={FadeIn.delay(200).duration(600)}
-            style={styles.selectionHeader}
-          >
-            <Text style={styles.selectionTitle}>Choose Your</Text>
-            <Text style={styles.selectionTitle}>12-Week Program</Text>
-            <Text style={styles.selectionSubtitle}>
-              Select one program to begin your 90-day transformation journey
-            </Text>
-          </Animated.View>
+            <Animated.View 
+              entering={FadeIn.delay(200).duration(600)}
+              style={styles.selectionHeader}
+            >
+              <Text style={styles.selectionTitle}>Choose Your</Text>
+              <Text style={styles.selectionTitle}>12-Week Program</Text>
+              <Text style={styles.selectionSubtitle}>
+                Select one program to begin your 90-day transformation journey
+              </Text>
+            </Animated.View>
 
-          <Animated.View 
-            entering={FadeInDown.delay(400).duration(600)}
-            style={styles.programCardsContainer}
-          >
-            {(Object.keys(PROGRAM_CONFIGS) as Array<keyof typeof PROGRAM_CONFIGS>).map((programKey, index) => {
-              const config = PROGRAM_CONFIGS[programKey];
-              return (
-                <TouchableOpacity
-                  key={programKey}
-                  style={styles.programCard}
-                  onPress={() => handleProgramSelect(programKey)}
-                  activeOpacity={0.9}
-                >
-                  <LinearGradient
-                    colors={[config.color, config.color + 'DD']}
-                    style={styles.programCardGradient}
-                  >
-                    <View style={styles.programCardIconContainer}>
-                      <IconSymbol
-                        ios_icon_name={config.iconIOS}
-                        android_material_icon_name={config.icon}
-                        size={48}
-                        color="#FFFFFF"
-                      />
-                    </View>
-                    <Text style={styles.programCardTitle}>{config.title}</Text>
-                    <Text style={styles.programCardDescription}>
-                      {config.description}
-                    </Text>
-                    <View style={styles.programCardStats}>
-                      <View style={styles.programCardStat}>
+            <Animated.View 
+              entering={FadeInDown.delay(400).duration(600)}
+              style={styles.programCardsContainer}
+            >
+              {(Object.keys(PROGRAM_CONFIGS) as Array<keyof typeof PROGRAM_CONFIGS>).map((programKey, index) => {
+                const config = PROGRAM_CONFIGS[programKey];
+                return (
+                  <View key={programKey} style={styles.programCard}>
+                    <LinearGradient
+                      colors={[config.color, config.color + 'DD']}
+                      style={styles.programCardGradient}
+                    >
+                      <View style={styles.programCardIconContainer}>
                         <IconSymbol
-                          ios_icon_name="calendar"
-                          android_material_icon_name="calendar-today"
-                          size={16}
+                          ios_icon_name={config.iconIOS}
+                          android_material_icon_name={config.icon}
+                          size={48}
                           color="#FFFFFF"
                         />
-                        <Text style={styles.programCardStatText}>12 Weeks</Text>
                       </View>
-                      <View style={styles.programCardStat}>
-                        <IconSymbol
-                          ios_icon_name="list"
-                          android_material_icon_name="list"
-                          size={16}
-                          color="#FFFFFF"
-                        />
-                        <Text style={styles.programCardStatText}>12 Techniques</Text>
+                      <Text style={styles.programCardTitle}>{config.title}</Text>
+                      <Text style={styles.programCardDescription}>
+                        {config.description}
+                      </Text>
+                      <View style={styles.programCardStats}>
+                        <View style={styles.programCardStat}>
+                          <IconSymbol
+                            ios_icon_name="calendar"
+                            android_material_icon_name="calendar-today"
+                            size={16}
+                            color="#FFFFFF"
+                          />
+                          <Text style={styles.programCardStatText}>12 Weeks</Text>
+                        </View>
+                        <View style={styles.programCardStat}>
+                          <IconSymbol
+                            ios_icon_name="list"
+                            android_material_icon_name="list"
+                            size={16}
+                            color="#FFFFFF"
+                          />
+                          <Text style={styles.programCardStatText}>12 Techniques</Text>
+                        </View>
                       </View>
-                    </View>
-                    <View style={styles.programCardButton}>
-                      <Text style={styles.programCardButtonText}>Start Program</Text>
-                      <IconSymbol
-                        ios_icon_name="arrow.right"
-                        android_material_icon_name="arrow-forward"
-                        size={20}
-                        color="#FFFFFF"
-                      />
-                    </View>
-                  </LinearGradient>
-                </TouchableOpacity>
-              );
-            })}
-          </Animated.View>
+                      
+                      <View style={styles.programCardButtonsRow}>
+                        <TouchableOpacity
+                          style={styles.programCardButtonSecondary}
+                          onPress={(e) => handleViewPricing(programKey, e)}
+                          activeOpacity={0.8}
+                        >
+                          <IconSymbol
+                            ios_icon_name="creditcard"
+                            android_material_icon_name="payment"
+                            size={18}
+                            color="#FFFFFF"
+                          />
+                          <Text style={styles.programCardButtonSecondaryText}>View Pricing</Text>
+                        </TouchableOpacity>
+                        
+                        <TouchableOpacity
+                          style={styles.programCardButtonPrimary}
+                          onPress={() => handleProgramSelect(programKey)}
+                          activeOpacity={0.8}
+                        >
+                          <Text style={styles.programCardButtonPrimaryText}>Start Free</Text>
+                          <IconSymbol
+                            ios_icon_name="arrow.right"
+                            android_material_icon_name="arrow-forward"
+                            size={18}
+                            color="#FFFFFF"
+                          />
+                        </TouchableOpacity>
+                      </View>
+                    </LinearGradient>
+                  </View>
+                );
+              })}
+            </Animated.View>
 
-          <Animated.View 
-            entering={FadeInDown.delay(600).duration(600)}
-            style={styles.selectionFooter}
-          >
-            <Text style={styles.selectionFooterText}>
-              Each program contains 12 weekly techniques designed for the 12-week duration of your 90-day journey.
-            </Text>
-          </Animated.View>
-        </ScrollView>
-      </SafeAreaView>
+            <Animated.View 
+              entering={FadeInDown.delay(600).duration(600)}
+              style={styles.selectionFooter}
+            >
+              <Text style={styles.selectionFooterText}>
+                Each program contains 12 weekly techniques designed for the 12-week duration of your 90-day journey.
+              </Text>
+            </Animated.View>
+          </ScrollView>
+        </SafeAreaView>
+
+        <BillingModal
+          visible={showBillingModal}
+          onClose={() => setShowBillingModal(false)}
+          onSelectPlan={handleBillingComplete}
+          selectedProgram={selectedProgramForBilling}
+          programTitle={selectedProgramInfo?.title}
+          programColor={selectedProgramInfo?.color}
+        />
+      </>
     );
   }
 
@@ -987,18 +1040,41 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#FFFFFF',
   },
-  programCardButton: {
+  programCardButtonsRow: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  programCardButtonSecondary: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    backgroundColor: 'rgba(255, 255, 255, 0.15)',
     paddingVertical: 14,
-    paddingHorizontal: 24,
+    paddingHorizontal: 16,
     borderRadius: 12,
-    gap: 8,
+    gap: 6,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.3)',
   },
-  programCardButtonText: {
-    fontSize: 16,
+  programCardButtonSecondaryText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+  programCardButtonPrimary: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.25)',
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    borderRadius: 12,
+    gap: 6,
+  },
+  programCardButtonPrimaryText: {
+    fontSize: 14,
     fontWeight: '700',
     color: '#FFFFFF',
   },
