@@ -98,6 +98,14 @@ export default function HomeScreen() {
   } | null>(null);
   const [showBillingModal, setShowBillingModal] = useState(false);
   const [selectedProgramForBilling, setSelectedProgramForBilling] = useState<ProgramType | undefined>(undefined);
+  const [hasPaidAccess, setHasPaidAccess] = useState<Record<ProgramType, boolean>>({
+    emotional: false,
+    confidence: false,
+    anger: false,
+    stress: false,
+    'social-anxiety': false,
+    thoughts: false,
+  });
   
   const currentDay = 1;
   const totalDays = 90;
@@ -144,7 +152,7 @@ export default function HomeScreen() {
   };
 
   const handleProgramSelect = (program: 'emotional' | 'confidence' | 'anger' | 'stress' | 'social-anxiety' | 'thoughts') => {
-    console.log('User selected program:', program);
+    console.log('User selected program (free trial - Week 1 only):', program);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     setSelectedProgram(program);
     setSelectedTechnique(null);
@@ -164,8 +172,21 @@ export default function HomeScreen() {
     setShowBillingModal(false);
     
     if (planType === 'monthly' && programType) {
+      const updatedAccess = { ...hasPaidAccess };
+      updatedAccess[programType] = true;
+      setHasPaidAccess(updatedAccess);
       setSelectedProgram(programType);
     } else if (planType === 'lifetime' || planType === 'premium-lifetime') {
+      const allAccess: Record<ProgramType, boolean> = {
+        emotional: true,
+        confidence: true,
+        anger: true,
+        stress: true,
+        'social-anxiety': true,
+        thoughts: true,
+      };
+      setHasPaidAccess(allAccess);
+      
       if (selectedProgramForBilling) {
         setSelectedProgram(selectedProgramForBilling);
       }
@@ -179,14 +200,31 @@ export default function HomeScreen() {
     setSelectedTechnique(null);
   };
 
-  const handleTechniquePress = (id: number) => {
-    console.log('User tapped technique:', id);
+  const handleTechniquePress = (id: number, week: number) => {
+    console.log('User tapped technique:', id, 'Week:', week);
+    
+    if (selectedProgram && week > 1 && !hasPaidAccess[selectedProgram]) {
+      console.log('User attempted to access Week', week, 'without paid access - showing billing modal');
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+      setSelectedProgramForBilling(selectedProgram);
+      setShowBillingModal(true);
+      return;
+    }
+    
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     setSelectedTechnique(selectedTechnique === id ? null : id);
   };
 
-  const handleCheckboxPress = (id: number) => {
-    console.log('User toggled technique completion:', id);
+  const handleCheckboxPress = (id: number, week: number) => {
+    console.log('User toggled technique completion:', id, 'Week:', week);
+    
+    if (selectedProgram && week > 1 && !hasPaidAccess[selectedProgram]) {
+      console.log('User attempted to complete Week', week, 'without paid access - showing billing modal');
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+      setSelectedProgramForBilling(selectedProgram);
+      setShowBillingModal(true);
+      return;
+    }
     
     setCompletedTechniques(prev => {
       const newSet = new Set(prev);
@@ -486,7 +524,7 @@ export default function HomeScreen() {
               style={styles.selectionFooter}
             >
               <Text style={styles.selectionFooterText}>
-                Each program contains 12 weekly techniques designed for the 12-week duration of your 90-day journey.
+                Start Free gives you access to Week 1. Upgrade anytime to unlock all 12 weeks.
               </Text>
             </Animated.View>
           </ScrollView>
@@ -510,133 +548,174 @@ export default function HomeScreen() {
   const programSubtitle = programConfig.subtitle;
   const programIcon = programConfig.icon;
   const programIconIOS = programConfig.iconIOS;
+  const userHasPaidAccess = hasPaidAccess[selectedProgram];
 
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
-      <ScrollView 
-        style={styles.scrollView}
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
-      >
-        <Animated.View 
-          entering={FadeIn.duration(600)}
-          style={styles.header}
+    <>
+      <SafeAreaView style={styles.container} edges={['top']}>
+        <ScrollView 
+          style={styles.scrollView}
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
         >
-          <TouchableOpacity 
-            style={styles.backButton}
-            onPress={handleBackToSelection}
-            activeOpacity={0.7}
+          <Animated.View 
+            entering={FadeIn.duration(600)}
+            style={styles.header}
           >
-            <IconSymbol
-              ios_icon_name="arrow.left"
-              android_material_icon_name="arrow-back"
-              size={24}
-              color={colors.text}
-            />
-            <Text style={styles.backButtonText}>Change Program</Text>
-          </TouchableOpacity>
-          
-          <View style={styles.headerTitleContainer}>
-            <IconSymbol
-              ios_icon_name={programIconIOS}
-              android_material_icon_name={programIcon}
-              size={32}
-              color={programColor}
-            />
-            <Text style={styles.headerTitle}>{programTitle}</Text>
-          </View>
-          <Text style={styles.headerSubtitle}>{programSubtitle}</Text>
-        </Animated.View>
-
-        <Animated.View 
-          entering={FadeInDown.delay(200).duration(600)}
-          style={styles.progressCard}
-        >
-          <View style={styles.progressHeader}>
-            <IconSymbol
-              ios_icon_name="calendar"
-              android_material_icon_name="calendar-today"
-              size={24}
-              color={programColor}
-            />
-            <Text style={styles.progressTitle}>Your Progress</Text>
-          </View>
-          
-          <View style={styles.progressBarContainer}>
-            <View style={styles.progressBarBackground}>
+            <TouchableOpacity 
+              style={styles.backButton}
+              onPress={handleBackToSelection}
+              activeOpacity={0.7}
+            >
+              <IconSymbol
+                ios_icon_name="arrow.left"
+                android_material_icon_name="arrow-back"
+                size={24}
+                color={colors.text}
+              />
+              <Text style={styles.backButtonText}>Change Program</Text>
+            </TouchableOpacity>
+            
+            <View style={styles.headerTitleContainer}>
+              <IconSymbol
+                ios_icon_name={programIconIOS}
+                android_material_icon_name={programIcon}
+                size={32}
+                color={programColor}
+              />
+              <Text style={styles.headerTitle}>{programTitle}</Text>
+            </View>
+            <Text style={styles.headerSubtitle}>{programSubtitle}</Text>
+            
+            {!userHasPaidAccess && (
               <Animated.View 
-                style={[styles.progressBarFill, progressBarStyle, { backgroundColor: programColor }]} 
+                entering={FadeInDown.delay(200).duration(600)}
+                style={styles.freeTrialBanner}
+              >
+                <IconSymbol
+                  ios_icon_name="info.circle"
+                  android_material_icon_name="info"
+                  size={20}
+                  color={programColor}
+                />
+                <Text style={styles.freeTrialText}>
+                  Free Trial: Week 1 Only
+                </Text>
+                <TouchableOpacity
+                  style={[styles.upgradeButton, { backgroundColor: programColor }]}
+                  onPress={() => {
+                    setSelectedProgramForBilling(selectedProgram);
+                    setShowBillingModal(true);
+                  }}
+                  activeOpacity={0.8}
+                >
+                  <Text style={styles.upgradeButtonText}>Upgrade</Text>
+                </TouchableOpacity>
+              </Animated.View>
+            )}
+          </Animated.View>
+
+          <Animated.View 
+            entering={FadeInDown.delay(200).duration(600)}
+            style={styles.progressCard}
+          >
+            <View style={styles.progressHeader}>
+              <IconSymbol
+                ios_icon_name="calendar"
+                android_material_icon_name="calendar-today"
+                size={24}
+                color={programColor}
               />
+              <Text style={styles.progressTitle}>Your Progress</Text>
             </View>
+            
+            <View style={styles.progressBarContainer}>
+              <View style={styles.progressBarBackground}>
+                <Animated.View 
+                  style={[styles.progressBarFill, progressBarStyle, { backgroundColor: programColor }]} 
+                />
+              </View>
+            </View>
+            
+            <Text style={styles.progressText}>{progressText}</Text>
+            
+            <View style={styles.statsRow}>
+              <View style={styles.statItem}>
+                <Text style={[styles.statNumber, { color: programColor }]}>{completedTechniques.size}</Text>
+                <Text style={styles.statLabel}>Completed</Text>
+              </View>
+              <View style={styles.statDivider} />
+              <View style={styles.statItem}>
+                <Text style={[styles.statNumber, { color: programColor }]}>{programTechniques.length}</Text>
+                <Text style={styles.statLabel}>Total Techniques</Text>
+              </View>
+            </View>
+          </Animated.View>
+
+          <Animated.View 
+            entering={FadeInDown.delay(300).duration(600)}
+            style={styles.techniquesHeader}
+          >
+            <Text style={styles.techniquesHeaderTitle}>12 Weekly Techniques</Text>
+            <Text style={styles.techniquesHeaderSubtitle}>
+              One technique per week for 12 weeks
+            </Text>
+          </Animated.View>
+
+          <View style={styles.techniquesContainer}>
+            {programTechniques.map((technique, index) => {
+              const isExpanded = selectedTechnique === technique.id;
+              const isCompleted = completedTechniques.has(technique.id);
+              const weekText = `Week ${technique.week}`;
+              const isLocked = technique.week > 1 && !userHasPaidAccess;
+
+              return (
+                <TechniqueCard
+                  key={technique.id}
+                  technique={technique}
+                  index={index}
+                  isExpanded={isExpanded}
+                  isCompleted={isCompleted}
+                  isLocked={isLocked}
+                  categoryColor={programColor}
+                  weekText={weekText}
+                  onPress={() => handleTechniquePress(technique.id, technique.week)}
+                  onCheckboxPress={() => handleCheckboxPress(technique.id, technique.week)}
+                />
+              );
+            })}
           </View>
-          
-          <Text style={styles.progressText}>{progressText}</Text>
-          
-          <View style={styles.statsRow}>
-            <View style={styles.statItem}>
-              <Text style={[styles.statNumber, { color: programColor }]}>{completedTechniques.size}</Text>
-              <Text style={styles.statLabel}>Completed</Text>
-            </View>
-            <View style={styles.statDivider} />
-            <View style={styles.statItem}>
-              <Text style={[styles.statNumber, { color: programColor }]}>{programTechniques.length}</Text>
-              <Text style={styles.statLabel}>Total Techniques</Text>
-            </View>
-          </View>
-        </Animated.View>
 
-        <Animated.View 
-          entering={FadeInDown.delay(300).duration(600)}
-          style={styles.techniquesHeader}
-        >
-          <Text style={styles.techniquesHeaderTitle}>12 Weekly Techniques</Text>
-          <Text style={styles.techniquesHeaderSubtitle}>
-            One technique per week for 12 weeks
-          </Text>
-        </Animated.View>
+          <Animated.View 
+            entering={FadeInDown.delay(400).duration(600)}
+            style={styles.footer}
+          >
+            <Text style={styles.footerText}>
+              Practice each technique for one week. Consistency over 12 weeks creates lasting transformation.
+            </Text>
+          </Animated.View>
+        </ScrollView>
 
-        <View style={styles.techniquesContainer}>
-          {programTechniques.map((technique, index) => {
-            const isExpanded = selectedTechnique === technique.id;
-            const isCompleted = completedTechniques.has(technique.id);
-            const weekText = `Week ${technique.week}`;
+        {completedTechniqueData && (
+          <CongratulationsModal
+            visible={showCongratsModal}
+            onClose={handleCloseCongratsModal}
+            weekNumber={completedTechniqueData.week}
+            techniqueTitle={completedTechniqueData.title}
+            categoryColor={completedTechniqueData.color}
+          />
+        )}
+      </SafeAreaView>
 
-            return (
-              <TechniqueCard
-                key={technique.id}
-                technique={technique}
-                index={index}
-                isExpanded={isExpanded}
-                isCompleted={isCompleted}
-                categoryColor={programColor}
-                weekText={weekText}
-                onPress={() => handleTechniquePress(technique.id)}
-                onCheckboxPress={() => handleCheckboxPress(technique.id)}
-              />
-            );
-          })}
-        </View>
-
-        <Animated.View 
-          entering={FadeInDown.delay(400).duration(600)}
-          style={styles.footer}
-        >
-          <Text style={styles.footerText}>
-            Practice each technique for one week. Consistency over 12 weeks creates lasting transformation.
-          </Text>
-        </Animated.View>
-      </ScrollView>
-
-      {completedTechniqueData && (
-        <CongratulationsModal
-          visible={showCongratsModal}
-          onClose={handleCloseCongratsModal}
-          weekNumber={completedTechniqueData.week}
-          techniqueTitle={completedTechniqueData.title}
-          categoryColor={completedTechniqueData.color}
-        />
-      )}
-    </SafeAreaView>
+      <BillingModal
+        visible={showBillingModal}
+        onClose={() => setShowBillingModal(false)}
+        onSelectPlan={handleBillingComplete}
+        selectedProgram={selectedProgramForBilling}
+        programTitle={selectedProgramForBilling ? PROGRAM_CONFIGS[selectedProgramForBilling].title : undefined}
+        programColor={selectedProgramForBilling ? PROGRAM_CONFIGS[selectedProgramForBilling].color : undefined}
+      />
+    </>
   );
 }
 
@@ -645,6 +724,7 @@ interface TechniqueCardProps {
   index: number;
   isExpanded: boolean;
   isCompleted: boolean;
+  isLocked: boolean;
   categoryColor: string;
   weekText: string;
   onPress: () => void;
@@ -656,6 +736,7 @@ function TechniqueCard({
   index,
   isExpanded,
   isCompleted,
+  isLocked,
   categoryColor,
   weekText,
   onPress,
@@ -715,41 +796,52 @@ function TechniqueCard({
   return (
     <AnimatedTouchable
       entering={FadeInDown.delay(100 * index).duration(500)}
-      style={[styles.techniqueCard, cardStyle]}
+      style={[styles.techniqueCard, cardStyle, isLocked && styles.techniqueCardLocked]}
       onPress={onPress}
       onPressIn={handlePressIn}
       onPressOut={handlePressOut}
       activeOpacity={0.9}
     >
       <View style={styles.techniqueHeader}>
-        <TouchableOpacity
-          onPress={onCheckboxPress}
-          onPressIn={handleCheckboxPressIn}
-          style={styles.checkboxContainer}
-          activeOpacity={0.7}
-        >
-          <View style={[
-            styles.checkbox,
-            isCompleted && styles.checkboxCompleted,
-            isCompleted && { backgroundColor: categoryColor }
-          ]}>
-            {isCompleted && (
-              <IconSymbol
-                ios_icon_name="checkmark"
-                android_material_icon_name="check"
-                size={16}
-                color="#FFFFFF"
-              />
-            )}
+        {isLocked ? (
+          <View style={styles.lockIconContainer}>
+            <IconSymbol
+              ios_icon_name="lock.fill"
+              android_material_icon_name="lock"
+              size={20}
+              color={colors.textSecondary}
+            />
           </View>
-        </TouchableOpacity>
+        ) : (
+          <TouchableOpacity
+            onPress={onCheckboxPress}
+            onPressIn={handleCheckboxPressIn}
+            style={styles.checkboxContainer}
+            activeOpacity={0.7}
+          >
+            <View style={[
+              styles.checkbox,
+              isCompleted && styles.checkboxCompleted,
+              isCompleted && { backgroundColor: categoryColor }
+            ]}>
+              {isCompleted && (
+                <IconSymbol
+                  ios_icon_name="checkmark"
+                  android_material_icon_name="check"
+                  size={16}
+                  color="#FFFFFF"
+                />
+              )}
+            </View>
+          </TouchableOpacity>
+        )}
 
-        <View style={[styles.iconCircle, { backgroundColor: colors.highlight }]}>
+        <View style={[styles.iconCircle, { backgroundColor: isLocked ? colors.border : colors.highlight }]}>
           <IconSymbol
             ios_icon_name={technique.icon}
             android_material_icon_name={technique.icon}
             size={24}
-            color={categoryColor}
+            color={isLocked ? colors.textSecondary : categoryColor}
           />
         </View>
         
@@ -757,57 +849,66 @@ function TechniqueCard({
           <Text style={styles.techniqueNumber}>{weekText}</Text>
           <Text style={[
             styles.techniqueTitle,
-            isCompleted && styles.techniqueTitleCompleted
+            isCompleted && styles.techniqueTitleCompleted,
+            isLocked && styles.techniqueTitleLocked
           ]}>
             {technique.title}
           </Text>
         </View>
 
-        <Animated.View style={chevronStyle}>
-          <IconSymbol
-            ios_icon_name="chevron.down"
-            android_material_icon_name="keyboard-arrow-down"
-            size={24}
-            color={colors.textSecondary}
-          />
-        </Animated.View>
+        {isLocked ? (
+          <View style={styles.lockedBadge}>
+            <Text style={styles.lockedBadgeText}>Locked</Text>
+          </View>
+        ) : (
+          <Animated.View style={chevronStyle}>
+            <IconSymbol
+              ios_icon_name="chevron.down"
+              android_material_icon_name="keyboard-arrow-down"
+              size={24}
+              color={colors.textSecondary}
+            />
+          </Animated.View>
+        )}
       </View>
 
-      <Animated.View style={[styles.techniqueDetails, detailsStyle]}>
-        <View style={styles.divider} />
-        
-        <Text style={styles.detailLabel}>Practice Steps</Text>
-        <View style={styles.bulletPointsContainer}>
-          {technique.practiceSteps.map((step: string, stepIndex: number) => (
-            <View key={stepIndex} style={styles.bulletPointRow}>
-              <Text style={styles.bulletPoint}>•</Text>
-              <Text style={styles.bulletPointText}>{step}</Text>
-            </View>
-          ))}
-        </View>
-        
-        <Text style={styles.detailLabel}>Goal</Text>
-        <View style={styles.goalContainer}>
-          <IconSymbol
-            ios_icon_name="target"
-            android_material_icon_name="flag"
-            size={18}
-            color={colors.goal}
-          />
-          <Text style={styles.goalText}>{technique.goal}</Text>
-        </View>
-        
-        <Text style={styles.detailLabel}>Practice Frequency</Text>
-        <View style={styles.frequencyContainer}>
-          <IconSymbol
-            ios_icon_name="clock"
-            android_material_icon_name="schedule"
-            size={16}
-            color={categoryColor}
-          />
-          <Text style={styles.frequencyText}>{technique.practiceFrequency}</Text>
-        </View>
-      </Animated.View>
+      {!isLocked && (
+        <Animated.View style={[styles.techniqueDetails, detailsStyle]}>
+          <View style={styles.divider} />
+          
+          <Text style={styles.detailLabel}>Practice Steps</Text>
+          <View style={styles.bulletPointsContainer}>
+            {technique.practiceSteps.map((step: string, stepIndex: number) => (
+              <View key={stepIndex} style={styles.bulletPointRow}>
+                <Text style={styles.bulletPoint}>•</Text>
+                <Text style={styles.bulletPointText}>{step}</Text>
+              </View>
+            ))}
+          </View>
+          
+          <Text style={styles.detailLabel}>Goal</Text>
+          <View style={styles.goalContainer}>
+            <IconSymbol
+              ios_icon_name="target"
+              android_material_icon_name="flag"
+              size={18}
+              color={colors.goal}
+            />
+            <Text style={styles.goalText}>{technique.goal}</Text>
+          </View>
+          
+          <Text style={styles.detailLabel}>Practice Frequency</Text>
+          <View style={styles.frequencyContainer}>
+            <IconSymbol
+              ios_icon_name="clock"
+              android_material_icon_name="schedule"
+              size={16}
+              color={categoryColor}
+            />
+            <Text style={styles.frequencyText}>{technique.practiceFrequency}</Text>
+          </View>
+        </Animated.View>
+      )}
     </AnimatedTouchable>
   );
 }
@@ -1127,6 +1228,33 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     textAlign: 'center',
   },
+  freeTrialBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.highlight,
+    borderRadius: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    marginTop: 16,
+    gap: 8,
+  },
+  freeTrialText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.text,
+    flex: 1,
+  },
+  upgradeButton: {
+    paddingVertical: 6,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+  },
+  upgradeButtonText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
   progressCard: {
     backgroundColor: colors.card,
     borderRadius: 16,
@@ -1220,8 +1348,18 @@ const styles = StyleSheet.create({
     boxShadow: '0px 2px 8px rgba(107, 76, 230, 0.08)',
     elevation: 2,
   },
+  techniqueCardLocked: {
+    opacity: 0.7,
+  },
   techniqueHeader: {
     flexDirection: 'row',
+    alignItems: 'center',
+  },
+  lockIconContainer: {
+    marginRight: 12,
+    width: 24,
+    height: 24,
+    justifyContent: 'center',
     alignItems: 'center',
   },
   checkboxContainer: {
@@ -1263,6 +1401,20 @@ const styles = StyleSheet.create({
     color: colors.text,
   },
   techniqueTitleCompleted: {
+    color: colors.textSecondary,
+  },
+  techniqueTitleLocked: {
+    color: colors.textSecondary,
+  },
+  lockedBadge: {
+    backgroundColor: colors.border,
+    paddingVertical: 4,
+    paddingHorizontal: 10,
+    borderRadius: 8,
+  },
+  lockedBadgeText: {
+    fontSize: 12,
+    fontWeight: '600',
     color: colors.textSecondary,
   },
   techniqueDetails: {
