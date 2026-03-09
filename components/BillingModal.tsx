@@ -24,6 +24,7 @@ import Animated, {
 import { ProgramType } from '@/types/program';
 import { useRouter } from 'expo-router';
 import { authenticatedPost } from '@/utils/api';
+import { useAuth } from '@/contexts/AuthContext';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -47,8 +48,10 @@ export default function BillingModal({
   console.log('BillingModal rendered with program:', selectedProgram);
   
   const router = useRouter();
+  const { user } = useAuth();
   const [selectedPlanType, setSelectedPlanType] = useState<'monthly' | 'lifetime' | 'premium-lifetime' | null>(null);
   const [showPaymentSelection, setShowPaymentSelection] = useState(false);
+  const [showSignInPrompt, setShowSignInPrompt] = useState(false);
   const [isProcessingPayment, setIsProcessingPayment] = useState(false);
   const [feedbackModal, setFeedbackModal] = useState<{
     visible: boolean;
@@ -97,7 +100,14 @@ export default function BillingModal({
       scaleMonthly.value = withSpring(1);
     });
     
-    setShowPaymentSelection(true);
+    // Check if user is authenticated
+    if (!user) {
+      console.log('User not authenticated, showing sign-in prompt');
+      setShowSignInPrompt(true);
+    } else {
+      console.log('User authenticated, proceeding to payment selection');
+      setShowPaymentSelection(true);
+    }
   };
 
   const handleSelectLifetime = () => {
@@ -108,7 +118,14 @@ export default function BillingModal({
       scaleLifetime.value = withSpring(1);
     });
     
-    setShowPaymentSelection(true);
+    // Check if user is authenticated
+    if (!user) {
+      console.log('User not authenticated, showing sign-in prompt');
+      setShowSignInPrompt(true);
+    } else {
+      console.log('User authenticated, proceeding to payment selection');
+      setShowPaymentSelection(true);
+    }
   };
 
   const handleSelectPremiumLifetime = () => {
@@ -119,12 +136,50 @@ export default function BillingModal({
       scalePremiumLifetime.value = withSpring(1);
     });
     
+    // Check if user is authenticated
+    if (!user) {
+      console.log('User not authenticated, showing sign-in prompt');
+      setShowSignInPrompt(true);
+    } else {
+      console.log('User authenticated, proceeding to payment selection');
+      setShowPaymentSelection(true);
+    }
+  };
+
+  const handleSignIn = () => {
+    console.log('User navigating to sign-in screen');
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    onClose();
+    router.push('/auth');
+  };
+
+  const handleContinueAsGuest = () => {
+    console.log('User continuing as guest (will need to sign in before payment)');
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    setShowSignInPrompt(false);
     setShowPaymentSelection(true);
   };
 
   const handleManagePaymentMethods = () => {
     console.log('User navigating to payment methods screen');
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    
+    // Check if user is authenticated before navigating
+    if (!user) {
+      console.log('User not authenticated, redirecting to sign-in');
+      showFeedback(
+        'Sign In Required',
+        'Please sign in to manage your payment methods.',
+        'error'
+      );
+      setTimeout(() => {
+        hideFeedback();
+        onClose();
+        router.push('/auth');
+      }, 1500);
+      return;
+    }
+    
     onClose();
     router.push('/payment-methods');
   };
@@ -133,6 +188,22 @@ export default function BillingModal({
     console.log('[API] User confirmed payment with plan:', selectedPlanType);
     
     if (!selectedPlanType) return;
+    
+    // Final authentication check before payment
+    if (!user) {
+      console.log('User not authenticated, cannot process payment');
+      showFeedback(
+        'Sign In Required',
+        'Please sign in to complete your purchase.',
+        'error'
+      );
+      setTimeout(() => {
+        hideFeedback();
+        onClose();
+        router.push('/auth');
+      }, 1500);
+      return;
+    }
     
     setIsProcessingPayment(true);
     try {
@@ -167,6 +238,7 @@ export default function BillingModal({
     console.log('User navigating back to plan selection');
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     setShowPaymentSelection(false);
+    setShowSignInPrompt(false);
     setSelectedPlanType(null);
   };
 
@@ -175,6 +247,7 @@ export default function BillingModal({
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     setSelectedPlanType(null);
     setShowPaymentSelection(false);
+    setShowSignInPrompt(false);
     onClose();
   };
 
@@ -191,9 +264,178 @@ export default function BillingModal({
     return planNameValue;
   };
 
+  // Sign-in prompt modal
+  if (showSignInPrompt && selectedPlanType) {
+    const planAmount = getPlanAmount(selectedPlanType);
+    const planName = getPlanName(selectedPlanType);
+
+    return (
+      <Modal
+        visible={visible}
+        transparent
+        animationType="fade"
+        onRequestClose={handleClose}
+      >
+        <View style={styles.modalOverlay}>
+          <Animated.View 
+            entering={FadeIn.duration(300)}
+            exiting={FadeOut.duration(200)}
+            style={styles.modalContent}
+          >
+            <View style={styles.modalHeader}>
+              <TouchableOpacity
+                style={styles.backButton}
+                onPress={handleBackToPlans}
+                activeOpacity={0.7}
+              >
+                <IconSymbol
+                  ios_icon_name="chevron.left"
+                  android_material_icon_name="arrow-back"
+                  size={20}
+                  color={colors.text}
+                />
+              </TouchableOpacity>
+              <Text style={styles.modalHeaderTitle}>Sign In</Text>
+              <TouchableOpacity
+                style={styles.closeButton}
+                onPress={handleClose}
+                activeOpacity={0.7}
+              >
+                <IconSymbol
+                  ios_icon_name="xmark"
+                  android_material_icon_name="close"
+                  size={20}
+                  color={colors.text}
+                />
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView 
+              showsVerticalScrollIndicator={false}
+              contentContainerStyle={styles.scrollContent}
+            >
+              <View style={styles.signInPromptContent}>
+                <View style={styles.signInIconContainer}>
+                  <LinearGradient
+                    colors={[displayProgramColor, displayProgramColor + 'DD']}
+                    style={styles.signInIconGradient}
+                  >
+                    <IconSymbol
+                      ios_icon_name="person.circle.fill"
+                      android_material_icon_name="account-circle"
+                      size={48}
+                      color="#FFFFFF"
+                    />
+                  </LinearGradient>
+                </View>
+
+                <Text style={styles.signInPromptTitle}>Sign In to Continue</Text>
+                <Text style={styles.signInPromptSubtitle}>
+                  Create an account or sign in to securely save your payment methods and manage your subscription.
+                </Text>
+
+                <View style={styles.selectedPlanSummarySmall}>
+                  <Text style={styles.selectedPlanSummaryLabel}>Selected Plan</Text>
+                  <View style={styles.selectedPlanSummaryRow}>
+                    <Text style={styles.selectedPlanSummaryName}>{planName}</Text>
+                    <Text style={styles.selectedPlanSummaryAmount}>{planAmount}</Text>
+                  </View>
+                </View>
+
+                <View style={styles.signInBenefits}>
+                  <View style={styles.benefitRow}>
+                    <IconSymbol
+                      ios_icon_name="checkmark.circle.fill"
+                      android_material_icon_name="check-circle"
+                      size={20}
+                      color={colors.success}
+                    />
+                    <Text style={styles.benefitText}>Securely save payment methods</Text>
+                  </View>
+                  <View style={styles.benefitRow}>
+                    <IconSymbol
+                      ios_icon_name="checkmark.circle.fill"
+                      android_material_icon_name="check-circle"
+                      size={20}
+                      color={colors.success}
+                    />
+                    <Text style={styles.benefitText}>Manage subscriptions easily</Text>
+                  </View>
+                  <View style={styles.benefitRow}>
+                    <IconSymbol
+                      ios_icon_name="checkmark.circle.fill"
+                      android_material_icon_name="check-circle"
+                      size={20}
+                      color={colors.success}
+                    />
+                    <Text style={styles.benefitText}>Access across all devices</Text>
+                  </View>
+                  <View style={styles.benefitRow}>
+                    <IconSymbol
+                      ios_icon_name="checkmark.circle.fill"
+                      android_material_icon_name="check-circle"
+                      size={20}
+                      color={colors.success}
+                    />
+                    <Text style={styles.benefitText}>Track your progress</Text>
+                  </View>
+                </View>
+
+                <TouchableOpacity
+                  style={styles.signInButton}
+                  onPress={handleSignIn}
+                  activeOpacity={0.9}
+                >
+                  <LinearGradient
+                    colors={[colors.primary, colors.accent]}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 0 }}
+                    style={styles.signInButtonGradient}
+                  >
+                    <IconSymbol
+                      ios_icon_name="person.fill"
+                      android_material_icon_name="person"
+                      size={20}
+                      color="#FFFFFF"
+                    />
+                    <Text style={styles.signInButtonText}>Sign In or Create Account</Text>
+                  </LinearGradient>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={styles.continueAsGuestButton}
+                  onPress={handleContinueAsGuest}
+                  activeOpacity={0.8}
+                >
+                  <Text style={styles.continueAsGuestText}>Continue as Guest</Text>
+                  <Text style={styles.continueAsGuestSubtext}>
+                    You&apos;ll need to sign in before completing payment
+                  </Text>
+                </TouchableOpacity>
+
+                <View style={styles.secureContainer}>
+                  <IconSymbol
+                    ios_icon_name="lock.shield.fill"
+                    android_material_icon_name="verified-user"
+                    size={16}
+                    color={colors.success}
+                  />
+                  <Text style={styles.secureText}>Your data is secure and encrypted</Text>
+                </View>
+              </View>
+            </ScrollView>
+          </Animated.View>
+        </View>
+      </Modal>
+    );
+  }
+
+  // Payment selection screen
   if (showPaymentSelection && selectedPlanType) {
     const planAmount = getPlanAmount(selectedPlanType);
     const planName = getPlanName(selectedPlanType);
+    const isAuthenticated = !!user;
+    const userEmail = user?.email || '';
 
     return (
       <Modal
@@ -240,6 +482,45 @@ export default function BillingModal({
               showsVerticalScrollIndicator={false}
               contentContainerStyle={styles.scrollContent}
             >
+              {isAuthenticated && (
+                <View style={styles.userInfoBanner}>
+                  <View style={styles.userInfoIcon}>
+                    <IconSymbol
+                      ios_icon_name="person.circle.fill"
+                      android_material_icon_name="account-circle"
+                      size={24}
+                      color={colors.primary}
+                    />
+                  </View>
+                  <View style={styles.userInfoText}>
+                    <Text style={styles.userInfoLabel}>Signed in as</Text>
+                    <Text style={styles.userInfoEmail}>{userEmail}</Text>
+                  </View>
+                  <View style={styles.userInfoBadge}>
+                    <IconSymbol
+                      ios_icon_name="checkmark.circle.fill"
+                      android_material_icon_name="check-circle"
+                      size={16}
+                      color={colors.success}
+                    />
+                  </View>
+                </View>
+              )}
+
+              {!isAuthenticated && (
+                <View style={styles.warningBanner}>
+                  <IconSymbol
+                    ios_icon_name="exclamationmark.triangle.fill"
+                    android_material_icon_name="warning"
+                    size={20}
+                    color="#FF9500"
+                  />
+                  <Text style={styles.warningText}>
+                    You&apos;ll need to sign in before completing payment
+                  </Text>
+                </View>
+              )}
+
               <View style={styles.selectedPlanSummary}>
                 <LinearGradient
                   colors={[displayProgramColor, displayProgramColor + 'DD']}
@@ -293,7 +574,9 @@ export default function BillingModal({
                     color={colors.primary}
                   />
                   <Text style={styles.infoText}>
-                    You'll be redirected to add or select a payment method. After adding your payment method, return here to complete your purchase.
+                    {isAuthenticated 
+                      ? "You'll be redirected to add or select a payment method. After adding your payment method, return here to complete your purchase."
+                      : "Sign in to securely save and manage your payment methods. You'll be able to complete your purchase after signing in."}
                   </Text>
                 </View>
               </View>
@@ -378,6 +661,7 @@ export default function BillingModal({
     );
   }
 
+  // Plan selection screen
   return (
     <Modal
       visible={visible}
@@ -850,6 +1134,173 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginTop: 12,
     lineHeight: 20,
+  },
+  signInPromptContent: {
+    paddingHorizontal: 24,
+    paddingTop: 20,
+    alignItems: 'center',
+  },
+  signInIconContainer: {
+    marginBottom: 24,
+  },
+  signInIconGradient: {
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  signInPromptTitle: {
+    fontSize: 24,
+    fontWeight: '900',
+    color: colors.text,
+    textAlign: 'center',
+    marginBottom: 12,
+  },
+  signInPromptSubtitle: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: colors.textSecondary,
+    textAlign: 'center',
+    lineHeight: 20,
+    marginBottom: 24,
+  },
+  selectedPlanSummarySmall: {
+    width: '100%',
+    backgroundColor: colors.card,
+    borderRadius: 12,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: colors.border,
+    marginBottom: 24,
+  },
+  selectedPlanSummaryLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: colors.textSecondary,
+    marginBottom: 8,
+  },
+  selectedPlanSummaryRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  selectedPlanSummaryName: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: colors.text,
+  },
+  selectedPlanSummaryAmount: {
+    fontSize: 20,
+    fontWeight: '900',
+    color: colors.primary,
+  },
+  signInBenefits: {
+    width: '100%',
+    gap: 12,
+    marginBottom: 32,
+  },
+  benefitRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  benefitText: {
+    flex: 1,
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.text,
+  },
+  signInButton: {
+    width: '100%',
+    borderRadius: 12,
+    overflow: 'hidden',
+    marginBottom: 16,
+    boxShadow: '0px 4px 16px rgba(107, 76, 230, 0.3)',
+    elevation: 6,
+  },
+  signInButtonGradient: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 16,
+    paddingHorizontal: 24,
+    gap: 10,
+  },
+  signInButtonText: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+  continueAsGuestButton: {
+    width: '100%',
+    paddingVertical: 14,
+    paddingHorizontal: 20,
+    borderRadius: 12,
+    backgroundColor: colors.card,
+    borderWidth: 1,
+    borderColor: colors.border,
+    alignItems: 'center',
+    marginBottom: 24,
+  },
+  continueAsGuestText: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: colors.text,
+    marginBottom: 4,
+  },
+  continueAsGuestSubtext: {
+    fontSize: 12,
+    fontWeight: '500',
+    color: colors.textSecondary,
+  },
+  userInfoBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.highlight,
+    borderRadius: 12,
+    padding: 14,
+    marginHorizontal: 20,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  userInfoIcon: {
+    marginRight: 12,
+  },
+  userInfoText: {
+    flex: 1,
+  },
+  userInfoLabel: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: colors.textSecondary,
+    marginBottom: 2,
+  },
+  userInfoEmail: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: colors.text,
+  },
+  userInfoBadge: {
+    marginLeft: 8,
+  },
+  warningBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFF9E6',
+    borderRadius: 12,
+    padding: 14,
+    marginHorizontal: 20,
+    marginBottom: 16,
+    gap: 10,
+  },
+  warningText: {
+    flex: 1,
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#8B6914',
+    lineHeight: 18,
   },
   selectedPlanSummary: {
     marginHorizontal: 20,
