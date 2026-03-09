@@ -1,3 +1,4 @@
+
 import Constants from "expo-constants";
 import { Platform } from "react-native";
 import * as SecureStore from "expo-secure-store";
@@ -26,9 +27,13 @@ export const isBackendConfigured = (): boolean => {
 export const getBearerToken = async (): Promise<string | null> => {
   try {
     if (Platform.OS === "web") {
-      return localStorage.getItem(BEARER_TOKEN_KEY);
+      const token = localStorage.getItem(BEARER_TOKEN_KEY);
+      console.log("[API] Retrieved bearer token from localStorage:", token ? "✓ Token found" : "✗ No token");
+      return token;
     } else {
-      return await SecureStore.getItemAsync(BEARER_TOKEN_KEY);
+      const token = await SecureStore.getItemAsync(BEARER_TOKEN_KEY);
+      console.log("[API] Retrieved bearer token from SecureStore:", token ? "✓ Token found" : "✗ No token");
+      return token;
     }
   } catch (error) {
     console.error("[API] Error retrieving bearer token:", error);
@@ -64,23 +69,40 @@ export const apiCall = async <T = any>(
       },
     };
 
-    console.log("[API] Fetch options:", fetchOptions);
-
     // Always send the token if we have it (needed for cross-domain/iframe support)
     const token = await getBearerToken();
     if (token) {
+      console.log("[API] Adding Bearer token to request headers");
       fetchOptions.headers = {
         ...fetchOptions.headers,
         Authorization: `Bearer ${token}`,
       };
+    } else {
+      console.log("[API] No bearer token available for this request");
     }
+
+    console.log("[API] Fetch options:", {
+      method: fetchOptions.method,
+      headers: fetchOptions.headers,
+      hasBody: !!fetchOptions.body,
+    });
 
     const response = await fetch(url, fetchOptions);
 
     if (!response.ok) {
       const text = await response.text();
       console.error("[API] Error response:", response.status, text);
-      throw new Error(`API error: ${response.status} - ${text}`);
+      
+      // Provide user-friendly error messages
+      if (response.status === 401) {
+        throw new Error("Authentication required. Please sign in to continue.");
+      } else if (response.status === 403) {
+        throw new Error("Access denied. You don't have permission to perform this action.");
+      } else if (response.status === 404) {
+        throw new Error("Resource not found.");
+      } else {
+        throw new Error(`API error: ${response.status} - ${text}`);
+      }
     }
 
     const data = await response.json();
@@ -162,12 +184,15 @@ export const authenticatedApiCall = async <T = any>(
   endpoint: string,
   options?: RequestInit
 ): Promise<T> => {
+  console.log("[API] Making authenticated request to:", endpoint);
   const token = await getBearerToken();
 
   if (!token) {
-    throw new Error("Authentication token not found. Please sign in.");
+    console.error("[API] No authentication token found. User must sign in.");
+    throw new Error("Authentication required. Please sign in to continue.");
   }
 
+  console.log("[API] ✓ Authentication token verified, proceeding with request");
   return apiCall<T>(endpoint, {
     ...options,
     headers: {

@@ -41,7 +41,7 @@ interface PaymentMethod {
 const ERROR_COLOR = '#FF3B30';
 
 export default function PaymentMethodsScreen() {
-  console.log('PaymentMethodsScreen rendered');
+  console.log('[PaymentMethods] Screen rendered');
   const router = useRouter();
   
   const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([]);
@@ -82,14 +82,21 @@ export default function PaymentMethodsScreen() {
   // Fetch payment methods on mount
   React.useEffect(() => {
     const fetchPaymentMethods = async () => {
-      console.log('[API] Fetching payment methods from backend');
+      console.log('[PaymentMethods] Fetching payment methods from backend');
       try {
         const methods = await authenticatedGet<PaymentMethod[]>('/api/payment-methods');
-        console.log('[API] Payment methods fetched:', methods);
+        console.log('[PaymentMethods] ✓ Payment methods fetched successfully:', methods.length, 'methods');
         setPaymentMethods(Array.isArray(methods) ? methods : []);
       } catch (error) {
-        console.error('[API] Error fetching payment methods:', error);
+        console.error('[PaymentMethods] ✗ Error fetching payment methods:', error);
         // Show empty state if fetch fails (user may not be signed in yet)
+        if (error instanceof Error && error.message.includes('Authentication required')) {
+          showFeedback(
+            'Sign In Required',
+            'Please sign in to view and manage your payment methods.',
+            'error'
+          );
+        }
       } finally {
         setLoading(false);
       }
@@ -99,19 +106,19 @@ export default function PaymentMethodsScreen() {
   }, []);
 
   const handleBack = () => {
-    console.log('User tapped back button');
+    console.log('[PaymentMethods] User tapped back button');
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     router.back();
   };
 
   const handleAddPaymentMethod = () => {
-    console.log('User tapped add payment method');
+    console.log('[PaymentMethods] User tapped add payment method');
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     setShowAddModal(true);
   };
 
   const handleSaveCard = async () => {
-    console.log('User saving new card:', { cardNumber, expiryDate, cardholderName });
+    console.log('[PaymentMethods] User saving new card:', { cardNumber, expiryDate, cardholderName });
     
     // Validate all fields
     const errors = {
@@ -145,7 +152,7 @@ export default function PaymentMethodsScreen() {
     const [monthValue, yearValue] = expiryDate.split('/');
     
     try {
-      console.log('[API] Requesting POST /api/payment-methods...');
+      console.log('[PaymentMethods] Requesting POST /api/payment-methods...');
       const newMethod = await authenticatedPost<PaymentMethod>('/api/payment-methods', {
         cardNumber: cardNumber.replace(/\s/g, ''),
         expiryMonth: monthValue,
@@ -153,7 +160,7 @@ export default function PaymentMethodsScreen() {
         cvv: cvv,
         cardholderName: cardholderName.trim(),
       });
-      console.log('[API] Payment method added successfully:', newMethod);
+      console.log('[PaymentMethods] ✓ Payment method added successfully:', newMethod.id);
       
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       
@@ -165,8 +172,14 @@ export default function PaymentMethodsScreen() {
       setCvv('');
       setCardholderName('');
       setCardErrors({ cardNumber: '', expiryDate: '', cvv: '', cardholderName: '' });
+      
+      showFeedback(
+        'Card Added',
+        'Your payment method has been saved securely.',
+        'success'
+      );
     } catch (error) {
-      console.error('[API] Error adding payment method:', error);
+      console.error('[PaymentMethods] ✗ Error adding payment method:', error);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
       showFeedback(
         'Card Not Added',
@@ -179,20 +192,26 @@ export default function PaymentMethodsScreen() {
   };
 
   const handleSetDefault = async (methodId: string) => {
-    console.log('[API] User setting default payment method:', methodId);
+    console.log('[PaymentMethods] User setting default payment method:', methodId);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     
     try {
-      console.log(`[API] Requesting PUT /api/payment-methods/${methodId}/default...`);
+      console.log(`[PaymentMethods] Requesting PUT /api/payment-methods/${methodId}/default...`);
       await authenticatedPut(`/api/payment-methods/${methodId}/default`, {});
-      console.log('[API] Default payment method updated successfully');
+      console.log('[PaymentMethods] ✓ Default payment method updated successfully');
       
       setPaymentMethods(prev => prev.map(method => ({
         ...method,
         isDefault: method.id === methodId,
       })));
+      
+      showFeedback(
+        'Default Updated',
+        'Your default payment method has been updated.',
+        'success'
+      );
     } catch (error) {
-      console.error('[API] Error setting default payment method:', error);
+      console.error('[PaymentMethods] ✗ Error setting default payment method:', error);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
       showFeedback(
         'Update Failed',
@@ -203,22 +222,22 @@ export default function PaymentMethodsScreen() {
   };
 
   const handleDeleteMethod = (methodId: string) => {
-    console.log('User requesting to delete payment method:', methodId);
+    console.log('[PaymentMethods] User requesting to delete payment method:', methodId);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     setSelectedMethodId(methodId);
     setShowDeleteConfirm(true);
   };
 
   const confirmDelete = async () => {
-    console.log('[API] User confirmed delete payment method:', selectedMethodId);
+    console.log('[PaymentMethods] User confirmed delete payment method:', selectedMethodId);
     
     if (!selectedMethodId) return;
     
     setIsDeleting(true);
     try {
-      console.log(`[API] Requesting DELETE /api/payment-methods/${selectedMethodId}...`);
+      console.log(`[PaymentMethods] Requesting DELETE /api/payment-methods/${selectedMethodId}...`);
       await authenticatedDelete(`/api/payment-methods/${selectedMethodId}`);
-      console.log('[API] Payment method deleted successfully');
+      console.log('[PaymentMethods] ✓ Payment method deleted successfully');
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       
       setPaymentMethods(prev => {
@@ -234,8 +253,14 @@ export default function PaymentMethodsScreen() {
       
       setShowDeleteConfirm(false);
       setSelectedMethodId(null);
+      
+      showFeedback(
+        'Card Deleted',
+        'Your payment method has been removed.',
+        'success'
+      );
     } catch (error) {
-      console.error('[API] Error deleting payment method:', error);
+      console.error('[PaymentMethods] ✗ Error deleting payment method:', error);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
       setShowDeleteConfirm(false);
       setSelectedMethodId(null);
@@ -250,14 +275,14 @@ export default function PaymentMethodsScreen() {
   };
 
   const cancelDelete = () => {
-    console.log('User cancelled delete');
+    console.log('[PaymentMethods] User cancelled delete');
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     setShowDeleteConfirm(false);
     setSelectedMethodId(null);
   };
 
   const closeAddModal = () => {
-    console.log('User closed add payment modal');
+    console.log('[PaymentMethods] User closed add payment modal');
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     setShowAddModal(false);
     setCardNumber('');
@@ -360,6 +385,25 @@ export default function PaymentMethodsScreen() {
               </View>
             </Animated.View>
 
+            <Animated.View entering={FadeInDown.delay(150).springify()}>
+              <View style={styles.authInfoBox}>
+                <View style={styles.authInfoIcon}>
+                  <IconSymbol
+                    ios_icon_name="lock.shield.fill"
+                    android_material_icon_name="verified-user"
+                    size={20}
+                    color={colors.primary}
+                  />
+                </View>
+                <View style={styles.authInfoTextContainer}>
+                  <Text style={styles.authInfoTitle}>Secure & Authenticated</Text>
+                  <Text style={styles.authInfoText}>
+                    Your payment methods are protected with authentication tokens and encrypted storage
+                  </Text>
+                </View>
+              </View>
+            </Animated.View>
+
         <Animated.View entering={FadeInDown.delay(200).springify()}>
           <TouchableOpacity
             style={styles.addButton}
@@ -428,7 +472,7 @@ export default function PaymentMethodsScreen() {
               <View style={styles.securityTextContainer}>
                 <Text style={styles.securityTitle}>Secure Payment Processing</Text>
                 <Text style={styles.securityText}>
-                  Your payment information is encrypted and securely stored via Stripe
+                  Your payment information is encrypted and securely stored via Stripe. All transactions are protected with authentication tokens.
                 </Text>
               </View>
             </View>
@@ -664,7 +708,7 @@ function PaymentMethodCard({ method, onSetDefault, onDelete }: PaymentMethodCard
   });
 
   const handleSetDefault = () => {
-    console.log('Setting default payment method:', method.id);
+    console.log('[PaymentMethodCard] Setting default payment method:', method.id);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     scale.value = withSpring(0.95, {}, () => {
       scale.value = withSpring(1);
@@ -673,7 +717,7 @@ function PaymentMethodCard({ method, onSetDefault, onDelete }: PaymentMethodCard
   };
 
   const handleDelete = () => {
-    console.log('Deleting payment method:', method.id);
+    console.log('[PaymentMethodCard] Deleting payment method:', method.id);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     onDelete(method.id);
   };
@@ -773,7 +817,7 @@ const styles = StyleSheet.create({
     paddingBottom: 40,
   },
   headerSection: {
-    marginBottom: 24,
+    marginBottom: 16,
   },
   headerTitle: {
     fontSize: 28,
@@ -786,6 +830,38 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     color: colors.textSecondary,
     lineHeight: 20,
+  },
+  authInfoBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.highlight,
+    padding: 14,
+    borderRadius: 12,
+    marginBottom: 24,
+    gap: 12,
+  },
+  authInfoIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: colors.card,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  authInfoTextContainer: {
+    flex: 1,
+  },
+  authInfoTitle: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: colors.text,
+    marginBottom: 4,
+  },
+  authInfoText: {
+    fontSize: 11,
+    fontWeight: '500',
+    color: colors.textSecondary,
+    lineHeight: 16,
   },
   addButton: {
     marginBottom: 24,
