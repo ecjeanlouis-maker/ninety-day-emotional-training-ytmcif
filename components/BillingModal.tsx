@@ -82,15 +82,15 @@ export default function BillingModal({
   };
 
   const handleSelectLifetime = () => {
-    console.log('User selected lifetime plan');
+    console.log('User selected lifetime plan for program:', selectedProgram);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     setSelectedPlanType('lifetime');
     scaleLifetime.value = withSpring(0.95, {}, () => {
       scaleLifetime.value = withSpring(1);
     });
     
-    // TODO: Backend Integration - POST /api/subscriptions with { planType: 'lifetime', amount: 10.99 } → { subscriptionId, status }
-    onSelectPlan('lifetime');
+    // TODO: Backend Integration - POST /api/subscriptions with { programType: selectedProgram, planType: 'lifetime', amount: 10.99 } → { subscriptionId, status }
+    onSelectPlan('lifetime', selectedProgram);
   };
 
   const handleSelectPremiumLifetime = () => {
@@ -306,7 +306,7 @@ export default function BillingModal({
                     </View>
                     <View style={styles.planHeaderText}>
                       <Text style={styles.planTitle}>Premium Lifetime</Text>
-                      <Text style={styles.planSubtitle}>All Programs Forever</Text>
+                      <Text style={styles.planSubtitle}>All 6 Programs Forever</Text>
                     </View>
                   </View>
 
@@ -412,7 +412,7 @@ export default function BillingModal({
                     </View>
                     <View style={styles.planHeaderText}>
                       <Text style={styles.planTitle}>Lifetime Access</Text>
-                      <Text style={styles.planSubtitle}>All Programs</Text>
+                      <Text style={styles.planSubtitle}>This Program Only</Text>
                     </View>
                   </View>
 
@@ -436,7 +436,7 @@ export default function BillingModal({
                         size={14}
                         color={colors.success}
                       />
-                      <Text style={styles.featureText}>Access to ALL 6 programs</Text>
+                      <Text style={styles.featureText}>Access to {displayProgramTitle}</Text>
                     </View>
                     <View style={styles.featureRow}>
                       <IconSymbol
@@ -445,7 +445,7 @@ export default function BillingModal({
                         size={14}
                         color={colors.success}
                       />
-                      <Text style={styles.featureText}>72 total techniques</Text>
+                      <Text style={styles.featureText}>12 weekly techniques</Text>
                     </View>
                     <View style={styles.featureRow}>
                       <IconSymbol
@@ -463,7 +463,7 @@ export default function BillingModal({
                         size={14}
                         color={colors.success}
                       />
-                      <Text style={styles.featureText}>Switch programs anytime</Text>
+                      <Text style={styles.featureText}>Progress tracking</Text>
                     </View>
                     <View style={styles.featureRow}>
                       <IconSymbol
