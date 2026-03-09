@@ -21,6 +21,7 @@ import Animated, {
   FadeOut,
 } from 'react-native-reanimated';
 import { ProgramType } from '@/types/program';
+import { useRouter } from 'expo-router';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -43,7 +44,9 @@ export default function BillingModal({
 }: BillingModalProps) {
   console.log('BillingModal rendered with program:', selectedProgram);
   
+  const router = useRouter();
   const [selectedPlanType, setSelectedPlanType] = useState<'monthly' | 'lifetime' | 'premium-lifetime' | null>(null);
+  const [showPaymentSelection, setShowPaymentSelection] = useState(false);
   const scaleMonthly = useSharedValue(1);
   const scaleLifetime = useSharedValue(1);
   const scalePremiumLifetime = useSharedValue(1);
@@ -77,8 +80,7 @@ export default function BillingModal({
       scaleMonthly.value = withSpring(1);
     });
     
-    // TODO: Backend Integration - POST /api/subscriptions with { programType: selectedProgram, planType: 'monthly', amount: 4.99 } → { subscriptionId, status }
-    onSelectPlan('monthly', selectedProgram);
+    setShowPaymentSelection(true);
   };
 
   const handleSelectLifetime = () => {
@@ -89,8 +91,7 @@ export default function BillingModal({
       scaleLifetime.value = withSpring(1);
     });
     
-    // TODO: Backend Integration - POST /api/subscriptions with { programType: selectedProgram, planType: 'lifetime', amount: 10.99 } → { subscriptionId, status }
-    onSelectPlan('lifetime', selectedProgram);
+    setShowPaymentSelection(true);
   };
 
   const handleSelectPremiumLifetime = () => {
@@ -101,19 +102,200 @@ export default function BillingModal({
       scalePremiumLifetime.value = withSpring(1);
     });
     
-    // TODO: Backend Integration - POST /api/subscriptions with { planType: 'premium-lifetime', amount: 59.99 } → { subscriptionId, status }
-    onSelectPlan('premium-lifetime');
+    setShowPaymentSelection(true);
+  };
+
+  const handleManagePaymentMethods = () => {
+    console.log('User navigating to payment methods screen');
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    onClose();
+    router.push('/payment-methods');
+  };
+
+  const handleConfirmPayment = () => {
+    console.log('User confirmed payment with plan:', selectedPlanType);
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    
+    if (selectedPlanType) {
+      // TODO: Backend Integration - POST /api/subscriptions with { programType: selectedProgram, planType: selectedPlanType, amount: getPlanAmount(selectedPlanType), paymentMethodId: selectedPaymentMethodId } → { subscriptionId, status }
+      onSelectPlan(selectedPlanType, selectedProgram);
+    }
+    
+    setShowPaymentSelection(false);
+    setSelectedPlanType(null);
+  };
+
+  const handleBackToPlans = () => {
+    console.log('User navigating back to plan selection');
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setShowPaymentSelection(false);
+    setSelectedPlanType(null);
   };
 
   const handleClose = () => {
     console.log('Closing billing modal');
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     setSelectedPlanType(null);
+    setShowPaymentSelection(false);
     onClose();
   };
 
   const displayProgramTitle = programTitle || 'This Program';
   const displayProgramColor = programColor || colors.primary;
+
+  const getPlanAmount = (planType: 'monthly' | 'lifetime' | 'premium-lifetime') => {
+    const planAmountValue = planType === 'monthly' ? '$4.99' : planType === 'lifetime' ? '$10.99' : '$59.99';
+    return planAmountValue;
+  };
+
+  const getPlanName = (planType: 'monthly' | 'lifetime' | 'premium-lifetime') => {
+    const planNameValue = planType === 'monthly' ? 'Monthly Access' : planType === 'lifetime' ? 'Lifetime Access' : 'Premium Lifetime';
+    return planNameValue;
+  };
+
+  if (showPaymentSelection && selectedPlanType) {
+    const planAmount = getPlanAmount(selectedPlanType);
+    const planName = getPlanName(selectedPlanType);
+
+    return (
+      <Modal
+        visible={visible}
+        transparent
+        animationType="fade"
+        onRequestClose={handleClose}
+      >
+        <View style={styles.modalOverlay}>
+          <Animated.View 
+            entering={FadeIn.duration(300)}
+            exiting={FadeOut.duration(200)}
+            style={styles.modalContent}
+          >
+            <View style={styles.modalHeader}>
+              <TouchableOpacity
+                style={styles.backButton}
+                onPress={handleBackToPlans}
+                activeOpacity={0.7}
+              >
+                <IconSymbol
+                  ios_icon_name="chevron.left"
+                  android_material_icon_name="arrow-back"
+                  size={20}
+                  color={colors.text}
+                />
+              </TouchableOpacity>
+              <Text style={styles.modalHeaderTitle}>Payment Method</Text>
+              <TouchableOpacity
+                style={styles.closeButton}
+                onPress={handleClose}
+                activeOpacity={0.7}
+              >
+                <IconSymbol
+                  ios_icon_name="xmark"
+                  android_material_icon_name="close"
+                  size={20}
+                  color={colors.text}
+                />
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView 
+              showsVerticalScrollIndicator={false}
+              contentContainerStyle={styles.scrollContent}
+            >
+              <View style={styles.selectedPlanSummary}>
+                <LinearGradient
+                  colors={[displayProgramColor, displayProgramColor + 'DD']}
+                  style={styles.selectedPlanGradient}
+                >
+                  <View style={styles.selectedPlanHeader}>
+                    <Text style={styles.selectedPlanTitle}>{planName}</Text>
+                    <Text style={styles.selectedPlanAmount}>{planAmount}</Text>
+                  </View>
+                  <Text style={styles.selectedPlanDescription}>
+                    {selectedPlanType === 'monthly' && `Access to ${displayProgramTitle} for 90 days`}
+                    {selectedPlanType === 'lifetime' && `Lifetime access to ${displayProgramTitle}`}
+                    {selectedPlanType === 'premium-lifetime' && 'Lifetime access to all 6 programs + priority support'}
+                  </Text>
+                </LinearGradient>
+              </View>
+
+              <View style={styles.paymentMethodsSection}>
+                <Text style={styles.sectionTitle}>Select Payment Method</Text>
+                
+                <TouchableOpacity
+                  style={styles.paymentMethodCard}
+                  onPress={handleManagePaymentMethods}
+                  activeOpacity={0.8}
+                >
+                  <View style={styles.paymentMethodIcon}>
+                    <IconSymbol
+                      ios_icon_name="creditcard.fill"
+                      android_material_icon_name="credit-card"
+                      size={24}
+                      color={colors.primary}
+                    />
+                  </View>
+                  <View style={styles.paymentMethodInfo}>
+                    <Text style={styles.paymentMethodTitle}>Manage Payment Methods</Text>
+                    <Text style={styles.paymentMethodSubtitle}>Add or select a payment method</Text>
+                  </View>
+                  <IconSymbol
+                    ios_icon_name="chevron.right"
+                    android_material_icon_name="arrow-forward"
+                    size={20}
+                    color={colors.textSecondary}
+                  />
+                </TouchableOpacity>
+
+                <View style={styles.infoBox}>
+                  <IconSymbol
+                    ios_icon_name="info.circle"
+                    android_material_icon_name="info"
+                    size={20}
+                    color={colors.primary}
+                  />
+                  <Text style={styles.infoText}>
+                    You'll be redirected to add or select a payment method. After adding your payment method, return here to complete your purchase.
+                  </Text>
+                </View>
+              </View>
+
+              <TouchableOpacity
+                style={styles.confirmButton}
+                onPress={handleConfirmPayment}
+                activeOpacity={0.9}
+              >
+                <LinearGradient
+                  colors={[colors.primary, colors.accent]}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 0 }}
+                  style={styles.confirmButtonGradient}
+                >
+                  <IconSymbol
+                    ios_icon_name="checkmark.circle.fill"
+                    android_material_icon_name="check-circle"
+                    size={24}
+                    color="#FFFFFF"
+                  />
+                  <Text style={styles.confirmButtonText}>Confirm Payment</Text>
+                </LinearGradient>
+              </TouchableOpacity>
+
+              <View style={styles.secureContainer}>
+                <IconSymbol
+                  ios_icon_name="lock.shield.fill"
+                  android_material_icon_name="verified-user"
+                  size={16}
+                  color={colors.success}
+                />
+                <Text style={styles.secureText}>Secure payment processing</Text>
+              </View>
+            </ScrollView>
+          </Animated.View>
+        </View>
+      </Modal>
+    );
+  }
 
   return (
     <Modal
@@ -530,8 +712,24 @@ const styles = StyleSheet.create({
   },
   modalHeader: {
     flexDirection: 'row',
-    justifyContent: 'flex-end',
+    justifyContent: 'space-between',
+    alignItems: 'center',
     padding: 16,
+  },
+  modalHeaderTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: colors.text,
+  },
+  backButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: colors.card,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: colors.border,
   },
   closeButton: {
     width: 36,
@@ -571,6 +769,118 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginTop: 12,
     lineHeight: 20,
+  },
+  selectedPlanSummary: {
+    marginHorizontal: 20,
+    marginBottom: 24,
+    borderRadius: 16,
+    overflow: 'hidden',
+    boxShadow: '0px 4px 16px rgba(107, 76, 230, 0.2)',
+    elevation: 4,
+  },
+  selectedPlanGradient: {
+    padding: 20,
+  },
+  selectedPlanHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  selectedPlanTitle: {
+    fontSize: 20,
+    fontWeight: '800',
+    color: '#FFFFFF',
+  },
+  selectedPlanAmount: {
+    fontSize: 24,
+    fontWeight: '900',
+    color: '#FFFFFF',
+  },
+  selectedPlanDescription: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#FFFFFF',
+    opacity: 0.95,
+    lineHeight: 20,
+  },
+  paymentMethodsSection: {
+    paddingHorizontal: 20,
+    marginBottom: 24,
+  },
+  sectionTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: colors.text,
+    marginBottom: 12,
+  },
+  paymentMethodCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.card,
+    borderRadius: 12,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: colors.border,
+    marginBottom: 16,
+  },
+  paymentMethodIcon: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: colors.highlight,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  paymentMethodInfo: {
+    flex: 1,
+  },
+  paymentMethodTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: colors.text,
+    marginBottom: 4,
+  },
+  paymentMethodSubtitle: {
+    fontSize: 13,
+    fontWeight: '500',
+    color: colors.textSecondary,
+  },
+  infoBox: {
+    flexDirection: 'row',
+    backgroundColor: colors.highlight,
+    borderRadius: 12,
+    padding: 12,
+    gap: 10,
+  },
+  infoText: {
+    flex: 1,
+    fontSize: 12,
+    fontWeight: '500',
+    color: colors.text,
+    lineHeight: 18,
+  },
+  confirmButton: {
+    marginHorizontal: 20,
+    marginBottom: 16,
+    borderRadius: 12,
+    overflow: 'hidden',
+    boxShadow: '0px 4px 16px rgba(107, 76, 230, 0.3)',
+    elevation: 6,
+  },
+  confirmButtonGradient: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 16,
+    paddingHorizontal: 24,
+    gap: 10,
+  },
+  confirmButtonText: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#FFFFFF',
   },
   plansContainer: {
     paddingHorizontal: 20,
