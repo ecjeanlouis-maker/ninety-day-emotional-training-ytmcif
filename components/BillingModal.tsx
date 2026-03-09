@@ -8,6 +8,7 @@ import {
   TouchableOpacity,
   ScrollView,
   Dimensions,
+  ActivityIndicator,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
@@ -22,6 +23,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import { ProgramType } from '@/types/program';
 import { useRouter } from 'expo-router';
+import { authenticatedPost } from '@/utils/api';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -47,9 +49,24 @@ export default function BillingModal({
   const router = useRouter();
   const [selectedPlanType, setSelectedPlanType] = useState<'monthly' | 'lifetime' | 'premium-lifetime' | null>(null);
   const [showPaymentSelection, setShowPaymentSelection] = useState(false);
+  const [isProcessingPayment, setIsProcessingPayment] = useState(false);
+  const [feedbackModal, setFeedbackModal] = useState<{
+    visible: boolean;
+    title: string;
+    message: string;
+    type: 'error' | 'success';
+  }>({ visible: false, title: '', message: '', type: 'error' });
   const scaleMonthly = useSharedValue(1);
   const scaleLifetime = useSharedValue(1);
   const scalePremiumLifetime = useSharedValue(1);
+
+  const showFeedback = (title: string, message: string, type: 'error' | 'success' = 'error') => {
+    setFeedbackModal({ visible: true, title, message, type });
+  };
+
+  const hideFeedback = () => {
+    setFeedbackModal(prev => ({ ...prev, visible: false }));
+  };
 
   const monthlyCardStyle = useAnimatedStyle(() => {
     const scaleValue = scaleMonthly.value;
@@ -112,17 +129,38 @@ export default function BillingModal({
     router.push('/payment-methods');
   };
 
-  const handleConfirmPayment = () => {
-    console.log('User confirmed payment with plan:', selectedPlanType);
-    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+  const handleConfirmPayment = async () => {
+    console.log('[API] User confirmed payment with plan:', selectedPlanType);
     
-    if (selectedPlanType) {
-      // TODO: Backend Integration - POST /api/subscriptions with { programType: selectedProgram, planType: selectedPlanType, amount: getPlanAmount(selectedPlanType), paymentMethodId: selectedPaymentMethodId } → { subscriptionId, status }
+    if (!selectedPlanType) return;
+    
+    setIsProcessingPayment(true);
+    try {
+      console.log('[API] Requesting POST /api/subscriptions...');
+      const subscription = await authenticatedPost('/api/subscriptions', {
+        programType: selectedProgram,
+        planType: selectedPlanType,
+        // paymentMethodId will use default if not specified
+      });
+      console.log('[API] Subscription created successfully:', subscription);
+      
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      
       onSelectPlan(selectedPlanType, selectedProgram);
+      
+      setShowPaymentSelection(false);
+      setSelectedPlanType(null);
+    } catch (error) {
+      console.error('[API] Error processing payment:', error);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      showFeedback(
+        'Payment Failed',
+        error instanceof Error ? error.message : 'Payment failed. Please check your payment method and try again.',
+        'error'
+      );
+    } finally {
+      setIsProcessingPayment(false);
     }
-    
-    setShowPaymentSelection(false);
-    setSelectedPlanType(null);
   };
 
   const handleBackToPlans = () => {
@@ -261,9 +299,10 @@ export default function BillingModal({
               </View>
 
               <TouchableOpacity
-                style={styles.confirmButton}
+                style={[styles.confirmButton, isProcessingPayment && styles.confirmButtonDisabled]}
                 onPress={handleConfirmPayment}
                 activeOpacity={0.9}
+                disabled={isProcessingPayment}
               >
                 <LinearGradient
                   colors={[colors.primary, colors.accent]}
@@ -271,13 +310,19 @@ export default function BillingModal({
                   end={{ x: 1, y: 0 }}
                   style={styles.confirmButtonGradient}
                 >
-                  <IconSymbol
-                    ios_icon_name="checkmark.circle.fill"
-                    android_material_icon_name="check-circle"
-                    size={24}
-                    color="#FFFFFF"
-                  />
-                  <Text style={styles.confirmButtonText}>Confirm Payment</Text>
+                  {isProcessingPayment ? (
+                    <ActivityIndicator size="small" color="#FFFFFF" />
+                  ) : (
+                    <>
+                      <IconSymbol
+                        ios_icon_name="checkmark.circle.fill"
+                        android_material_icon_name="check-circle"
+                        size={24}
+                        color="#FFFFFF"
+                      />
+                      <Text style={styles.confirmButtonText}>Confirm Payment</Text>
+                    </>
+                  )}
                 </LinearGradient>
               </TouchableOpacity>
 
@@ -293,6 +338,42 @@ export default function BillingModal({
             </ScrollView>
           </Animated.View>
         </View>
+
+        {/* Feedback Modal for payment errors */}
+        <Modal
+          visible={feedbackModal.visible}
+          transparent
+          animationType="fade"
+          onRequestClose={hideFeedback}
+        >
+          <View style={styles.feedbackOverlay}>
+            <Animated.View entering={FadeIn.duration(300)} exiting={FadeOut.duration(200)} style={styles.feedbackModal}>
+              <View style={[
+                styles.feedbackIconContainer,
+                { backgroundColor: feedbackModal.type === 'error' ? '#FFF0F0' : '#F0FFF4' }
+              ]}>
+                <IconSymbol
+                  ios_icon_name={feedbackModal.type === 'error' ? 'xmark.circle.fill' : 'checkmark.circle.fill'}
+                  android_material_icon_name={feedbackModal.type === 'error' ? 'cancel' : 'check-circle'}
+                  size={48}
+                  color={feedbackModal.type === 'error' ? '#FF3B30' : colors.success}
+                />
+              </View>
+              <Text style={styles.feedbackTitle}>{feedbackModal.title}</Text>
+              <Text style={styles.feedbackMessage}>{feedbackModal.message}</Text>
+              <TouchableOpacity
+                style={[
+                  styles.feedbackButton,
+                  { backgroundColor: feedbackModal.type === 'error' ? '#FF3B30' : colors.success }
+                ]}
+                onPress={hideFeedback}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.feedbackButtonText}>OK</Text>
+              </TouchableOpacity>
+            </Animated.View>
+          </View>
+        </Modal>
       </Modal>
     );
   }
@@ -869,6 +950,9 @@ const styles = StyleSheet.create({
     boxShadow: '0px 4px 16px rgba(107, 76, 230, 0.3)',
     elevation: 6,
   },
+  confirmButtonDisabled: {
+    opacity: 0.7,
+  },
   confirmButtonGradient: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -876,9 +960,59 @@ const styles = StyleSheet.create({
     paddingVertical: 16,
     paddingHorizontal: 24,
     gap: 10,
+    minHeight: 56,
   },
   confirmButtonText: {
     fontSize: 16,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+  feedbackOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  feedbackModal: {
+    width: '100%',
+    maxWidth: 340,
+    backgroundColor: colors.background,
+    borderRadius: 24,
+    padding: 24,
+    alignItems: 'center',
+  },
+  feedbackIconContainer: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  feedbackTitle: {
+    fontSize: 20,
+    fontWeight: '800',
+    color: colors.text,
+    marginBottom: 12,
+    textAlign: 'center',
+  },
+  feedbackMessage: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: colors.textSecondary,
+    textAlign: 'center',
+    lineHeight: 20,
+    marginBottom: 24,
+  },
+  feedbackButton: {
+    width: '100%',
+    paddingVertical: 14,
+    borderRadius: 12,
+    alignItems: 'center',
+  },
+  feedbackButtonText: {
+    fontSize: 15,
     fontWeight: '700',
     color: '#FFFFFF',
   },

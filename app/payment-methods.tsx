@@ -8,7 +8,7 @@ import {
   TouchableOpacity,
   TextInput,
   Modal,
-  Platform,
+  ActivityIndicator,
 } from 'react-native';
 import { Stack, useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -24,6 +24,7 @@ import Animated, {
   withSpring,
 } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
+import { authenticatedGet, authenticatedPost, authenticatedPut, authenticatedDelete } from '@/utils/api';
 
 interface PaymentMethod {
   id: string;
@@ -36,30 +37,15 @@ interface PaymentMethod {
   isDefault: boolean;
 }
 
+// Inline error color since commonStyles doesn't export it
+const ERROR_COLOR = '#FF3B30';
+
 export default function PaymentMethodsScreen() {
   console.log('PaymentMethodsScreen rendered');
   const router = useRouter();
   
-  const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([
-    {
-      id: '1',
-      type: 'card',
-      last4: '4242',
-      brand: 'Visa',
-      expiryMonth: '12',
-      expiryYear: '25',
-      isDefault: true,
-    },
-    {
-      id: '2',
-      type: 'card',
-      last4: '5555',
-      brand: 'Mastercard',
-      expiryMonth: '08',
-      expiryYear: '26',
-      isDefault: false,
-    },
-  ]);
+  const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([]);
+  const [loading, setLoading] = useState(true);
 
   const [showAddModal, setShowAddModal] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
@@ -68,6 +54,49 @@ export default function PaymentMethodsScreen() {
   const [expiryDate, setExpiryDate] = useState('');
   const [cvv, setCvv] = useState('');
   const [cardholderName, setCardholderName] = useState('');
+  const [cardErrors, setCardErrors] = useState({
+    cardNumber: '',
+    expiryDate: '',
+    cvv: '',
+    cardholderName: '',
+  });
+  const [isSaving, setIsSaving] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  // Inline feedback modal state (replaces alert())
+  const [feedbackModal, setFeedbackModal] = useState<{
+    visible: boolean;
+    title: string;
+    message: string;
+    type: 'error' | 'success';
+  }>({ visible: false, title: '', message: '', type: 'error' });
+
+  const showFeedback = (title: string, message: string, type: 'error' | 'success' = 'error') => {
+    setFeedbackModal({ visible: true, title, message, type });
+  };
+
+  const hideFeedback = () => {
+    setFeedbackModal(prev => ({ ...prev, visible: false }));
+  };
+
+  // Fetch payment methods on mount
+  React.useEffect(() => {
+    const fetchPaymentMethods = async () => {
+      console.log('[API] Fetching payment methods from backend');
+      try {
+        const methods = await authenticatedGet<PaymentMethod[]>('/api/payment-methods');
+        console.log('[API] Payment methods fetched:', methods);
+        setPaymentMethods(Array.isArray(methods) ? methods : []);
+      } catch (error) {
+        console.error('[API] Error fetching payment methods:', error);
+        // Show empty state if fetch fails (user may not be signed in yet)
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchPaymentMethods();
+  }, []);
 
   const handleBack = () => {
     console.log('User tapped back button');
@@ -81,47 +110,96 @@ export default function PaymentMethodsScreen() {
     setShowAddModal(true);
   };
 
-  const handleSaveCard = () => {
+  const handleSaveCard = async () => {
     console.log('User saving new card:', { cardNumber, expiryDate, cardholderName });
-    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     
-    const last4Value = cardNumber.slice(-4);
-    const brandValue = cardNumber.startsWith('4') ? 'Visa' : 'Mastercard';
+    // Validate all fields
+    const errors = {
+      cardNumber: '',
+      expiryDate: '',
+      cvv: '',
+      cardholderName: '',
+    };
+    
+    if (!validateCardNumber(cardNumber)) {
+      errors.cardNumber = 'Invalid card number';
+    }
+    if (!validateExpiryDate(expiryDate)) {
+      errors.expiryDate = 'Invalid or expired date';
+    }
+    if (!validateCVV(cvv)) {
+      errors.cvv = 'Invalid CVV';
+    }
+    if (cardholderName.trim().length === 0) {
+      errors.cardholderName = 'Name is required';
+    }
+    
+    setCardErrors(errors);
+    
+    if (Object.values(errors).some(err => err !== '')) {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      return;
+    }
+    
+    setIsSaving(true);
     const [monthValue, yearValue] = expiryDate.split('/');
     
-    const newMethod: PaymentMethod = {
-      id: Date.now().toString(),
-      type: 'card',
-      last4: last4Value,
-      brand: brandValue,
-      expiryMonth: monthValue,
-      expiryYear: yearValue,
-      isDefault: paymentMethods.length === 0,
-    };
-
-    setPaymentMethods([...paymentMethods, newMethod]);
-    
-    // TODO: Backend Integration - POST /api/payment-methods with { cardNumber, expiryMonth, expiryYear, cvv, cardholderName } → { paymentMethodId, last4, brand }
-    
-    setShowAddModal(false);
-    setCardNumber('');
-    setExpiryDate('');
-    setCvv('');
-    setCardholderName('');
+    try {
+      console.log('[API] Requesting POST /api/payment-methods...');
+      const newMethod = await authenticatedPost<PaymentMethod>('/api/payment-methods', {
+        cardNumber: cardNumber.replace(/\s/g, ''),
+        expiryMonth: monthValue,
+        expiryYear: yearValue,
+        cvv: cvv,
+        cardholderName: cardholderName.trim(),
+      });
+      console.log('[API] Payment method added successfully:', newMethod);
+      
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      
+      setPaymentMethods(prev => [...prev, newMethod]);
+      
+      setShowAddModal(false);
+      setCardNumber('');
+      setExpiryDate('');
+      setCvv('');
+      setCardholderName('');
+      setCardErrors({ cardNumber: '', expiryDate: '', cvv: '', cardholderName: '' });
+    } catch (error) {
+      console.error('[API] Error adding payment method:', error);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      showFeedback(
+        'Card Not Added',
+        error instanceof Error ? error.message : 'Failed to add payment method. Please check your card details and try again.',
+        'error'
+      );
+    } finally {
+      setIsSaving(false);
+    }
   };
 
-  const handleSetDefault = (methodId: string) => {
-    console.log('User setting default payment method:', methodId);
+  const handleSetDefault = async (methodId: string) => {
+    console.log('[API] User setting default payment method:', methodId);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     
-    const updatedMethods = paymentMethods.map(method => ({
-      ...method,
-      isDefault: method.id === methodId,
-    }));
-    
-    setPaymentMethods(updatedMethods);
-    
-    // TODO: Backend Integration - PUT /api/payment-methods/:id/default → { success: true }
+    try {
+      console.log(`[API] Requesting PUT /api/payment-methods/${methodId}/default...`);
+      await authenticatedPut(`/api/payment-methods/${methodId}/default`, {});
+      console.log('[API] Default payment method updated successfully');
+      
+      setPaymentMethods(prev => prev.map(method => ({
+        ...method,
+        isDefault: method.id === methodId,
+      })));
+    } catch (error) {
+      console.error('[API] Error setting default payment method:', error);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      showFeedback(
+        'Update Failed',
+        'Failed to set default payment method. Please try again.',
+        'error'
+      );
+    }
   };
 
   const handleDeleteMethod = (methodId: string) => {
@@ -131,25 +209,44 @@ export default function PaymentMethodsScreen() {
     setShowDeleteConfirm(true);
   };
 
-  const confirmDelete = () => {
-    console.log('User confirmed delete payment method:', selectedMethodId);
-    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+  const confirmDelete = async () => {
+    console.log('[API] User confirmed delete payment method:', selectedMethodId);
     
-    const updatedMethods = paymentMethods.filter(method => method.id !== selectedMethodId);
+    if (!selectedMethodId) return;
     
-    if (updatedMethods.length > 0) {
-      const deletedMethod = paymentMethods.find(m => m.id === selectedMethodId);
-      if (deletedMethod?.isDefault) {
-        updatedMethods[0].isDefault = true;
-      }
+    setIsDeleting(true);
+    try {
+      console.log(`[API] Requesting DELETE /api/payment-methods/${selectedMethodId}...`);
+      await authenticatedDelete(`/api/payment-methods/${selectedMethodId}`);
+      console.log('[API] Payment method deleted successfully');
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      
+      setPaymentMethods(prev => {
+        const updatedMethods = prev.filter(method => method.id !== selectedMethodId);
+        if (updatedMethods.length > 0) {
+          const deletedMethod = prev.find(m => m.id === selectedMethodId);
+          if (deletedMethod?.isDefault) {
+            updatedMethods[0] = { ...updatedMethods[0], isDefault: true };
+          }
+        }
+        return updatedMethods;
+      });
+      
+      setShowDeleteConfirm(false);
+      setSelectedMethodId(null);
+    } catch (error) {
+      console.error('[API] Error deleting payment method:', error);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      setShowDeleteConfirm(false);
+      setSelectedMethodId(null);
+      showFeedback(
+        'Delete Failed',
+        'Failed to delete payment method. Please try again.',
+        'error'
+      );
+    } finally {
+      setIsDeleting(false);
     }
-    
-    setPaymentMethods(updatedMethods);
-    
-    // TODO: Backend Integration - DELETE /api/payment-methods/:id → { success: true }
-    
-    setShowDeleteConfirm(false);
-    setSelectedMethodId(null);
   };
 
   const cancelDelete = () => {
@@ -167,6 +264,7 @@ export default function PaymentMethodsScreen() {
     setExpiryDate('');
     setCvv('');
     setCardholderName('');
+    setCardErrors({ cardNumber: '', expiryDate: '', cvv: '', cardholderName: '' });
   };
 
   const getCardIcon = (brand: string) => {
@@ -195,7 +293,36 @@ export default function PaymentMethodsScreen() {
     return cleaned;
   };
 
-  const isFormValid = cardNumber.length >= 16 && expiryDate.length === 5 && cvv.length >= 3 && cardholderName.length > 0;
+  const validateCardNumber = (number: string) => {
+    const cleaned = number.replace(/\s/g, '');
+    return cleaned.length === 16 && /^\d+$/.test(cleaned);
+  };
+
+  const validateExpiryDate = (date: string) => {
+    if (date.length !== 5) return false;
+    const [month, year] = date.split('/');
+    const monthNum = parseInt(month, 10);
+    const yearNum = parseInt('20' + year, 10);
+    const now = new Date();
+    const currentYear = now.getFullYear();
+    const currentMonth = now.getMonth() + 1;
+    
+    if (monthNum < 1 || monthNum > 12) return false;
+    if (yearNum < currentYear) return false;
+    if (yearNum === currentYear && monthNum < currentMonth) return false;
+    
+    return true;
+  };
+
+  const validateCVV = (cvvValue: string) => {
+    return cvvValue.length >= 3 && cvvValue.length <= 4 && /^\d+$/.test(cvvValue);
+  };
+
+  const isFormValid = 
+    validateCardNumber(cardNumber) && 
+    validateExpiryDate(expiryDate) && 
+    validateCVV(cvv) && 
+    cardholderName.trim().length > 0;
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top']}>
@@ -217,14 +344,21 @@ export default function PaymentMethodsScreen() {
       />
 
       <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer}>
-        <Animated.View entering={FadeInDown.delay(100).springify()}>
-          <View style={styles.headerSection}>
-            <Text style={styles.headerTitle}>Manage Payment Methods</Text>
-            <Text style={styles.headerSubtitle}>
-              Add, edit, or remove payment methods for your subscriptions
-            </Text>
+        {loading ? (
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color={colors.primary} />
+            <Text style={styles.loadingText}>Loading payment methods...</Text>
           </View>
-        </Animated.View>
+        ) : (
+          <>
+            <Animated.View entering={FadeInDown.delay(100).springify()}>
+              <View style={styles.headerSection}>
+                <Text style={styles.headerTitle}>Manage Payment Methods</Text>
+                <Text style={styles.headerSubtitle}>
+                  Add, edit, or remove payment methods for your subscriptions
+                </Text>
+              </View>
+            </Animated.View>
 
         <Animated.View entering={FadeInDown.delay(200).springify()}>
           <TouchableOpacity
@@ -282,24 +416,27 @@ export default function PaymentMethodsScreen() {
           </Animated.View>
         )}
 
-        <View style={styles.securitySection}>
-          <View style={styles.securityIcon}>
-            <IconSymbol
-              ios_icon_name="lock.shield.fill"
-              android_material_icon_name="verified-user"
-              size={20}
-              color={colors.success}
-            />
-          </View>
-          <View style={styles.securityTextContainer}>
-            <Text style={styles.securityTitle}>Secure Payment Processing</Text>
-            <Text style={styles.securityText}>
-              Your payment information is encrypted and securely stored
-            </Text>
-          </View>
-        </View>
+            <View style={styles.securitySection}>
+              <View style={styles.securityIcon}>
+                <IconSymbol
+                  ios_icon_name="lock.shield.fill"
+                  android_material_icon_name="verified-user"
+                  size={20}
+                  color={colors.success}
+                />
+              </View>
+              <View style={styles.securityTextContainer}>
+                <Text style={styles.securityTitle}>Secure Payment Processing</Text>
+                <Text style={styles.securityText}>
+                  Your payment information is encrypted and securely stored via Stripe
+                </Text>
+              </View>
+            </View>
+          </>
+        )}
       </ScrollView>
 
+      {/* Add Card Modal */}
       <Modal
         visible={showAddModal}
         transparent
@@ -324,70 +461,107 @@ export default function PaymentMethodsScreen() {
               <View style={styles.formGroup}>
                 <Text style={styles.label}>Cardholder Name</Text>
                 <TextInput
-                  style={styles.input}
+                  style={[styles.input, cardErrors.cardholderName && styles.inputError]}
                   placeholder="John Doe"
                   placeholderTextColor={colors.textSecondary}
                   value={cardholderName}
-                  onChangeText={setCardholderName}
+                  onChangeText={(text) => {
+                    setCardholderName(text);
+                    if (cardErrors.cardholderName) {
+                      setCardErrors({ ...cardErrors, cardholderName: '' });
+                    }
+                  }}
                   autoCapitalize="words"
                 />
+                {cardErrors.cardholderName ? (
+                  <Text style={styles.errorText}>{cardErrors.cardholderName}</Text>
+                ) : null}
               </View>
 
               <View style={styles.formGroup}>
                 <Text style={styles.label}>Card Number</Text>
                 <TextInput
-                  style={styles.input}
+                  style={[styles.input, cardErrors.cardNumber && styles.inputError]}
                   placeholder="1234 5678 9012 3456"
                   placeholderTextColor={colors.textSecondary}
                   value={formatCardNumber(cardNumber)}
-                  onChangeText={(text) => setCardNumber(text.replace(/\s/g, ''))}
+                  onChangeText={(text) => {
+                    setCardNumber(text.replace(/\s/g, ''));
+                    if (cardErrors.cardNumber) {
+                      setCardErrors({ ...cardErrors, cardNumber: '' });
+                    }
+                  }}
                   keyboardType="number-pad"
                   maxLength={19}
                 />
+                {cardErrors.cardNumber ? (
+                  <Text style={styles.errorText}>{cardErrors.cardNumber}</Text>
+                ) : null}
               </View>
 
               <View style={styles.formRow}>
                 <View style={[styles.formGroup, styles.formGroupHalf]}>
                   <Text style={styles.label}>Expiry Date</Text>
                   <TextInput
-                    style={styles.input}
+                    style={[styles.input, cardErrors.expiryDate && styles.inputError]}
                     placeholder="MM/YY"
                     placeholderTextColor={colors.textSecondary}
                     value={expiryDate}
-                    onChangeText={(text) => setExpiryDate(formatExpiryDate(text))}
+                    onChangeText={(text) => {
+                      setExpiryDate(formatExpiryDate(text));
+                      if (cardErrors.expiryDate) {
+                        setCardErrors({ ...cardErrors, expiryDate: '' });
+                      }
+                    }}
                     keyboardType="number-pad"
                     maxLength={5}
                   />
+                  {cardErrors.expiryDate ? (
+                    <Text style={styles.errorText}>{cardErrors.expiryDate}</Text>
+                  ) : null}
                 </View>
 
                 <View style={[styles.formGroup, styles.formGroupHalf]}>
                   <Text style={styles.label}>CVV</Text>
                   <TextInput
-                    style={styles.input}
+                    style={[styles.input, cardErrors.cvv && styles.inputError]}
                     placeholder="123"
                     placeholderTextColor={colors.textSecondary}
                     value={cvv}
-                    onChangeText={setCvv}
+                    onChangeText={(text) => {
+                      setCvv(text);
+                      if (cardErrors.cvv) {
+                        setCardErrors({ ...cardErrors, cvv: '' });
+                      }
+                    }}
                     keyboardType="number-pad"
                     maxLength={4}
                     secureTextEntry
                   />
+                  {cardErrors.cvv ? (
+                    <Text style={styles.errorText}>{cardErrors.cvv}</Text>
+                  ) : null}
                 </View>
               </View>
 
               <TouchableOpacity
-                style={[styles.saveButton, !isFormValid && styles.saveButtonDisabled]}
+                style={[styles.saveButton, (!isFormValid || isSaving) && styles.saveButtonDisabled]}
                 onPress={handleSaveCard}
-                disabled={!isFormValid}
+                disabled={!isFormValid || isSaving}
                 activeOpacity={0.8}
               >
-                <Text style={styles.saveButtonText}>Save Card</Text>
+                {isSaving ? (
+                  <ActivityIndicator size="small" color="#FFFFFF" />
+                ) : (
+                  <Text style={styles.saveButtonText}>Save Card</Text>
+                )}
               </TouchableOpacity>
             </ScrollView>
           </Animated.View>
         </View>
       </Modal>
 
+      {/* Delete Confirmation Modal */}
       <Modal
         visible={showDeleteConfirm}
         transparent
@@ -401,7 +575,7 @@ export default function PaymentMethodsScreen() {
                 ios_icon_name="exclamationmark.triangle.fill"
                 android_material_icon_name="warning"
                 size={48}
-                color={colors.error}
+                color={ERROR_COLOR}
               />
             </View>
             <Text style={styles.confirmTitle}>Delete Payment Method?</Text>
@@ -413,6 +587,7 @@ export default function PaymentMethodsScreen() {
                 style={[styles.confirmButton, styles.confirmButtonCancel]}
                 onPress={cancelDelete}
                 activeOpacity={0.8}
+                disabled={isDeleting}
               >
                 <Text style={styles.confirmButtonTextCancel}>Cancel</Text>
               </TouchableOpacity>
@@ -420,10 +595,51 @@ export default function PaymentMethodsScreen() {
                 style={[styles.confirmButton, styles.confirmButtonDelete]}
                 onPress={confirmDelete}
                 activeOpacity={0.8}
+                disabled={isDeleting}
               >
-                <Text style={styles.confirmButtonTextDelete}>Delete</Text>
+                {isDeleting ? (
+                  <ActivityIndicator size="small" color="#FFFFFF" />
+                ) : (
+                  <Text style={styles.confirmButtonTextDelete}>Delete</Text>
+                )}
               </TouchableOpacity>
             </View>
+          </Animated.View>
+        </View>
+      </Modal>
+
+      {/* Feedback Modal (replaces alert()) */}
+      <Modal
+        visible={feedbackModal.visible}
+        transparent
+        animationType="fade"
+        onRequestClose={hideFeedback}
+      >
+        <View style={styles.modalOverlay}>
+          <Animated.View entering={FadeIn.duration(300)} exiting={FadeOut.duration(200)} style={styles.feedbackModal}>
+            <View style={[
+              styles.feedbackIconContainer,
+              { backgroundColor: feedbackModal.type === 'error' ? '#FFF0F0' : '#F0FFF4' }
+            ]}>
+              <IconSymbol
+                ios_icon_name={feedbackModal.type === 'error' ? 'xmark.circle.fill' : 'checkmark.circle.fill'}
+                android_material_icon_name={feedbackModal.type === 'error' ? 'cancel' : 'check-circle'}
+                size={48}
+                color={feedbackModal.type === 'error' ? ERROR_COLOR : colors.success}
+              />
+            </View>
+            <Text style={styles.feedbackTitle}>{feedbackModal.title}</Text>
+            <Text style={styles.feedbackMessage}>{feedbackModal.message}</Text>
+            <TouchableOpacity
+              style={[
+                styles.feedbackButton,
+                { backgroundColor: feedbackModal.type === 'error' ? ERROR_COLOR : colors.success }
+              ]}
+              onPress={hideFeedback}
+              activeOpacity={0.8}
+            >
+              <Text style={styles.feedbackButtonText}>OK</Text>
+            </TouchableOpacity>
           </Animated.View>
         </View>
       </Modal>
@@ -460,6 +676,17 @@ function PaymentMethodCard({ method, onSetDefault, onDelete }: PaymentMethodCard
     console.log('Deleting payment method:', method.id);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     onDelete(method.id);
+  };
+
+  const getCardIcon = (brand: string) => {
+    const brandLower = brand.toLowerCase();
+    if (brandLower === 'visa') {
+      return { ios: 'creditcard.fill', android: 'credit-card' };
+    }
+    if (brandLower === 'mastercard') {
+      return { ios: 'creditcard.fill', android: 'credit-card' };
+    }
+    return { ios: 'creditcard', android: 'credit-card' };
   };
 
   const cardIcon = getCardIcon(method.brand || '');
@@ -520,7 +747,7 @@ function PaymentMethodCard({ method, onSetDefault, onDelete }: PaymentMethodCard
                 ios_icon_name="trash"
                 android_material_icon_name="delete"
                 size={18}
-                color={method.isDefault ? '#FFFFFF' : colors.error}
+                color={method.isDefault ? '#FFFFFF' : ERROR_COLOR}
               />
             </TouchableOpacity>
           </View>
@@ -782,6 +1009,17 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.border,
   },
+  inputError: {
+    borderColor: ERROR_COLOR,
+    borderWidth: 2,
+  },
+  errorText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: ERROR_COLOR,
+    marginTop: 4,
+    marginLeft: 4,
+  },
   saveButton: {
     backgroundColor: colors.primary,
     borderRadius: 12,
@@ -846,7 +1084,7 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
   },
   confirmButtonDelete: {
-    backgroundColor: colors.error,
+    backgroundColor: ERROR_COLOR,
   },
   confirmButtonTextCancel: {
     fontSize: 15,
@@ -854,6 +1092,60 @@ const styles = StyleSheet.create({
     color: colors.text,
   },
   confirmButtonTextDelete: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 60,
+  },
+  loadingText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: colors.textSecondary,
+    marginTop: 16,
+  },
+  feedbackModal: {
+    width: '100%',
+    maxWidth: 340,
+    backgroundColor: colors.background,
+    borderRadius: 24,
+    padding: 24,
+    alignItems: 'center',
+  },
+  feedbackIconContainer: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  feedbackTitle: {
+    fontSize: 20,
+    fontWeight: '800',
+    color: colors.text,
+    marginBottom: 12,
+    textAlign: 'center',
+  },
+  feedbackMessage: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: colors.textSecondary,
+    textAlign: 'center',
+    lineHeight: 20,
+    marginBottom: 24,
+  },
+  feedbackButton: {
+    width: '100%',
+    paddingVertical: 14,
+    borderRadius: 12,
+    alignItems: 'center',
+  },
+  feedbackButtonText: {
     fontSize: 15,
     fontWeight: '700',
     color: '#FFFFFF',
