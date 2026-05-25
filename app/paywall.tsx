@@ -42,6 +42,12 @@ const PREMIUM_FEATURES = [
   },
 ];
 
+const TRIAL_BENEFITS = [
+  'Unlimited AI Coach',
+  'Full 90-day ECCT program',
+  'All premium features',
+];
+
 function derivePlanType(identifier: string): 'lifetime' | 'yearly' | 'monthly' {
   const lower = identifier.toLowerCase();
   if (lower.includes('lifetime')) return 'lifetime';
@@ -63,25 +69,34 @@ function deriveEndDate(planType: 'lifetime' | 'yearly' | 'monthly'): string | nu
 export default function PaywallScreen() {
   const router = useRouter();
   const { isSubscribed, restorePurchases, refreshSubscription } = useSubscription();
-  const { updateSubscription } = useUser();
+  const { updateSubscription, profile, isTrialing, trialDaysRemaining, startTrial } = useUser();
   const [packages, setPackages] = useState<PurchasesPackage[]>([]);
   const [selectedPackage, setSelectedPackage] = useState<PurchasesPackage | null>(null);
   const [loadingPackages, setLoadingPackages] = useState(true);
   const [purchasing, setPurchasing] = useState(false);
   const [restoring, setRestoring] = useState(false);
+  const [startingTrial, setStartingTrial] = useState(false);
   const [feedbackModal, setFeedbackModal] = useState<{
     visible: boolean;
     title: string;
     message: string;
     type: 'error' | 'success';
+    onDismiss?: () => void;
   }>({ visible: false, title: '', message: '', type: 'error' });
 
-  const showFeedback = (title: string, message: string, type: 'error' | 'success' = 'error') => {
-    setFeedbackModal({ visible: true, title, message, type });
+  const showFeedback = (
+    title: string,
+    message: string,
+    type: 'error' | 'success' = 'error',
+    onDismiss?: () => void
+  ) => {
+    setFeedbackModal({ visible: true, title, message, type, onDismiss });
   };
 
   const hideFeedback = () => {
-    setFeedbackModal((prev) => ({ ...prev, visible: false }));
+    const onDismiss = feedbackModal.onDismiss;
+    setFeedbackModal((prev) => ({ ...prev, visible: false, onDismiss: undefined }));
+    if (onDismiss) onDismiss();
   };
 
   useEffect(() => {
@@ -180,9 +195,54 @@ export default function PaywallScreen() {
     router.back();
   };
 
+  const handleStartTrial = async () => {
+    console.log('[Paywall] User tapped Start Free Trial');
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setStartingTrial(true);
+    try {
+      const result = await startTrial();
+      if (result.ok) {
+        showFeedback(
+          '🎁 Trial Started',
+          'You have 7 days of full premium access. Enjoy!',
+          'success',
+          () => router.back()
+        );
+      } else if (result.reason === 'already_used') {
+        showFeedback(
+          'Trial Unavailable',
+          "You've already used your free trial.",
+          'error'
+        );
+      } else if (result.reason === 'already_premium') {
+        showFeedback(
+          'Already Premium',
+          'Your account already has premium access.',
+          'error'
+        );
+      } else {
+        showFeedback(
+          "Couldn't start trial",
+          'Please try again.',
+          'error'
+        );
+      }
+    } finally {
+      setStartingTrial(false);
+    }
+  };
+
   const selectedPrice = selectedPackage?.product?.priceString ?? '';
   const feedbackIconName = feedbackModal.type === 'success' ? 'checkmark.circle.fill' : 'xmark.circle.fill';
   const feedbackIconColor = feedbackModal.type === 'success' ? '#27AE60' : '#FF3B30';
+
+  // Eligibility: profile loaded, trial_status is 'none', account_type is 'free'
+  const isTrialEligible =
+    !!profile &&
+    profile.trial_status === 'none' &&
+    profile.account_type === 'free';
+
+  const trialDaysLabel = trialDaysRemaining === 1 ? '1 day' : `${trialDaysRemaining ?? 0} days`;
 
   return (
     <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
@@ -217,6 +277,60 @@ export default function PaywallScreen() {
             90 days. 6 programs. 12 weeks each. Complete psychological transformation.
           </Text>
         </LinearGradient>
+
+        {/* Trial active notice (already trialing) */}
+        {isTrialing && (
+          <View style={styles.trialActiveCard}>
+            <Text style={styles.trialActiveTitle}>
+              🎁 Trial active — {trialDaysLabel} remaining
+            </Text>
+            <Text style={styles.trialActiveSubtitle}>
+              Convert now to keep premium after trial
+            </Text>
+          </View>
+        )}
+
+        {/* Free Trial CTA card (eligible users only) */}
+        {!isTrialing && isTrialEligible && (
+          <View style={styles.trialCard}>
+            <Text style={styles.trialCardTitle}>Try Premium free for 7 days</Text>
+            <Text style={styles.trialCardSubtitle}>
+              Full access. No payment required. Cancel anytime.
+            </Text>
+            <View style={styles.trialBenefits}>
+              {TRIAL_BENEFITS.map((benefit) => (
+                <View key={benefit} style={styles.trialBenefitRow}>
+                  <Text style={styles.trialBenefitCheck}>✓</Text>
+                  <Text style={styles.trialBenefitText}>{benefit}</Text>
+                </View>
+              ))}
+            </View>
+            <TouchableOpacity
+              style={[styles.trialButton, startingTrial && styles.trialButtonDisabled]}
+              onPress={handleStartTrial}
+              disabled={startingTrial}
+              activeOpacity={0.9}
+            >
+              {startingTrial ? (
+                <View style={styles.trialButtonLoading}>
+                  <ActivityIndicator color="#FFFFFF" />
+                </View>
+              ) : (
+                <LinearGradient
+                  colors={[colors.primary, colors.secondary]}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 0 }}
+                  style={styles.trialButtonGradient}
+                >
+                  <Text style={styles.trialButtonText}>Start Free Trial</Text>
+                </LinearGradient>
+              )}
+            </TouchableOpacity>
+            <Text style={styles.trialFooter}>
+              After 7 days, choose a paid plan to keep your access.
+            </Text>
+          </View>
+        )}
 
         {/* Features */}
         <View style={styles.featuresContainer}>
@@ -395,7 +509,7 @@ const styles = StyleSheet.create({
     paddingVertical: 40,
     paddingHorizontal: 28,
     alignItems: 'center',
-    marginBottom: 28,
+    marginBottom: 20,
   },
   heroEmoji: {
     fontSize: 56,
@@ -416,6 +530,106 @@ const styles = StyleSheet.create({
     marginTop: 12,
     opacity: 0.9,
     lineHeight: 22,
+  },
+  // Trial active notice
+  trialActiveCard: {
+    marginHorizontal: 20,
+    marginBottom: 16,
+    backgroundColor: '#F0EBFF',
+    borderRadius: 16,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: '#6B4CE6',
+    alignItems: 'center',
+    gap: 4,
+  },
+  trialActiveTitle: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: '#6B4CE6',
+    textAlign: 'center',
+  },
+  trialActiveSubtitle: {
+    fontSize: 13,
+    color: '#6B4CE6',
+    textAlign: 'center',
+    opacity: 0.8,
+  },
+  // Free trial CTA card
+  trialCard: {
+    marginHorizontal: 20,
+    marginBottom: 20,
+    backgroundColor: colors.card,
+    borderRadius: 20,
+    padding: 20,
+    borderWidth: 1.5,
+    borderColor: colors.primary,
+    gap: 4,
+  },
+  trialCardTitle: {
+    fontSize: 20,
+    fontWeight: '900',
+    color: colors.text,
+    marginBottom: 4,
+  },
+  trialCardSubtitle: {
+    fontSize: 14,
+    color: colors.textSecondary,
+    marginBottom: 12,
+    lineHeight: 20,
+  },
+  trialBenefits: {
+    gap: 8,
+    marginBottom: 16,
+  },
+  trialBenefitRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  trialBenefitCheck: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: '#27AE60',
+  },
+  trialBenefitText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.text,
+  },
+  trialButton: {
+    borderRadius: 14,
+    overflow: 'hidden',
+    elevation: 3,
+    marginTop: 4,
+  },
+  trialButtonDisabled: {
+    opacity: 0.6,
+  },
+  trialButtonLoading: {
+    backgroundColor: colors.primary,
+    paddingVertical: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  trialButtonGradient: {
+    paddingVertical: 16,
+    paddingHorizontal: 32,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  trialButtonText: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: '#FFFFFF',
+    letterSpacing: 0.3,
+  },
+  trialFooter: {
+    fontSize: 12,
+    color: colors.textSecondary,
+    textAlign: 'center',
+    marginTop: 8,
+    lineHeight: 16,
   },
   featuresContainer: {
     marginHorizontal: 20,

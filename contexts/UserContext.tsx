@@ -13,6 +13,7 @@ import { hasAccess, AppFeature } from '@/lib/access';
 
 type Role = 'free' | 'premium' | 'admin';
 
+type AccessState = 'active' | 'trialing' | 'cancelled_grace' | 'past_due' | 'expired' | 'inactive' | 'admin';
 type AccountType = 'free' | 'premium';
 type SubscriptionStatus = 'inactive' | 'active' | 'past_due' | 'cancelled' | 'expired' | 'trialing';
 type PlanType = 'monthly' | 'yearly' | 'lifetime';
@@ -38,6 +39,7 @@ interface UserProfile {
   trial_status: TrialStatus;
   payment_status: PaymentStatus;
   is_premium_active: boolean;
+  access_state: AccessState;
 }
 
 type SubscriptionPartial = Partial<{
@@ -59,10 +61,16 @@ interface UserContextValue {
   isFree: boolean;
   isPremium: boolean;
   isAdmin: boolean;
+  isTrialing: boolean;
+  isPastDue: boolean;
+  isInGracePeriod: boolean;
+  trialDaysRemaining: number | null;
   refreshProfile: () => Promise<void>;
   consumeAiMessage: () => Promise<{ allowed: boolean; remaining: number | null; resetsAt?: string }>;
   canAccess: (feature: AppFeature) => boolean;
   updateSubscription: (partial: SubscriptionPartial) => Promise<void>;
+  startTrial: () => Promise<{ ok: true } | { ok: false; reason: 'already_used' | 'already_premium' | 'unknown' }>;
+  cancelTrial: () => Promise<void>;
 }
 
 const UserContext = createContext<UserContextValue | undefined>(undefined);
@@ -108,18 +116,37 @@ export function UserProvider({ children }: { children: ReactNode }) {
     fetchProfile();
   }, [fetchProfile]);
 
-  // Effective role: admin if backend says admin; premium if RevenueCat subscribed OR
-  // backend is_premium_active OR backend role is premium/admin
+  // Effective role: strictly follows the 5 access rules
+  const accessState = profile?.access_state;
   const role: Role =
-    profile?.role === 'admin'
+    // Rule 5: admin
+    profile?.role === 'admin' || accessState === 'admin'
       ? 'admin'
-      : isSubscribed || profile?.is_premium_active === true || profile?.role === 'premium'
+      // Rule 1, trial, past_due (warning only), and cancelled grace period all grant premium
+      : accessState === 'active'
+        || accessState === 'trialing'
+        || accessState === 'past_due'
+        || accessState === 'cancelled_grace'
+        || isSubscribed                              // RevenueCat fallback
+        || profile?.is_premium_active === true       // backend computed flag fallback
       ? 'premium'
+      // Rule 4 (expired) and inactive → free
       : 'free';
 
   const isFree = role === 'free';
   const isPremium = role === 'premium' || role === 'admin';
   const isAdmin = role === 'admin';
+  const isTrialing = accessState === 'trialing';
+  const isPastDue = accessState === 'past_due';
+  const isInGracePeriod = accessState === 'cancelled_grace';
+
+  // Compute trial days remaining from subscription_end_date when trialing
+  let trialDaysRemaining: number | null = null;
+  if (isTrialing && profile?.subscription_end_date) {
+    const endMs = new Date(profile.subscription_end_date).getTime();
+    const nowMs = Date.now();
+    trialDaysRemaining = Math.max(0, Math.ceil((endMs - nowMs) / 86_400_000));
+  }
 
   const refreshProfile = useCallback(async () => {
     console.log('[UserContext] refreshProfile called');
@@ -184,6 +211,46 @@ export function UserProvider({ children }: { children: ReactNode }) {
     [fetchProfile]
   );
 
+  const startTrial = useCallback(async (): Promise<
+    { ok: true } | { ok: false; reason: 'already_used' | 'already_premium' | 'unknown' }
+  > => {
+    console.log('[UserContext] startTrial called');
+    try {
+      await authenticatedPost('/api/profile/trial/start', {});
+      console.log('[UserContext] startTrial — success, refreshing profile');
+      await refreshProfile();
+      return { ok: true };
+    } catch (error: any) {
+      console.error('[UserContext] startTrial error:', error);
+      const msg: string = error?.message ?? '';
+      if (msg.includes('409') || msg.includes('trial_unavailable')) {
+        if (msg.includes('already_used')) {
+          return { ok: false, reason: 'already_used' };
+        }
+        if (msg.includes('already_premium')) {
+          return { ok: false, reason: 'already_premium' };
+        }
+        // Try to parse reason from message
+        if (msg.includes('already_used')) return { ok: false, reason: 'already_used' };
+        if (msg.includes('already_premium')) return { ok: false, reason: 'already_premium' };
+        return { ok: false, reason: 'unknown' };
+      }
+      return { ok: false, reason: 'unknown' };
+    }
+  }, [refreshProfile]);
+
+  const cancelTrial = useCallback(async (): Promise<void> => {
+    console.log('[UserContext] cancelTrial called');
+    try {
+      await authenticatedPost('/api/profile/trial/cancel', {});
+      console.log('[UserContext] cancelTrial — success, refreshing profile');
+      await refreshProfile();
+    } catch (error: any) {
+      console.error('[UserContext] cancelTrial error:', error);
+      throw error;
+    }
+  }, [refreshProfile]);
+
   return (
     <UserContext.Provider
       value={{
@@ -193,10 +260,16 @@ export function UserProvider({ children }: { children: ReactNode }) {
         isFree,
         isPremium,
         isAdmin,
+        isTrialing,
+        isPastDue,
+        isInGracePeriod,
+        trialDaysRemaining,
         refreshProfile,
         consumeAiMessage,
         canAccess,
         updateSubscription,
+        startTrial,
+        cancelTrial,
       }}
     >
       {children}

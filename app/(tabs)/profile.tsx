@@ -16,12 +16,18 @@ export default function ProfileScreen() {
   const router = useRouter();
   const { user, loading, signOut } = useAuth();
   const { isSubscribed, restorePurchases } = useSubscription();
-  const { role, profile } = useUser();
+  const { role, profile, isAdmin, isTrialing, trialDaysRemaining } = useUser();
 
   const handleEditProfile = () => {
     console.log('[Profile] Edit Profile tapped');
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     router.push('/profile-edit');
+  };
+
+  const handleAdminDashboard = () => {
+    console.log('[Profile] Admin Dashboard tapped');
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    router.push('/admin');
   };
 
   const handleSubscription = () => {
@@ -54,29 +60,49 @@ export default function ProfileScreen() {
     router.push('/email-verification-pending');
   };
 
-  const displayName = user?.name || user?.email?.split('@')[0] || 'Guest';
-  const displayEmail = user?.email || 'Not signed in';
-  const subscriptionLabel = isSubscribed ? 'Pro Member — Manage Subscription' : 'Upgrade to Pro';
-  const showUnverifiedBanner = !!user && user.emailVerified === false;
-  const rolePillLabel = role === 'premium' ? 'Premium' : 'Free';
-  const rolePillColor = role === 'premium' ? '#27AE60' : '#8E8E93';
+  const handleTrialingBanner = () => {
+    console.log('[Profile] Trialing banner tapped — routing to paywall');
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    router.push('/paywall');
+  };
 
-  const subStatus = profile?.subscription_status;
-  const subEndDate = profile?.subscription_end_date;
-  const showPastDueBanner = subStatus === 'past_due';
-  const showCancelledBanner =
-    subStatus === 'cancelled' &&
-    !!subEndDate &&
-    new Date(subEndDate) > new Date();
-  const formattedEndDate = subEndDate
-    ? new Date(subEndDate).toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' })
-    : '';
+  const handleExpiredBanner = () => {
+    console.log('[Profile] Expired banner tapped — routing to paywall');
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    router.push('/paywall');
+  };
 
   const handlePastDueBanner = () => {
     console.log('[Profile] Past-due banner tapped — routing to paywall');
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     router.push('/paywall');
   };
+
+  const displayName = user?.name || user?.email?.split('@')[0] || 'Guest';
+  const displayEmail = user?.email || 'Not signed in';
+  const subscriptionLabel = isSubscribed ? 'Pro Member — Manage Subscription' : 'Upgrade to Pro';
+  const showUnverifiedBanner = !!user && user.emailVerified === false;
+
+  const accessState = profile?.access_state;
+  const subStatus = profile?.subscription_status;
+  const subEndDate = profile?.subscription_end_date;
+
+  const showTrialingBanner = accessState === 'trialing';
+  const showPastDueBanner = accessState === 'past_due' || subStatus === 'past_due';
+  const showExpiredBanner = accessState === 'expired';
+  const showCancelledBanner =
+    (accessState === 'cancelled_grace' || subStatus === 'cancelled') &&
+    !!subEndDate &&
+    new Date(subEndDate) > new Date();
+
+  const formattedEndDate = subEndDate
+    ? new Date(subEndDate).toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' })
+    : '';
+
+  const rolePillLabel = isAdmin ? 'Admin' : role === 'premium' ? 'Premium' : 'Free';
+  const rolePillColor = isAdmin ? '#6B4CE6' : role === 'premium' ? '#27AE60' : '#8E8E93';
+
+  const trialDaysLabel = trialDaysRemaining === 1 ? '1 day' : `${trialDaysRemaining ?? 0} days`;
 
   return (
     <SafeAreaView style={[styles.safeArea, { backgroundColor: theme.colors.background }]} edges={['top']}>
@@ -93,6 +119,14 @@ export default function ProfileScreen() {
           </TouchableOpacity>
         )}
 
+        {showTrialingBanner && (
+          <TouchableOpacity style={styles.trialingBanner} onPress={handleTrialingBanner} activeOpacity={0.8}>
+            <Text style={styles.trialingBannerText}>
+              🎁 Free trial active — {trialDaysLabel} left
+            </Text>
+          </TouchableOpacity>
+        )}
+
         {showPastDueBanner && (
           <TouchableOpacity style={styles.pastDueBanner} onPress={handlePastDueBanner} activeOpacity={0.8}>
             <Text style={styles.pastDueBannerText}>⚠ Payment failed — update your card</Text>
@@ -105,6 +139,12 @@ export default function ProfileScreen() {
               Premium until {formattedEndDate}
             </Text>
           </View>
+        )}
+
+        {showExpiredBanner && (
+          <TouchableOpacity style={styles.expiredBanner} onPress={handleExpiredBanner} activeOpacity={0.8}>
+            <Text style={styles.expiredBannerText}>Your premium access has expired. Tap to renew.</Text>
+          </TouchableOpacity>
         )}
 
         <GlassView style={[
@@ -137,6 +177,33 @@ export default function ProfileScreen() {
             styles.section,
             Platform.OS !== 'ios' && { backgroundColor: theme.dark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)' }
           ]} glassEffectStyle="regular">
+            {isAdmin && (
+              <>
+                <TouchableOpacity
+                  style={styles.menuItem}
+                  onPress={handleAdminDashboard}
+                  activeOpacity={0.7}
+                >
+                  <View style={styles.menuItemLeft}>
+                    <IconSymbol
+                      ios_icon_name="shield.checkmark"
+                      android_material_icon_name="verified-user"
+                      size={20}
+                      color="#6B4CE6"
+                    />
+                    <Text style={[styles.menuItemText, { color: '#6B4CE6' }]}>Admin Dashboard</Text>
+                  </View>
+                  <IconSymbol
+                    ios_icon_name="chevron.right"
+                    android_material_icon_name="arrow-forward"
+                    size={20}
+                    color={theme.dark ? '#98989D' : '#666'}
+                  />
+                </TouchableOpacity>
+                <View style={styles.menuDivider} />
+              </>
+            )}
+
             <TouchableOpacity
               style={styles.menuItem}
               onPress={handleEditProfile}
@@ -368,6 +435,21 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     textAlign: 'center',
   },
+  trialingBanner: {
+    backgroundColor: '#F0EBFF',
+    borderWidth: 1,
+    borderColor: '#6B4CE6',
+    borderRadius: 10,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    marginBottom: 12,
+  },
+  trialingBannerText: {
+    color: '#6B4CE6',
+    fontSize: 14,
+    fontWeight: '700',
+    textAlign: 'center',
+  },
   pastDueBanner: {
     backgroundColor: '#FFF0F0',
     borderWidth: 1,
@@ -394,6 +476,21 @@ const styles = StyleSheet.create({
   },
   cancelledBannerText: {
     color: '#B7791F',
+    fontSize: 14,
+    fontWeight: '700',
+    textAlign: 'center',
+  },
+  expiredBanner: {
+    backgroundColor: '#F5F5F5',
+    borderWidth: 1,
+    borderColor: '#8E8E93',
+    borderRadius: 10,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    marginBottom: 12,
+  },
+  expiredBannerText: {
+    color: '#636366',
     fontSize: 14,
     fontWeight: '700',
     textAlign: 'center',

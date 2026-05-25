@@ -59,7 +59,7 @@ const EMOTIONAL_LABELS: Record<number, string> = {
 export default function ProfileEditScreen() {
   const router = useRouter();
   const { user, signOut, fetchUser } = useAuth();
-  const { profile, refreshProfile } = useUser();
+  const { profile, refreshProfile, isTrialing, cancelTrial } = useUser();
 
   const [name, setName] = useState(user?.name || "");
   const [email, setEmail] = useState(user?.email || "");
@@ -69,6 +69,13 @@ export default function ProfileEditScreen() {
   const [savingPassword, setSavingPassword] = useState(false);
   const [savingPreferences, setSavingPreferences] = useState(false);
   const [signingOut, setSigningOut] = useState(false);
+  const [cancellingTrial, setCancellingTrial] = useState(false);
+  const [confirmModal, setConfirmModal] = useState<{
+    visible: boolean;
+    title: string;
+    message: string;
+    onConfirm: () => void;
+  }>({ visible: false, title: '', message: '', onConfirm: () => {} });
 
   // ─── Preferences state (pre-filled from profile) ─────────────────────────
   const [ageRange, setAgeRange] = useState<AgeRange | null>(
@@ -227,6 +234,42 @@ export default function ProfileEditScreen() {
     } finally {
       setSavingPreferences(false);
     }
+  };
+
+  const showConfirm = (title: string, message: string, onConfirm: () => void) => {
+    setConfirmModal({ visible: true, title, message, onConfirm });
+  };
+
+  const hideConfirm = () => {
+    setConfirmModal((prev) => ({ ...prev, visible: false }));
+  };
+
+  const handleCancelTrial = () => {
+    console.log('[ProfileEdit] Cancel Free Trial tapped');
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    showConfirm(
+      'Cancel Free Trial',
+      'Are you sure you want to cancel your free trial? You will be moved to the Free plan immediately.',
+      async () => {
+        hideConfirm();
+        setCancellingTrial(true);
+        try {
+          await cancelTrial();
+          console.log('[ProfileEdit] Trial cancelled successfully');
+          showFeedback(
+            'Trial cancelled',
+            "You've been moved to the Free plan.",
+            'success',
+            () => router.back()
+          );
+        } catch (error: any) {
+          console.log('[ProfileEdit] Cancel trial failed:', error?.message);
+          showFeedback('Error', error?.message || 'Could not cancel trial. Please try again.', 'error');
+        } finally {
+          setCancellingTrial(false);
+        }
+      }
+    );
   };
 
   const handleBack = () => {
@@ -496,6 +539,19 @@ export default function ProfileEditScreen() {
         {/* Danger Zone */}
         <View style={[styles.section, styles.dangerSection]}>
           <Text style={styles.sectionTitle}>Danger Zone</Text>
+          {isTrialing && (
+            <TouchableOpacity
+              style={[styles.dangerOutlineButton, cancellingTrial && styles.buttonDisabled, { marginBottom: 12 }]}
+              onPress={handleCancelTrial}
+              disabled={cancellingTrial}
+            >
+              {cancellingTrial ? (
+                <ActivityIndicator color="#FF3B30" />
+              ) : (
+                <Text style={styles.dangerOutlineButtonText}>Cancel Free Trial</Text>
+              )}
+            </TouchableOpacity>
+          )}
           <TouchableOpacity
             style={[styles.dangerButton, signingOut && styles.buttonDisabled]}
             onPress={handleSignOut}
@@ -511,6 +567,42 @@ export default function ProfileEditScreen() {
 
         <View style={styles.bottomPadding} />
       </ScrollView>
+
+      {/* Confirm Modal */}
+      <Modal
+        visible={confirmModal.visible}
+        transparent
+        animationType="fade"
+        onRequestClose={hideConfirm}
+      >
+        <View style={styles.modalOverlay}>
+          <Animated.View
+            entering={FadeIn.duration(300)}
+            exiting={FadeOut.duration(200)}
+            style={styles.feedbackModal}
+          >
+            <View style={[styles.feedbackIconContainer, { backgroundColor: '#FFF0F0' }]}>
+              <Text style={styles.feedbackIcon}>⚠️</Text>
+            </View>
+            <Text style={styles.feedbackTitle}>{confirmModal.title}</Text>
+            <Text style={styles.feedbackMessage}>{confirmModal.message}</Text>
+            <TouchableOpacity
+              style={[styles.feedbackButton, { backgroundColor: '#FF3B30', marginBottom: 8 }]}
+              onPress={confirmModal.onConfirm}
+              activeOpacity={0.8}
+            >
+              <Text style={styles.feedbackButtonText}>Confirm</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.feedbackButton, { backgroundColor: 'transparent', borderWidth: 1.5, borderColor: '#ccc' }]}
+              onPress={hideConfirm}
+              activeOpacity={0.8}
+            >
+              <Text style={[styles.feedbackButtonText, { color: '#666' }]}>Cancel</Text>
+            </TouchableOpacity>
+          </Animated.View>
+        </View>
+      </Modal>
 
       <Modal
         visible={feedbackModal.visible}
@@ -738,6 +830,19 @@ const styles = StyleSheet.create({
   },
   dangerButtonText: {
     color: "#fff",
+    fontSize: 16,
+    fontWeight: "700",
+  },
+  dangerOutlineButton: {
+    height: 52,
+    borderWidth: 1.5,
+    borderColor: "#FF3B30",
+    borderRadius: 12,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  dangerOutlineButtonText: {
+    color: "#FF3B30",
     fontSize: 16,
     fontWeight: "700",
   },

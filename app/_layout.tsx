@@ -102,6 +102,7 @@ export default function RootLayout() {
                     <Stack.Screen name="auth-popup" options={{ headerShown: false }} />
                     <Stack.Screen name="auth-callback" options={{ headerShown: false }} />
                     <Stack.Screen name="paywall" options={{ headerShown: false, presentation: 'modal' }} />
+                    <Stack.Screen name="admin" options={{ headerShown: false }} />
                   </Stack>
                   <SystemBars style={"auto"} />
                 </GestureHandlerRootView>
