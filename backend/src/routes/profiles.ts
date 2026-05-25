@@ -54,6 +54,7 @@ interface ProfileResponse {
   confidence_level: number;
   emotional_control_level: number;
   role: string;
+  is_active: boolean;
   ai_messages_remaining: number | null;
   created_at: string;
   updated_at: string;
@@ -87,6 +88,7 @@ function formatProfileResponse(profile: any): ProfileResponse {
     confidence_level: profile.confidenceLevel,
     emotional_control_level: profile.emotionalControlLevel,
     role: profile.role,
+    is_active: profile.isActive,
     ai_messages_remaining: computeAiMessagesRemaining(profile),
     created_at: profile.createdAt.toISOString(),
     updated_at: profile.updatedAt.toISOString(),
@@ -126,6 +128,7 @@ export function registerProfileRoutes(app: App) {
               confidence_level: { type: 'integer' },
               emotional_control_level: { type: 'integer' },
               role: { type: 'string' },
+              is_active: { type: 'boolean' },
               ai_messages_remaining: { type: ['integer', 'null'] },
               created_at: { type: 'string', format: 'date-time' },
               updated_at: { type: 'string', format: 'date-time' },
@@ -230,6 +233,7 @@ export function registerProfileRoutes(app: App) {
               confidence_level: { type: 'integer' },
               emotional_control_level: { type: 'integer' },
               role: { type: 'string' },
+              is_active: { type: 'boolean' },
               ai_messages_remaining: { type: ['integer', 'null'] },
               created_at: { type: 'string', format: 'date-time' },
               updated_at: { type: 'string', format: 'date-time' },
@@ -301,6 +305,7 @@ export function registerProfileRoutes(app: App) {
               confidence_level: { type: 'integer' },
               emotional_control_level: { type: 'integer' },
               role: { type: 'string' },
+              is_active: { type: 'boolean' },
               ai_messages_remaining: { type: ['integer', 'null'] },
               created_at: { type: 'string', format: 'date-time' },
               updated_at: { type: 'string', format: 'date-time' },
@@ -376,13 +381,6 @@ export function registerProfileRoutes(app: App) {
         if (!Number.isInteger(emotionalControlLevel) || emotionalControlLevel < 1 || emotionalControlLevel > 5) {
           errors.emotional_control_level = 'emotional_control_level must be an integer between 1 and 5';
         }
-      }
-
-      if (Object.keys(errors).length > 0) {
-        return reply.status(400).send({
-          error: 'validation_error',
-          fields: errors,
-        });
       }
 
       app.logger.info({ userId: session.user.id }, 'Updating profile');
@@ -552,7 +550,7 @@ export function registerProfileRoutes(app: App) {
     '/api/profile/role',
     {
       schema: {
-        description: 'Update user role (requires verification)',
+        description: 'Update user role to free or premium (admin role set by system only)',
         tags: ['profiles'],
         body: {
           type: 'object',
@@ -573,6 +571,7 @@ export function registerProfileRoutes(app: App) {
               confidence_level: { type: 'integer' },
               emotional_control_level: { type: 'integer' },
               role: { type: 'string' },
+              is_active: { type: 'boolean' },
               ai_messages_remaining: { type: ['integer', 'null'] },
               created_at: { type: 'string', format: 'date-time' },
               updated_at: { type: 'string', format: 'date-time' },

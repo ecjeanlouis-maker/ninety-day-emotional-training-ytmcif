@@ -3,7 +3,10 @@ import * as appSchema from './db/schema.js';
 import * as authSchema from './db/auth-schema.js';
 import { registerPaymentRoutes } from './routes/payments.js';
 import { registerProfileRoutes } from './routes/profiles.js';
+import { registerStripeRoutes } from './routes/stripe.js';
+import { registerAdminRoutes } from './routes/admin.js';
 import { sendEmail } from './lib/email.js';
+import { bootstrapStripe } from './lib/stripe.js';
 import {
   verificationEmailTemplate,
   resetPasswordEmailTemplate,
@@ -72,6 +75,16 @@ app.withAuth({
 // IMPORTANT: Always use registration functions to avoid circular dependency issues
 registerPaymentRoutes(app);
 registerProfileRoutes(app);
+registerStripeRoutes(app);
+registerAdminRoutes(app);
+
+// Bootstrap Stripe if configured
+try {
+  await bootstrapStripe();
+  app.logger.info('Stripe bootstrapped successfully');
+} catch (error) {
+  app.logger.warn({ err: error }, 'Stripe bootstrap failed or not configured');
+}
 
 await app.run();
 app.logger.info('Application running');
