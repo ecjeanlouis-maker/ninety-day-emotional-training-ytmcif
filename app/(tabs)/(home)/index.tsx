@@ -26,9 +26,9 @@ import Animated, {
   Extrapolate,
 } from 'react-native-reanimated';
 import CongratulationsModal from '@/components/CongratulationsModal';
-import BillingModal from '@/components/BillingModal';
 import Survey from './survey';
 import { useAuth } from '@/contexts/AuthContext';
+import { useSubscription } from '@/contexts/SubscriptionContext';
 import { useRouter } from 'expo-router';
 
 const AnimatedTouchable = Animated.createAnimatedComponent(TouchableOpacity);
@@ -88,6 +88,7 @@ export default function HomeScreen() {
   console.log('HomeScreen rendered');
   
   const { user } = useAuth();
+  const { isSubscribed } = useSubscription();
   const router = useRouter();
   const [showWelcome, setShowWelcome] = useState(true);
   const [showSurvey, setShowSurvey] = useState(false);
@@ -100,16 +101,7 @@ export default function HomeScreen() {
     title: string;
     color: string;
   } | null>(null);
-  const [showBillingModal, setShowBillingModal] = useState(false);
-  const [selectedProgramForBilling, setSelectedProgramForBilling] = useState<ProgramType | undefined>(undefined);
-  const [hasPaidAccess, setHasPaidAccess] = useState<Record<NonNullable<ProgramType>, boolean>>({
-    emotional: false,
-    confidence: false,
-    anger: false,
-    stress: false,
-    'social-anxiety': false,
-    thoughts: false,
-  });
+
   const currentDay = 1;
   const totalDays = 90;
   const progressPercentage = (currentDay / totalDays) * 100;
@@ -155,45 +147,11 @@ export default function HomeScreen() {
   };
 
   const handleProgramSelect = (program: 'emotional' | 'confidence' | 'anger' | 'stress' | 'social-anxiety' | 'thoughts') => {
-    console.log('User selected program (free trial - Week 1 only):', program);
+    console.log('User selected program:', program, '— isSubscribed:', isSubscribed);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     setSelectedProgram(program);
     setSelectedTechnique(null);
     setCompletedTechniques(new Set());
-  };
-
-  const handleViewPricing = (program: ProgramType, event: any) => {
-    console.log('User tapped View Pricing for program:', program);
-    event.stopPropagation();
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    setSelectedProgramForBilling(program);
-    setShowBillingModal(true);
-  };
-
-  const handleBillingComplete = (planType: 'monthly' | 'lifetime' | 'premium-lifetime', programType?: ProgramType) => {
-    console.log('Billing completed:', planType, programType);
-    setShowBillingModal(false);
-    
-    if (planType === 'monthly' && programType) {
-      const updatedAccess = { ...hasPaidAccess };
-      updatedAccess[programType] = true;
-      setHasPaidAccess(updatedAccess);
-      setSelectedProgram(programType);
-    } else if (planType === 'lifetime' || planType === 'premium-lifetime') {
-      const allAccess: Record<NonNullable<ProgramType>, boolean> = {
-        emotional: true,
-        confidence: true,
-        anger: true,
-        stress: true,
-        'social-anxiety': true,
-        thoughts: true,
-      };
-      setHasPaidAccess(allAccess);
-      
-      if (selectedProgramForBilling) {
-        setSelectedProgram(selectedProgramForBilling);
-      }
-    }
   };
 
   const handleBackToSelection = () => {
@@ -206,11 +164,10 @@ export default function HomeScreen() {
   const handleTechniquePress = (id: number, week: number) => {
     console.log('User tapped technique:', id, 'Week:', week);
     
-    if (selectedProgram && week > 1 && !hasPaidAccess[selectedProgram]) {
-      console.log('User attempted to access Week', week, 'without paid access - showing billing modal');
+    if (week > 1 && !isSubscribed) {
+      console.log('User attempted to access Week', week, 'without subscription — pushing paywall');
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
-      setSelectedProgramForBilling(selectedProgram);
-      setShowBillingModal(true);
+      router.push('/paywall');
       return;
     }
     
@@ -221,11 +178,10 @@ export default function HomeScreen() {
   const handleCheckboxPress = (id: number, week: number) => {
     console.log('User toggled technique completion:', id, 'Week:', week);
     
-    if (selectedProgram && week > 1 && !hasPaidAccess[selectedProgram]) {
-      console.log('User attempted to complete Week', week, 'without paid access - showing billing modal');
+    if (week > 1 && !isSubscribed) {
+      console.log('User attempted to complete Week', week, 'without subscription — pushing paywall');
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
-      setSelectedProgramForBilling(selectedProgram);
-      setShowBillingModal(true);
+      router.push('/paywall');
       return;
     }
     
@@ -472,153 +428,127 @@ export default function HomeScreen() {
   const motivationalPhrase = 'BE THE BEST VERSION OF YOURSELF';
 
   if (!selectedProgram) {
-    const selectedProgramInfo = selectedProgramForBilling ? PROGRAM_CONFIGS[selectedProgramForBilling] : undefined;
-    
     return (
-      <>
-        <SafeAreaView style={styles.container} edges={['top']}>
-          <ScrollView 
-            style={styles.scrollView}
-            contentContainerStyle={styles.scrollContent}
-            showsVerticalScrollIndicator={false}
+      <SafeAreaView style={styles.container} edges={['top']}>
+        <ScrollView 
+          style={styles.scrollView}
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+        >
+          <Animated.View 
+            entering={FadeIn.duration(800)}
+            style={styles.motivationalBanner}
           >
-            <Animated.View 
-              entering={FadeIn.duration(800)}
-              style={styles.motivationalBanner}
+            <LinearGradient
+              colors={[colors.primary, colors.accent]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+              style={styles.motivationalGradient}
             >
-              <LinearGradient
-                colors={[colors.primary, colors.accent]}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 0 }}
-                style={styles.motivationalGradient}
-              >
-                <IconSymbol
-                  ios_icon_name="star.fill"
-                  android_material_icon_name="star"
-                  size={28}
-                  color="#FFFFFF"
-                />
-                <Text style={styles.motivationalText}>{motivationalPhrase}</Text>
-                <IconSymbol
-                  ios_icon_name="star.fill"
-                  android_material_icon_name="star"
-                  size={28}
-                  color="#FFFFFF"
-                />
-              </LinearGradient>
-            </Animated.View>
+              <IconSymbol
+                ios_icon_name="star.fill"
+                android_material_icon_name="star"
+                size={28}
+                color="#FFFFFF"
+              />
+              <Text style={styles.motivationalText}>{motivationalPhrase}</Text>
+              <IconSymbol
+                ios_icon_name="star.fill"
+                android_material_icon_name="star"
+                size={28}
+                color="#FFFFFF"
+              />
+            </LinearGradient>
+          </Animated.View>
 
-            <Animated.View 
-              entering={FadeIn.delay(200).duration(600)}
-              style={styles.selectionHeader}
-            >
-              <Text style={styles.selectionTitle}>Choose Your</Text>
-              <Text style={styles.selectionTitle}>12-Week Program</Text>
-              <Text style={styles.selectionSubtitle}>
-                Select one program to begin your 90-day transformation journey
-              </Text>
-            </Animated.View>
+          <Animated.View 
+            entering={FadeIn.delay(200).duration(600)}
+            style={styles.selectionHeader}
+          >
+            <Text style={styles.selectionTitle}>Choose Your</Text>
+            <Text style={styles.selectionTitle}>12-Week Program</Text>
+            <Text style={styles.selectionSubtitle}>
+              Select one program to begin your 90-day transformation journey
+            </Text>
+          </Animated.View>
 
-            <Animated.View 
-              entering={FadeInDown.delay(400).duration(600)}
-              style={styles.programCardsContainer}
-            >
-              {(Object.keys(PROGRAM_CONFIGS) as Array<keyof typeof PROGRAM_CONFIGS>).map((programKey, index) => {
-                const config = PROGRAM_CONFIGS[programKey];
-                return (
-                  <View key={programKey} style={styles.programCard}>
-                    <LinearGradient
-                      colors={[config.color, config.color + 'DD']}
-                      style={styles.programCardGradient}
-                    >
-                      <View style={styles.programCardIconContainer}>
+          <Animated.View 
+            entering={FadeInDown.delay(400).duration(600)}
+            style={styles.programCardsContainer}
+          >
+            {(Object.keys(PROGRAM_CONFIGS) as Array<keyof typeof PROGRAM_CONFIGS>).map((programKey) => {
+              const config = PROGRAM_CONFIGS[programKey];
+              const startLabel = isSubscribed ? 'Start' : 'Start Free';
+              return (
+                <View key={programKey} style={styles.programCard}>
+                  <LinearGradient
+                    colors={[config.color, config.color + 'DD']}
+                    style={styles.programCardGradient}
+                  >
+                    <View style={styles.programCardIconContainer}>
+                      <IconSymbol
+                        ios_icon_name={config.iconIOS}
+                        android_material_icon_name={config.icon}
+                        size={48}
+                        color="#FFFFFF"
+                      />
+                    </View>
+                    <Text style={styles.programCardTitle}>{config.title}</Text>
+                    <Text style={styles.programCardDescription}>
+                      {config.description}
+                    </Text>
+                    <View style={styles.programCardStats}>
+                      <View style={styles.programCardStat}>
                         <IconSymbol
-                          ios_icon_name={config.iconIOS}
-                          android_material_icon_name={config.icon}
-                          size={48}
+                          ios_icon_name="calendar"
+                          android_material_icon_name="calendar-today"
+                          size={16}
                           color="#FFFFFF"
                         />
+                        <Text style={styles.programCardStatText}>12 Weeks</Text>
                       </View>
-                      <Text style={styles.programCardTitle}>{config.title}</Text>
-                      <Text style={styles.programCardDescription}>
-                        {config.description}
-                      </Text>
-                      <View style={styles.programCardStats}>
-                        <View style={styles.programCardStat}>
-                          <IconSymbol
-                            ios_icon_name="calendar"
-                            android_material_icon_name="calendar-today"
-                            size={16}
-                            color="#FFFFFF"
-                          />
-                          <Text style={styles.programCardStatText}>12 Weeks</Text>
-                        </View>
-                        <View style={styles.programCardStat}>
-                          <IconSymbol
-                            ios_icon_name="list"
-                            android_material_icon_name="list"
-                            size={16}
-                            color="#FFFFFF"
-                          />
-                          <Text style={styles.programCardStatText}>12 Techniques</Text>
-                        </View>
+                      <View style={styles.programCardStat}>
+                        <IconSymbol
+                          ios_icon_name="list"
+                          android_material_icon_name="list"
+                          size={16}
+                          color="#FFFFFF"
+                        />
+                        <Text style={styles.programCardStatText}>12 Techniques</Text>
                       </View>
-                      
-                      <View style={styles.programCardButtonsRow}>
-                        <TouchableOpacity
-                          style={styles.programCardButtonSecondary}
-                          onPress={(e) => handleViewPricing(programKey, e)}
-                          activeOpacity={0.8}
-                        >
-                          <IconSymbol
-                            ios_icon_name="creditcard"
-                            android_material_icon_name="payment"
-                            size={18}
-                            color="#FFFFFF"
-                          />
-                          <Text style={styles.programCardButtonSecondaryText}>View Pricing</Text>
-                        </TouchableOpacity>
-                        
-                        <TouchableOpacity
-                          style={styles.programCardButtonPrimary}
-                          onPress={() => handleProgramSelect(programKey)}
-                          activeOpacity={0.8}
-                        >
-                          <Text style={styles.programCardButtonPrimaryText}>Start Free</Text>
-                          <IconSymbol
-                            ios_icon_name="arrow.right"
-                            android_material_icon_name="arrow-forward"
-                            size={18}
-                            color="#FFFFFF"
-                          />
-                        </TouchableOpacity>
-                      </View>
-                    </LinearGradient>
-                  </View>
-                );
-              })}
-            </Animated.View>
+                    </View>
+                    
+                    <TouchableOpacity
+                      style={styles.programCardButtonPrimary}
+                      onPress={() => handleProgramSelect(programKey)}
+                      activeOpacity={0.8}
+                    >
+                      <Text style={styles.programCardButtonPrimaryText}>{startLabel}</Text>
+                      <IconSymbol
+                        ios_icon_name="arrow.right"
+                        android_material_icon_name="arrow-forward"
+                        size={18}
+                        color="#FFFFFF"
+                      />
+                    </TouchableOpacity>
+                  </LinearGradient>
+                </View>
+              );
+            })}
+          </Animated.View>
 
-            <Animated.View 
-              entering={FadeInDown.delay(600).duration(600)}
-              style={styles.selectionFooter}
-            >
-              <Text style={styles.selectionFooterText}>
-                Start Free gives you access to Week 1. Upgrade anytime to unlock all 12 weeks.
-              </Text>
-            </Animated.View>
-          </ScrollView>
-        </SafeAreaView>
-
-        <BillingModal
-          visible={showBillingModal}
-          onClose={() => setShowBillingModal(false)}
-          onSelectPlan={handleBillingComplete}
-          selectedProgram={selectedProgramForBilling}
-          programTitle={selectedProgramInfo?.title}
-          programColor={selectedProgramInfo?.color}
-        />
-      </>
+          <Animated.View 
+            entering={FadeInDown.delay(600).duration(600)}
+            style={styles.selectionFooter}
+          >
+            <Text style={styles.selectionFooterText}>
+              {isSubscribed
+                ? 'Pro Member — all 12 weeks unlocked across every program.'
+                : 'Start Free gives you access to Week 1. Upgrade anytime to unlock all 12 weeks.'}
+            </Text>
+          </Animated.View>
+        </ScrollView>
+      </SafeAreaView>
     );
   }
 
@@ -628,174 +558,162 @@ export default function HomeScreen() {
   const programSubtitle = programConfig.subtitle;
   const programIcon = programConfig.icon;
   const programIconIOS = programConfig.iconIOS;
-  const userHasPaidAccess = hasPaidAccess[selectedProgram];
 
   return (
-    <>
-      <SafeAreaView style={styles.container} edges={['top']}>
-        <ScrollView 
-          style={styles.scrollView}
-          contentContainerStyle={styles.scrollContent}
-          showsVerticalScrollIndicator={false}
+    <SafeAreaView style={styles.container} edges={['top']}>
+      <ScrollView 
+        style={styles.scrollView}
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+      >
+        <Animated.View 
+          entering={FadeIn.duration(600)}
+          style={styles.header}
         >
-          <Animated.View 
-            entering={FadeIn.duration(600)}
-            style={styles.header}
+          <TouchableOpacity 
+            style={styles.backButton}
+            onPress={handleBackToSelection}
+            activeOpacity={0.7}
           >
-            <TouchableOpacity 
-              style={styles.backButton}
-              onPress={handleBackToSelection}
-              activeOpacity={0.7}
-            >
-              <IconSymbol
-                ios_icon_name="arrow.left"
-                android_material_icon_name="arrow-back"
-                size={24}
-                color={colors.text}
-              />
-              <Text style={styles.backButtonText}>Change Program</Text>
-            </TouchableOpacity>
-            
-            <View style={styles.headerTitleContainer}>
-              <IconSymbol
-                ios_icon_name={programIconIOS}
-                android_material_icon_name={programIcon}
-                size={32}
-                color={programColor}
-              />
-              <Text style={styles.headerTitle}>{programTitle}</Text>
-            </View>
-            <Text style={styles.headerSubtitle}>{programSubtitle}</Text>
-            
-            {!userHasPaidAccess && (
-              <Animated.View 
-                entering={FadeInDown.delay(200).duration(600)}
-                style={styles.freeTrialBanner}
-              >
-                <IconSymbol
-                  ios_icon_name="info.circle"
-                  android_material_icon_name="info"
-                  size={20}
-                  color={programColor}
-                />
-                <Text style={styles.freeTrialText}>
-                  Free Trial: Week 1 Only
-                </Text>
-                <TouchableOpacity
-                  style={[styles.upgradeButton, { backgroundColor: programColor }]}
-                  onPress={() => {
-                    setSelectedProgramForBilling(selectedProgram);
-                    setShowBillingModal(true);
-                  }}
-                  activeOpacity={0.8}
-                >
-                  <Text style={styles.upgradeButtonText}>Upgrade</Text>
-                </TouchableOpacity>
-              </Animated.View>
-            )}
-          </Animated.View>
-
+            <IconSymbol
+              ios_icon_name="arrow.left"
+              android_material_icon_name="arrow-back"
+              size={24}
+              color={colors.text}
+            />
+            <Text style={styles.backButtonText}>Change Program</Text>
+          </TouchableOpacity>
+          
+          <View style={styles.headerTitleContainer}>
+            <IconSymbol
+              ios_icon_name={programIconIOS}
+              android_material_icon_name={programIcon}
+              size={32}
+              color={programColor}
+            />
+            <Text style={styles.headerTitle}>{programTitle}</Text>
+          </View>
+          <Text style={styles.headerSubtitle}>{programSubtitle}</Text>
+          
           <Animated.View 
             entering={FadeInDown.delay(200).duration(600)}
-            style={styles.progressCard}
+            style={styles.freeTrialBanner}
           >
-            <View style={styles.progressHeader}>
-              <IconSymbol
-                ios_icon_name="calendar"
-                android_material_icon_name="calendar-today"
-                size={24}
-                color={programColor}
-              />
-              <Text style={styles.progressTitle}>Your Progress</Text>
-            </View>
-            
-            <View style={styles.progressBarContainer}>
-              <View style={styles.progressBarBackground}>
-                <Animated.View 
-                  style={[styles.progressBarFill, progressBarStyle, { backgroundColor: programColor }]} 
-                />
-              </View>
-            </View>
-            
-            <Text style={styles.progressText}>{progressText}</Text>
-            
-            <View style={styles.statsRow}>
-              <View style={styles.statItem}>
-                <Text style={[styles.statNumber, { color: programColor }]}>{completedTechniques.size}</Text>
-                <Text style={styles.statLabel}>Completed</Text>
-              </View>
-              <View style={styles.statDivider} />
-              <View style={styles.statItem}>
-                <Text style={[styles.statNumber, { color: programColor }]}>{programTechniques.length}</Text>
-                <Text style={styles.statLabel}>Total Techniques</Text>
-              </View>
-            </View>
-          </Animated.View>
-
-          <Animated.View 
-            entering={FadeInDown.delay(300).duration(600)}
-            style={styles.techniquesHeader}
-          >
-            <Text style={styles.techniquesHeaderTitle}>12 Weekly Techniques</Text>
-            <Text style={styles.techniquesHeaderSubtitle}>
-              One technique per week for 12 weeks
+            <IconSymbol
+              ios_icon_name={isSubscribed ? 'checkmark.seal.fill' : 'info.circle'}
+              android_material_icon_name={isSubscribed ? 'verified' : 'info'}
+              size={20}
+              color={isSubscribed ? '#27AE60' : programColor}
+            />
+            <Text style={styles.freeTrialText}>
+              {isSubscribed ? 'Pro Member — All Weeks Unlocked' : 'Free Trial: Week 1 Only'}
             </Text>
+            {!isSubscribed && (
+              <TouchableOpacity
+                style={[styles.upgradeButton, { backgroundColor: programColor }]}
+                onPress={() => {
+                  console.log('User tapped Upgrade banner button');
+                  router.push('/paywall');
+                }}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.upgradeButtonText}>Upgrade</Text>
+              </TouchableOpacity>
+            )}
           </Animated.View>
+        </Animated.View>
 
-          <View style={styles.techniquesContainer}>
-            {programTechniques.map((technique, index) => {
-              const isExpanded = selectedTechnique === technique.id;
-              const isCompleted = completedTechniques.has(technique.id);
-              const weekText = `Week ${technique.week}`;
-              const isLocked = technique.week > 1 && !userHasPaidAccess;
-
-              return (
-                <TechniqueCard
-                  key={technique.id}
-                  technique={technique}
-                  index={index}
-                  isExpanded={isExpanded}
-                  isCompleted={isCompleted}
-                  isLocked={isLocked}
-                  categoryColor={programColor}
-                  weekText={weekText}
-                  onPress={() => handleTechniquePress(technique.id, technique.week)}
-                  onCheckboxPress={() => handleCheckboxPress(technique.id, technique.week)}
-                />
-              );
-            })}
+        <Animated.View 
+          entering={FadeInDown.delay(200).duration(600)}
+          style={styles.progressCard}
+        >
+          <View style={styles.progressHeader}>
+            <IconSymbol
+              ios_icon_name="calendar"
+              android_material_icon_name="calendar-today"
+              size={24}
+              color={programColor}
+            />
+            <Text style={styles.progressTitle}>Your Progress</Text>
           </View>
+          
+          <View style={styles.progressBarContainer}>
+            <View style={styles.progressBarBackground}>
+              <Animated.View 
+                style={[styles.progressBarFill, progressBarStyle, { backgroundColor: programColor }]} 
+              />
+            </View>
+          </View>
+          
+          <Text style={styles.progressText}>{progressText}</Text>
+          
+          <View style={styles.statsRow}>
+            <View style={styles.statItem}>
+              <Text style={[styles.statNumber, { color: programColor }]}>{completedTechniques.size}</Text>
+              <Text style={styles.statLabel}>Completed</Text>
+            </View>
+            <View style={styles.statDivider} />
+            <View style={styles.statItem}>
+              <Text style={[styles.statNumber, { color: programColor }]}>{programTechniques.length}</Text>
+              <Text style={styles.statLabel}>Total Techniques</Text>
+            </View>
+          </View>
+        </Animated.View>
 
-          <Animated.View 
-            entering={FadeInDown.delay(400).duration(600)}
-            style={styles.footer}
-          >
-            <Text style={styles.footerText}>
-              Practice each technique for one week. Consistency over 12 weeks creates lasting transformation.
-            </Text>
-          </Animated.View>
-        </ScrollView>
+        <Animated.View 
+          entering={FadeInDown.delay(300).duration(600)}
+          style={styles.techniquesHeader}
+        >
+          <Text style={styles.techniquesHeaderTitle}>12 Weekly Techniques</Text>
+          <Text style={styles.techniquesHeaderSubtitle}>
+            One technique per week for 12 weeks
+          </Text>
+        </Animated.View>
 
-        {completedTechniqueData && (
-          <CongratulationsModal
-            visible={showCongratsModal}
-            onClose={handleCloseCongratsModal}
-            weekNumber={completedTechniqueData.week}
-            techniqueTitle={completedTechniqueData.title}
-            categoryColor={completedTechniqueData.color}
-          />
-        )}
-      </SafeAreaView>
+        <View style={styles.techniquesContainer}>
+          {programTechniques.map((technique, index) => {
+            const isExpanded = selectedTechnique === technique.id;
+            const isCompleted = completedTechniques.has(technique.id);
+            const weekText = `Week ${technique.week}`;
+            const isLocked = technique.week > 1 && !isSubscribed;
 
-      <BillingModal
-        visible={showBillingModal}
-        onClose={() => setShowBillingModal(false)}
-        onSelectPlan={handleBillingComplete}
-        selectedProgram={selectedProgramForBilling}
-        programTitle={selectedProgramForBilling ? PROGRAM_CONFIGS[selectedProgramForBilling].title : undefined}
-        programColor={selectedProgramForBilling ? PROGRAM_CONFIGS[selectedProgramForBilling].color : undefined}
-      />
-    </>
+            return (
+              <TechniqueCard
+                key={technique.id}
+                technique={technique}
+                index={index}
+                isExpanded={isExpanded}
+                isCompleted={isCompleted}
+                isLocked={isLocked}
+                categoryColor={programColor}
+                weekText={weekText}
+                onPress={() => handleTechniquePress(technique.id, technique.week)}
+                onCheckboxPress={() => handleCheckboxPress(technique.id, technique.week)}
+              />
+            );
+          })}
+        </View>
+
+        <Animated.View 
+          entering={FadeInDown.delay(400).duration(600)}
+          style={styles.footer}
+        >
+          <Text style={styles.footerText}>
+            Practice each technique for one week. Consistency over 12 weeks creates lasting transformation.
+          </Text>
+        </Animated.View>
+      </ScrollView>
+
+      {completedTechniqueData && (
+        <CongratulationsModal
+          visible={showCongratsModal}
+          onClose={handleCloseCongratsModal}
+          weekNumber={completedTechniqueData.week}
+          techniqueTitle={completedTechniqueData.title}
+          categoryColor={completedTechniqueData.color}
+        />
+      )}
+    </SafeAreaView>
   );
 }
 
@@ -1223,30 +1141,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#FFFFFF',
   },
-  programCardButtonsRow: {
-    flexDirection: 'row',
-    gap: 12,
-  },
-  programCardButtonSecondary: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.15)',
-    paddingVertical: 14,
-    paddingHorizontal: 16,
-    borderRadius: 12,
-    gap: 6,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.3)',
-  },
-  programCardButtonSecondaryText: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#FFFFFF',
-  },
   programCardButtonPrimary: {
-    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',

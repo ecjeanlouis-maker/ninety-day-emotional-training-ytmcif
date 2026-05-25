@@ -18,7 +18,6 @@ import Animated, {
   FadeOut,
 } from 'react-native-reanimated';
 import { ProgramType } from '@/types/program';
-import BillingModal from '@/components/BillingModal';
 
 interface Question {
   id: number;
@@ -229,8 +228,6 @@ export default function Survey({ onComplete, onBack }: SurveyProps) {
   const [answers, setAnswers] = useState<number[]>([]);
   const [showResults, setShowResults] = useState(false);
   const [recommendedPrograms, setRecommendedPrograms] = useState<ProgramType[]>([]);
-  const [showBillingModal, setShowBillingModal] = useState(false);
-  const [selectedProgramForBilling, setSelectedProgramForBilling] = useState<ProgramType | undefined>(undefined);
 
   const handleAnswer = (optionIndex: number) => {
     console.log('User selected option:', optionIndex, 'for question:', currentQuestion);
@@ -300,36 +297,21 @@ export default function Survey({ onComplete, onBack }: SurveyProps) {
   };
 
   const handleSelectProgram = (program: ProgramType) => {
-    console.log('User selected program from results:', program);
+    console.log('User selected program from results (iOS):', program);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    setSelectedProgramForBilling(program);
-    setShowBillingModal(true);
-  };
-
-  const handleBillingComplete = (planType: 'monthly' | 'lifetime', programType?: ProgramType) => {
-    console.log('Billing completed:', planType, programType);
-    setShowBillingModal(false);
-    
-    if (planType === 'lifetime') {
-      onComplete(recommendedPrograms);
-    } else if (programType) {
-      onComplete([programType]);
-    }
+    onComplete([program]);
   };
 
   const handleBrowseAllPrograms = () => {
-    console.log('User wants to browse all programs');
+    console.log('User wants to browse all programs (iOS)');
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    setShowBillingModal(true);
-    setSelectedProgramForBilling(undefined);
+    onComplete(recommendedPrograms);
   };
 
   const progressPercentage = ((currentQuestion + 1) / SURVEY_QUESTIONS.length) * 100;
   const progressText = `Question ${currentQuestion + 1} of ${SURVEY_QUESTIONS.length}`;
 
   if (showResults) {
-    const selectedProgramInfo = selectedProgramForBilling ? PROGRAM_INFO[selectedProgramForBilling] : undefined;
-    
     return (
       <>
         <SafeAreaView style={styles.container} edges={['top']}>
@@ -408,7 +390,7 @@ export default function Survey({ onComplete, onBack }: SurveyProps) {
                         </Text>
                         
                         <View style={styles.resultProgramButton}>
-                          <Text style={styles.resultProgramButtonText}>View Pricing</Text>
+                          <Text style={styles.resultProgramButtonText}>Start Program</Text>
                           <IconSymbol
                             ios_icon_name="arrow.right"
                             android_material_icon_name="arrow-forward"
@@ -467,15 +449,6 @@ export default function Survey({ onComplete, onBack }: SurveyProps) {
             </Animated.View>
           </ScrollView>
         </SafeAreaView>
-
-        <BillingModal
-          visible={showBillingModal}
-          onClose={() => setShowBillingModal(false)}
-          onSelectPlan={handleBillingComplete}
-          selectedProgram={selectedProgramForBilling}
-          programTitle={selectedProgramInfo?.title}
-          programColor={selectedProgramInfo?.color}
-        />
       </>
     );
   }

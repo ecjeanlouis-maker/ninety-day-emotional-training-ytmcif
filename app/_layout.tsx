@@ -16,6 +16,7 @@ import {
 import { StatusBar } from "expo-status-bar";
 import { WidgetProvider } from "@/contexts/WidgetContext";
 import { AuthProvider } from "@/contexts/AuthContext";
+import { SubscriptionProvider } from "@/contexts/SubscriptionContext";
 // Note: Error logging is auto-initialized via index.ts import
 
 // Prevent the splash screen from auto-hiding before asset loading is complete.
@@ -83,18 +84,21 @@ export default function RootLayout() {
           value={colorScheme === "dark" ? CustomDarkTheme : CustomDefaultTheme}
         >
           <AuthProvider>
-            <WidgetProvider>
-              <GestureHandlerRootView>
-                <Stack>
-                  {/* Main app with tabs */}
-                  <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-                  <Stack.Screen name="auth" options={{ headerShown: false }} />
-                  <Stack.Screen name="auth-popup" options={{ headerShown: false }} />
-                  <Stack.Screen name="auth-callback" options={{ headerShown: false }} />
-                </Stack>
-                <SystemBars style={"auto"} />
-              </GestureHandlerRootView>
-            </WidgetProvider>
+            <SubscriptionProvider>
+              <WidgetProvider>
+                <GestureHandlerRootView>
+                  <Stack>
+                    {/* Main app with tabs */}
+                    <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+                    <Stack.Screen name="auth" options={{ headerShown: false }} />
+                    <Stack.Screen name="auth-popup" options={{ headerShown: false }} />
+                    <Stack.Screen name="auth-callback" options={{ headerShown: false }} />
+                    <Stack.Screen name="paywall" options={{ headerShown: false, presentation: 'modal' }} />
+                  </Stack>
+                  <SystemBars style={"auto"} />
+                </GestureHandlerRootView>
+              </WidgetProvider>
+            </SubscriptionProvider>
           </AuthProvider>
         </ThemeProvider>
     </>
