@@ -3,6 +3,7 @@ import type { FastifyRequest, FastifyReply } from 'fastify';
 import { eq, and, desc } from 'drizzle-orm';
 import * as schema from '../db/schema.js';
 import { getStripe, isStripeConfigured, getStripePriceIds } from '../lib/stripe.js';
+import { requireAuthUserId } from '../lib/auth.js';
 
 export function registerStripeRoutes(app: App) {
   const requireAuth = app.requireAuth();
@@ -77,6 +78,7 @@ export function registerStripeRoutes(app: App) {
       schema: {
         description: 'Create a Stripe checkout session',
         tags: ['stripe'],
+        security: [{ bearerAuth: [] }],
         body: {
           type: 'object',
           required: ['priceId'],
@@ -189,6 +191,7 @@ export function registerStripeRoutes(app: App) {
       schema: {
         description: 'Create a Stripe billing portal session',
         tags: ['stripe'],
+        security: [{ bearerAuth: [] }],
         response: {
           200: {
             type: 'object',
@@ -259,6 +262,7 @@ export function registerStripeRoutes(app: App) {
       schema: {
         description: 'Get current subscription status',
         tags: ['stripe'],
+        security: [{ bearerAuth: [] }],
         response: {
           200: {
             type: 'object',
@@ -342,6 +346,7 @@ export function registerStripeRoutes(app: App) {
       schema: {
         description: 'Get billing transaction history',
         tags: ['stripe'],
+        security: [{ bearerAuth: [] }],
         response: {
           200: {
             type: 'object',
@@ -411,6 +416,7 @@ export function registerStripeRoutes(app: App) {
       schema: {
         description: 'Cancel active subscription',
         tags: ['stripe'],
+        security: [{ bearerAuth: [] }],
         response: {
           200: {
             type: 'object',
@@ -494,6 +500,7 @@ export function registerStripeRoutes(app: App) {
       schema: {
         description: 'Resume cancelled subscription',
         tags: ['stripe'],
+        security: [{ bearerAuth: [] }],
         response: {
           200: {
             type: 'object',
@@ -580,6 +587,7 @@ export function registerStripeRoutes(app: App) {
       schema: {
         description: 'Change subscription plan',
         tags: ['stripe'],
+        security: [{ bearerAuth: [] }],
         body: {
           type: 'object',
           required: ['newPriceId'],

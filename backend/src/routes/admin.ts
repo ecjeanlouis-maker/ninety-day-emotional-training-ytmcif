@@ -35,6 +35,7 @@ export function registerAdminRoutes(app: App) {
       schema: {
         description: 'Get all users with profiles and subscriptions',
         tags: ['admin'],
+        security: [{ bearerAuth: [] }],
         querystring: {
           type: 'object',
           properties: {
@@ -152,6 +153,7 @@ export function registerAdminRoutes(app: App) {
       schema: {
         description: 'Update user role or active status',
         tags: ['admin'],
+        security: [{ bearerAuth: [] }],
         params: {
           type: 'object',
           properties: {
@@ -260,6 +262,7 @@ export function registerAdminRoutes(app: App) {
       schema: {
         description: 'Get all subscriptions',
         tags: ['admin'],
+        security: [{ bearerAuth: [] }],
         querystring: {
           type: 'object',
           properties: {
@@ -370,6 +373,7 @@ export function registerAdminRoutes(app: App) {
       schema: {
         description: 'Get payment transactions',
         tags: ['admin'],
+        security: [{ bearerAuth: [] }],
         querystring: {
           type: 'object',
           properties: {
@@ -462,6 +466,7 @@ export function registerAdminRoutes(app: App) {
       schema: {
         description: 'Get analytics overview',
         tags: ['admin'],
+        security: [{ bearerAuth: [] }],
         response: {
           200: {
             type: 'object',
@@ -549,6 +554,7 @@ export function registerAdminRoutes(app: App) {
       schema: {
         description: 'Get content by key',
         tags: ['admin'],
+        security: [{ bearerAuth: [] }],
         params: {
           type: 'object',
           properties: {
@@ -635,6 +641,7 @@ export function registerAdminRoutes(app: App) {
       schema: {
         description: 'Update content',
         tags: ['admin'],
+        security: [{ bearerAuth: [] }],
         params: {
           type: 'object',
           properties: {
