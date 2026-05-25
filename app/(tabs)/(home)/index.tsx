@@ -90,7 +90,7 @@ export default function HomeScreen() {
   
   const { user } = useAuth();
   const { isSubscribed } = useSubscription();
-  const { canAccess } = useUser();
+  const { canAccess, profile, isFree, isPremium, isAdmin, isTrialing, isPastDue, trialDaysRemaining } = useUser();
   const router = useRouter();
   const [showWelcome, setShowWelcome] = useState(true);
   const [showSurvey, setShowSurvey] = useState(false);
@@ -454,6 +454,96 @@ export default function HomeScreen() {
 
   const motivationalPhrase = 'BE THE BEST VERSION OF YOURSELF';
 
+  // --- User info card computed values ---
+  const displayName = profile?.full_name || user?.name || (user?.email ? user.email.split('@')[0] : 'there');
+
+  const rolePillBg = isAdmin ? '#6B4CE6' : isPremium ? '#27AE60' : '#8E8E93';
+  const rolePillLabel = isAdmin ? 'ADMIN' : isPremium ? 'PREMIUM' : 'FREE';
+
+  const planTypeLabel = profile?.plan_type === 'lifetime'
+    ? 'Lifetime'
+    : profile?.plan_type === 'yearly'
+      ? 'Yearly'
+      : profile?.plan_type === 'monthly'
+        ? 'Monthly'
+        : isTrialing
+          ? 'Free Trial'
+          : 'Free';
+
+  const accessState = profile?.access_state ?? null;
+  const statusDotColor = accessState === 'active'
+    ? '#27AE60'
+    : accessState === 'trialing'
+      ? '#3B82F6'
+      : accessState === 'past_due'
+        ? '#FF3B30'
+        : accessState === 'cancelled_grace'
+          ? '#F5A623'
+          : accessState === 'admin'
+            ? '#6B4CE6'
+            : '#8E8E93';
+  const statusLabel = accessState === 'active'
+    ? 'Active'
+    : accessState === 'trialing'
+      ? 'Trial'
+      : accessState === 'past_due'
+        ? 'Payment Due'
+        : accessState === 'cancelled_grace'
+          ? 'Cancelled'
+          : accessState === 'expired'
+            ? 'Expired'
+            : accessState === 'admin'
+              ? 'Admin'
+              : 'Inactive';
+
+  const trialCountText = trialDaysRemaining !== null && trialDaysRemaining > 1
+    ? `Free trial — ${trialDaysRemaining} days left`
+    : trialDaysRemaining === 1
+      ? 'Free trial — last day'
+      : 'Trial ending today';
+
+  const actionButtonIntent = isAdmin
+    ? 'admin-dashboard'
+    : isPastDue
+      ? 'update-payment'
+      : isTrialing
+        ? 'upgrade-now'
+        : isFree
+          ? 'upgrade-to-premium'
+          : 'manage-subscription';
+
+  const actionButtonLabel = actionButtonIntent === 'admin-dashboard'
+    ? 'Admin Dashboard'
+    : actionButtonIntent === 'update-payment'
+      ? 'Update Payment'
+      : actionButtonIntent === 'upgrade-now'
+        ? 'Upgrade Now'
+        : actionButtonIntent === 'upgrade-to-premium'
+          ? 'Upgrade to Premium'
+          : 'Manage Subscription';
+
+  const actionButtonRoute: '/paywall' | '/admin' = actionButtonIntent === 'admin-dashboard' ? '/admin' : '/paywall';
+
+  const isProfileMissing = !!user && profile === null;
+
+  const handleActionButtonPress = () => {
+    console.log(`[Dashboard] Action button tapped — ${actionButtonIntent}`);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    router.push(actionButtonRoute);
+  };
+
+  const handleTrialBannerPress = () => {
+    console.log('[Dashboard] Trial countdown banner tapped — routing to paywall');
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    router.push('/paywall');
+  };
+
+  const handleCompleteProfilePress = () => {
+    console.log('[Dashboard] Complete Your Profile tapped — routing to profile-edit');
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    router.push('/profile-edit');
+  };
+
   if (!selectedProgram) {
     return (
       <SafeAreaView style={styles.container} edges={['top']}>
@@ -462,6 +552,144 @@ export default function HomeScreen() {
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
         >
+          {!!user && (
+            <Animated.View entering={FadeIn.duration(600)} style={styles.userInfoCard}>
+              {/* Greeting row */}
+              <View style={styles.userInfoGreetingRow}>
+                <View style={styles.userInfoAvatarCircle}>
+                  <IconSymbol
+                    ios_icon_name="person.fill"
+                    android_material_icon_name="person"
+                    size={22}
+                    color={colors.primary}
+                  />
+                </View>
+                <View style={styles.userInfoNameStack}>
+                  <Text style={styles.userInfoWelcomeLabel}>Welcome back</Text>
+                  <Text style={styles.userInfoName}>{displayName}</Text>
+                </View>
+                <View style={[styles.userInfoRolePill, { backgroundColor: rolePillBg }]}>
+                  <Text style={styles.userInfoRolePillText}>{rolePillLabel}</Text>
+                </View>
+              </View>
+
+              {/* Status row — only when profile is loaded */}
+              {!isProfileMissing && (
+                <View style={styles.userInfoStatusRow}>
+                  <View style={styles.userInfoStatusHalf}>
+                    <Text style={styles.userInfoStatusLabel}>PLAN</Text>
+                    <Text style={styles.userInfoStatusValue}>{planTypeLabel}</Text>
+                  </View>
+                  <View style={styles.userInfoStatusDivider} />
+                  <View style={styles.userInfoStatusHalf}>
+                    <Text style={styles.userInfoStatusLabel}>STATUS</Text>
+                    <View style={styles.userInfoStatusValueRow}>
+                      <View style={[styles.userInfoStatusDot, { backgroundColor: statusDotColor }]} />
+                      <Text style={styles.userInfoStatusValue}>{statusLabel}</Text>
+                    </View>
+                  </View>
+                </View>
+              )}
+
+              {/* Trial countdown banner */}
+              {!isProfileMissing && isTrialing && trialDaysRemaining !== null && (
+                <TouchableOpacity
+                  style={styles.userInfoTrialBanner}
+                  onPress={handleTrialBannerPress}
+                  activeOpacity={0.85}
+                >
+                  <IconSymbol
+                    ios_icon_name="gift.fill"
+                    android_material_icon_name="card-giftcard"
+                    size={16}
+                    color="#2563EB"
+                  />
+                  <Text style={styles.userInfoTrialText}>{trialCountText}</Text>
+                </TouchableOpacity>
+              )}
+
+              {/* Action button */}
+              {isProfileMissing ? (
+                <TouchableOpacity
+                  style={styles.userInfoActionGradientWrapper}
+                  onPress={handleCompleteProfilePress}
+                  activeOpacity={0.88}
+                >
+                  <LinearGradient
+                    colors={[colors.primary, colors.secondary]}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 0 }}
+                    style={styles.userInfoActionGradient}
+                  >
+                    <IconSymbol
+                      ios_icon_name="person.badge.plus"
+                      android_material_icon_name="person-add"
+                      size={18}
+                      color="#FFFFFF"
+                    />
+                    <Text style={styles.userInfoActionGradientText}>Complete Your Profile</Text>
+                  </LinearGradient>
+                </TouchableOpacity>
+              ) : actionButtonIntent === 'manage-subscription' || actionButtonIntent === 'admin-dashboard' ? (
+                <TouchableOpacity
+                  style={styles.userInfoActionOutline}
+                  onPress={handleActionButtonPress}
+                  activeOpacity={0.88}
+                >
+                  <IconSymbol
+                    ios_icon_name={actionButtonIntent === 'admin-dashboard' ? 'shield.checkmark' : 'gearshape'}
+                    android_material_icon_name={actionButtonIntent === 'admin-dashboard' ? 'verified-user' : 'settings'}
+                    size={18}
+                    color={colors.primary}
+                  />
+                  <Text style={styles.userInfoActionOutlineText}>{actionButtonLabel}</Text>
+                </TouchableOpacity>
+              ) : actionButtonIntent === 'update-payment' ? (
+                <TouchableOpacity
+                  style={styles.userInfoActionGradientWrapper}
+                  onPress={handleActionButtonPress}
+                  activeOpacity={0.88}
+                >
+                  <LinearGradient
+                    colors={['#FF3B30', '#FF6B5B']}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 0 }}
+                    style={styles.userInfoActionGradient}
+                  >
+                    <IconSymbol
+                      ios_icon_name="creditcard"
+                      android_material_icon_name="credit-card"
+                      size={18}
+                      color="#FFFFFF"
+                    />
+                    <Text style={styles.userInfoActionGradientText}>{actionButtonLabel}</Text>
+                  </LinearGradient>
+                </TouchableOpacity>
+              ) : (
+                <TouchableOpacity
+                  style={styles.userInfoActionGradientWrapper}
+                  onPress={handleActionButtonPress}
+                  activeOpacity={0.88}
+                >
+                  <LinearGradient
+                    colors={[colors.primary, colors.secondary]}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 0 }}
+                    style={styles.userInfoActionGradient}
+                  >
+                    <Text style={styles.userInfoActionGradientText}>{actionButtonLabel}</Text>
+                    <IconSymbol
+                      ios_icon_name="arrow.right"
+                      android_material_icon_name="arrow-forward"
+                      size={18}
+                      color="#FFFFFF"
+                    />
+                  </LinearGradient>
+                </TouchableOpacity>
+              )}
+            </Animated.View>
+          )}
+
           <Animated.View 
             entering={FadeIn.duration(800)}
             style={styles.motivationalBanner}
@@ -1521,5 +1749,142 @@ const styles = StyleSheet.create({
     color: colors.text,
     textAlign: 'center',
     lineHeight: 20,
+  },
+  // User info card
+  userInfoCard: {
+    backgroundColor: colors.card,
+    borderRadius: 20,
+    padding: 18,
+    marginTop: 20,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: colors.border,
+    gap: 14,
+    shadowColor: '#000',
+    shadowOpacity: 0.05,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 2,
+  },
+  userInfoGreetingRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  userInfoAvatarCircle: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: `${colors.primary}26`,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  userInfoNameStack: {
+    flex: 1,
+  },
+  userInfoWelcomeLabel: {
+    fontSize: 12,
+    fontWeight: '500',
+    color: `${colors.text}99`,
+    marginBottom: 2,
+  },
+  userInfoName: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: colors.text,
+  },
+  userInfoRolePill: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  userInfoRolePillText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#FFFFFF',
+    letterSpacing: 0.5,
+  },
+  userInfoStatusRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  userInfoStatusHalf: {
+    flex: 1,
+    paddingVertical: 4,
+  },
+  userInfoStatusDivider: {
+    width: 1,
+    height: '100%',
+    backgroundColor: `${colors.border}80`,
+    marginHorizontal: 16,
+  },
+  userInfoStatusLabel: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: `${colors.text}99`,
+    letterSpacing: 0.5,
+    marginBottom: 4,
+  },
+  userInfoStatusValue: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: colors.text,
+  },
+  userInfoStatusValueRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  userInfoStatusDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    marginRight: 6,
+  },
+  userInfoTrialBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#EFF6FF',
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderRadius: 10,
+    gap: 8,
+  },
+  userInfoTrialText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#1E3A8A',
+  },
+  userInfoActionGradientWrapper: {
+    borderRadius: 14,
+    overflow: 'hidden',
+  },
+  userInfoActionGradient: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 14,
+    paddingHorizontal: 20,
+    gap: 8,
+  },
+  userInfoActionGradientText: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+  userInfoActionOutline: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 14,
+    paddingHorizontal: 20,
+    borderRadius: 14,
+    borderWidth: 1.5,
+    borderColor: colors.primary,
+    gap: 8,
+  },
+  userInfoActionOutlineText: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: colors.primary,
   },
 });
