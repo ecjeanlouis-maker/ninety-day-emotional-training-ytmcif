@@ -97,7 +97,7 @@ export default function HomeScreen() {
   } | null>(null);
   const [showBillingModal, setShowBillingModal] = useState(false);
   const [selectedProgramForBilling, setSelectedProgramForBilling] = useState<ProgramType | undefined>(undefined);
-  const [hasPaidAccess, setHasPaidAccess] = useState<Record<ProgramType, boolean>>({
+  const [hasPaidAccess, setHasPaidAccess] = useState<Record<NonNullable<ProgramType>, boolean>>({
     emotional: false,
     confidence: false,
     anger: false,
@@ -176,7 +176,7 @@ export default function HomeScreen() {
       setHasPaidAccess(updatedAccess);
       setSelectedProgram(programType);
     } else if (planType === 'lifetime' || planType === 'premium-lifetime') {
-      const allAccess: Record<ProgramType, boolean> = {
+      const allAccess: Record<NonNullable<ProgramType>, boolean> = {
         emotional: true,
         confidence: true,
         anger: true,
