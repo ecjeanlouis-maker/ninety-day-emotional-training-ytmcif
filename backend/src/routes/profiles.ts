@@ -1,6 +1,6 @@
 import type { App } from '../index.js';
 import type { FastifyRequest, FastifyReply } from 'fastify';
-import { eq } from 'drizzle-orm';
+import { eq, sql } from 'drizzle-orm';
 import * as schema from '../db/schema.js';
 
 const VALID_AGE_RANGES = ['under_18', '18_24', '25_34', '35_44', '45_54', '55_plus'];
@@ -66,6 +66,7 @@ interface ProfileResponse {
   trial_status: string;
   payment_status: string;
   is_premium_active: boolean;
+  access_state: string;
   created_at: string;
   updated_at: string;
 }
@@ -93,13 +94,39 @@ function computeIsPremiumActive(profile: any): boolean {
   if (profile.accountType !== 'premium') {
     return false;
   }
-  if (!['active', 'trialing'].includes(profile.subscriptionStatus)) {
+  // True for both 'active' and 'trialing', also true for 'past_due'
+  if (!['active', 'trialing', 'past_due'].includes(profile.subscriptionStatus)) {
     return false;
   }
   if (profile.subscriptionEndDate === null || profile.subscriptionEndDate === undefined) {
     return true;
   }
   return profile.subscriptionEndDate > new Date();
+}
+
+function computeAccessState(profile: any): string {
+  // Precedence order as specified
+  if (profile.role === 'admin') {
+    return 'admin';
+  }
+  if (profile.subscriptionStatus === 'past_due') {
+    return 'past_due';
+  }
+  if (profile.subscriptionStatus === 'trialing') {
+    return 'trialing';
+  }
+  if (profile.subscriptionStatus === 'active') {
+    return 'active';
+  }
+  if (profile.subscriptionStatus === 'cancelled') {
+    if (profile.subscriptionEndDate && profile.subscriptionEndDate > new Date()) {
+      return 'cancelled_grace';
+    }
+  }
+  if (profile.subscriptionStatus === 'expired') {
+    return 'expired';
+  }
+  return 'inactive';
 }
 
 function formatProfileResponse(profile: any): ProfileResponse {
@@ -123,6 +150,7 @@ function formatProfileResponse(profile: any): ProfileResponse {
     trial_status: profile.trialStatus,
     payment_status: profile.paymentStatus,
     is_premium_active: computeIsPremiumActive(profile),
+    access_state: computeAccessState(profile),
     created_at: profile.createdAt.toISOString(),
     updated_at: profile.updatedAt.toISOString(),
   };
@@ -292,6 +320,7 @@ export function registerProfileRoutes(app: App) {
               trial_status: { type: 'string', enum: ['none', 'active', 'expired', 'converted'] },
               payment_status: { type: 'string', enum: ['none', 'succeeded', 'failed', 'pending', 'refunded'] },
               is_premium_active: { type: 'boolean' },
+              access_state: { type: 'string', enum: ['active', 'trialing', 'cancelled_grace', 'past_due', 'expired', 'inactive', 'admin'] },
               created_at: { type: 'string', format: 'date-time' },
               updated_at: { type: 'string', format: 'date-time' },
             },
@@ -316,16 +345,86 @@ export function registerProfileRoutes(app: App) {
       app.logger.info({ userId: session.user.id }, 'Fetching profile');
 
       try {
-        const profile = await app.db
+        const userId = session.user.id;
+        const now = new Date();
+
+        // Fetch profile first
+        const profileRows = await app.db
           .select()
           .from(schema.userProfiles)
-          .where(eq(schema.userProfiles.userId, session.user.id));
+          .where(eq(schema.userProfiles.userId, userId));
 
-        if (profile.length === 0) {
+        if (profileRows.length === 0) {
           return reply.status(404).send({ error: 'profile_not_found' });
         }
 
-        return formatProfileResponse(profile[0]);
+        const profile = profileRows[0];
+
+        // Check if any expiry conditions are met and sweep if needed
+        let needsUpdate = false;
+        const updates: Record<string, any> = {};
+
+        // Trial expired
+        if (
+          profile.trialStatus === 'active' &&
+          profile.subscriptionEndDate &&
+          profile.subscriptionEndDate <= now &&
+          profile.subscriptionStatus === 'trialing'
+        ) {
+          updates.trialStatus = 'expired';
+          updates.subscriptionStatus = 'expired';
+          updates.accountType = 'free';
+          updates.paymentStatus = 'none';
+          updates.role = profile.role === 'admin' ? 'admin' : 'free';
+          updates.updatedAt = now;
+          needsUpdate = true;
+        }
+        // Active subscription expired
+        else if (
+          profile.subscriptionStatus === 'active' &&
+          profile.subscriptionEndDate &&
+          profile.subscriptionEndDate <= now &&
+          profile.planType &&
+          ['monthly', 'yearly'].includes(profile.planType)
+        ) {
+          updates.subscriptionStatus = 'expired';
+          updates.accountType = 'free';
+          updates.role = profile.role === 'admin' ? 'admin' : 'free';
+          updates.updatedAt = now;
+          needsUpdate = true;
+        }
+        // Cancelled subscription past end date
+        else if (
+          profile.subscriptionStatus === 'cancelled' &&
+          profile.subscriptionEndDate &&
+          profile.subscriptionEndDate <= now
+        ) {
+          updates.subscriptionStatus = 'expired';
+          updates.accountType = 'free';
+          updates.role = profile.role === 'admin' ? 'admin' : 'free';
+          updates.updatedAt = now;
+          needsUpdate = true;
+        }
+
+        // Apply sweep if needed
+        if (needsUpdate) {
+          await app.db
+            .update(schema.userProfiles)
+            .set(updates)
+            .where(eq(schema.userProfiles.userId, userId));
+
+          // Re-fetch after update
+          const updatedRows = await app.db
+            .select()
+            .from(schema.userProfiles)
+            .where(eq(schema.userProfiles.userId, userId));
+
+          if (updatedRows.length > 0) {
+            return formatProfileResponse(updatedRows[0]);
+          }
+        }
+
+        return formatProfileResponse(profile);
       } catch (error) {
         app.logger.error({ err: error, userId: session.user.id }, 'Failed to fetch profile');
         throw error;
@@ -937,6 +1036,14 @@ export function registerProfileRoutes(app: App) {
           }
         }
 
+        // If subscription_status is being set to 'active' and trial is currently active, convert it
+        if (
+          body.subscription_status === 'active' &&
+          existingProfile[0].trialStatus === 'active'
+        ) {
+          updateData.trialStatus = 'converted';
+        }
+
         const updated = await app.db
           .update(schema.userProfiles)
           .set(updateData)
@@ -947,6 +1054,228 @@ export function registerProfileRoutes(app: App) {
         return formatProfileResponse(updated[0]);
       } catch (error) {
         app.logger.error({ err: error, userId }, 'Failed to update subscription fields');
+        throw error;
+      }
+    }
+  );
+
+  // POST /api/profile/trial/start - Start a 7-day free trial
+  app.fastify.post(
+    '/api/profile/trial/start',
+    {
+      schema: {
+        description: 'Start a 7-day free trial for the authenticated user',
+        tags: ['profiles'],
+        response: {
+          200: {
+            description: 'Trial started',
+            type: 'object',
+            properties: {
+              user_id: { type: 'string' },
+              full_name: { type: 'string' },
+              age_range: { type: 'string' },
+              main_goal: { type: 'string' },
+              confidence_level: { type: 'integer' },
+              emotional_control_level: { type: 'integer' },
+              role: { type: 'string' },
+              is_active: { type: 'boolean' },
+              ai_messages_remaining: { type: ['integer', 'null'] },
+              account_type: { type: 'string', enum: ['free', 'premium'] },
+              subscription_status: { type: 'string', enum: ['inactive', 'active', 'past_due', 'cancelled', 'expired', 'trialing'] },
+              stripe_customer_id: { type: ['string', 'null'] },
+              stripe_subscription_id: { type: ['string', 'null'] },
+              plan_type: { type: ['string', 'null'], enum: ['monthly', 'yearly', 'lifetime'] },
+              subscription_start_date: { type: ['string', 'null'], format: 'date-time' },
+              subscription_end_date: { type: ['string', 'null'], format: 'date-time' },
+              trial_status: { type: 'string', enum: ['none', 'active', 'expired', 'converted'] },
+              payment_status: { type: 'string', enum: ['none', 'succeeded', 'failed', 'pending', 'refunded'] },
+              is_premium_active: { type: 'boolean' },
+              access_state: { type: 'string', enum: ['active', 'trialing', 'cancelled_grace', 'past_due', 'expired', 'inactive', 'admin'] },
+              created_at: { type: 'string', format: 'date-time' },
+              updated_at: { type: 'string', format: 'date-time' },
+            },
+          },
+          401: {
+            description: 'Unauthorized',
+            type: 'object',
+            properties: { error: { type: 'string' } },
+          },
+          404: {
+            description: 'Profile not found',
+            type: 'object',
+            properties: { error: { type: 'string' } },
+          },
+          409: {
+            description: 'Trial unavailable',
+            type: 'object',
+            properties: {
+              error: { type: 'string' },
+              reason: { type: 'string', enum: ['already_used', 'already_premium'] },
+            },
+          },
+        },
+      },
+    },
+    async (request: FastifyRequest, reply: FastifyReply) => {
+      const session = await requireAuth(request, reply);
+      if (!session) return;
+
+      const userId = session.user.id;
+      app.logger.info({ userId }, 'Starting trial');
+
+      try {
+        // Load user's profile
+        const profileRows = await app.db
+          .select()
+          .from(schema.userProfiles)
+          .where(eq(schema.userProfiles.userId, userId));
+
+        if (profileRows.length === 0) {
+          return reply.status(404).send({ error: 'profile_not_found' });
+        }
+
+        const profile = profileRows[0];
+
+        // Check if trial has already been used
+        if (profile.trialStatus !== 'none') {
+          return reply.status(409).send({
+            error: 'trial_unavailable',
+            reason: 'already_used',
+          });
+        }
+
+        // Check if already premium
+        if (profile.accountType === 'premium') {
+          return reply.status(409).send({
+            error: 'trial_unavailable',
+            reason: 'already_premium',
+          });
+        }
+
+        // Calculate trial end date (7 days from now)
+        const now = new Date();
+        const trialEndDate = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
+
+        // Start trial
+        const updated = await app.db
+          .update(schema.userProfiles)
+          .set({
+            accountType: 'premium',
+            subscriptionStatus: 'trialing',
+            trialStatus: 'active',
+            planType: 'monthly',
+            subscriptionStartDate: now,
+            subscriptionEndDate: trialEndDate,
+            paymentStatus: 'none',
+            role: profile.role === 'admin' ? 'admin' : 'premium',
+            updatedAt: now,
+          })
+          .where(eq(schema.userProfiles.userId, userId))
+          .returning();
+
+        app.logger.info({ userId }, 'Trial started successfully');
+        return formatProfileResponse(updated[0]);
+      } catch (error) {
+        app.logger.error({ err: error, userId }, 'Failed to start trial');
+        throw error;
+      }
+    }
+  );
+
+  // POST /api/profile/trial/cancel - Cancel active trial
+  app.fastify.post(
+    '/api/profile/trial/cancel',
+    {
+      schema: {
+        description: 'Cancel an active trial early',
+        tags: ['profiles'],
+        response: {
+          200: {
+            description: 'Trial cancelled',
+            type: 'object',
+            properties: {
+              user_id: { type: 'string' },
+              full_name: { type: 'string' },
+              age_range: { type: 'string' },
+              main_goal: { type: 'string' },
+              confidence_level: { type: 'integer' },
+              emotional_control_level: { type: 'integer' },
+              role: { type: 'string' },
+              is_active: { type: 'boolean' },
+              ai_messages_remaining: { type: ['integer', 'null'] },
+              account_type: { type: 'string', enum: ['free', 'premium'] },
+              subscription_status: { type: 'string', enum: ['inactive', 'active', 'past_due', 'cancelled', 'expired', 'trialing'] },
+              stripe_customer_id: { type: ['string', 'null'] },
+              stripe_subscription_id: { type: ['string', 'null'] },
+              plan_type: { type: ['string', 'null'], enum: ['monthly', 'yearly', 'lifetime'] },
+              subscription_start_date: { type: ['string', 'null'], format: 'date-time' },
+              subscription_end_date: { type: ['string', 'null'], format: 'date-time' },
+              trial_status: { type: 'string', enum: ['none', 'active', 'expired', 'converted'] },
+              payment_status: { type: 'string', enum: ['none', 'succeeded', 'failed', 'pending', 'refunded'] },
+              is_premium_active: { type: 'boolean' },
+              access_state: { type: 'string', enum: ['active', 'trialing', 'cancelled_grace', 'past_due', 'expired', 'inactive', 'admin'] },
+              created_at: { type: 'string', format: 'date-time' },
+              updated_at: { type: 'string', format: 'date-time' },
+            },
+          },
+          400: {
+            description: 'No active trial',
+            type: 'object',
+            properties: { error: { type: 'string' } },
+          },
+          401: {
+            description: 'Unauthorized',
+            type: 'object',
+            properties: { error: { type: 'string' } },
+          },
+        },
+      },
+    },
+    async (request: FastifyRequest, reply: FastifyReply) => {
+      const session = await requireAuth(request, reply);
+      if (!session) return;
+
+      const userId = session.user.id;
+      app.logger.info({ userId }, 'Cancelling trial');
+
+      try {
+        // Load user's profile
+        const profileRows = await app.db
+          .select()
+          .from(schema.userProfiles)
+          .where(eq(schema.userProfiles.userId, userId));
+
+        if (profileRows.length === 0) {
+          return reply.status(404).send({ error: 'profile_not_found' });
+        }
+
+        const profile = profileRows[0];
+
+        // Check if trial is active
+        if (profile.trialStatus !== 'active') {
+          return reply.status(400).send({ error: 'no_active_trial' });
+        }
+
+        // Cancel trial
+        const now = new Date();
+        const updated = await app.db
+          .update(schema.userProfiles)
+          .set({
+            trialStatus: 'expired',
+            subscriptionStatus: 'expired',
+            accountType: 'free',
+            subscriptionEndDate: now,
+            paymentStatus: 'none',
+            role: profile.role === 'admin' ? 'admin' : 'free',
+            updatedAt: now,
+          })
+          .where(eq(schema.userProfiles.userId, userId))
+          .returning();
+
+        app.logger.info({ userId }, 'Trial cancelled successfully');
+        return formatProfileResponse(updated[0]);
+      } catch (error) {
+        app.logger.error({ err: error, userId }, 'Failed to cancel trial');
         throw error;
       }
     }
