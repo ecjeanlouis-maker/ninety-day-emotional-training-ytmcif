@@ -16,7 +16,7 @@ export default function ProfileScreen() {
   const router = useRouter();
   const { user, loading, signOut } = useAuth();
   const { isSubscribed, restorePurchases } = useSubscription();
-  const { role } = useUser();
+  const { role, profile } = useUser();
 
   const handleEditProfile = () => {
     console.log('[Profile] Edit Profile tapped (iOS)');
@@ -61,6 +61,23 @@ export default function ProfileScreen() {
   const rolePillLabel = role === 'premium' ? 'Premium' : 'Free';
   const rolePillColor = role === 'premium' ? '#27AE60' : '#8E8E93';
 
+  const subStatus = profile?.subscription_status;
+  const subEndDate = profile?.subscription_end_date;
+  const showPastDueBanner = subStatus === 'past_due';
+  const showCancelledBanner =
+    subStatus === 'cancelled' &&
+    !!subEndDate &&
+    new Date(subEndDate) > new Date();
+  const formattedEndDate = subEndDate
+    ? new Date(subEndDate).toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' })
+    : '';
+
+  const handlePastDueBanner = () => {
+    console.log('[Profile] Past-due banner tapped — routing to paywall (iOS)');
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    router.push('/paywall');
+  };
+
   return (
     <SafeAreaView style={[styles.safeArea, { backgroundColor: theme.colors.background }]} edges={['top']}>
       <ScrollView
@@ -71,6 +88,20 @@ export default function ProfileScreen() {
           <TouchableOpacity style={styles.unverifiedBanner} onPress={handleVerifyEmail} activeOpacity={0.8}>
             <Text style={styles.unverifiedBannerText}>⚠ Email not verified — Verify Now</Text>
           </TouchableOpacity>
+        )}
+
+        {showPastDueBanner && (
+          <TouchableOpacity style={styles.pastDueBanner} onPress={handlePastDueBanner} activeOpacity={0.8}>
+            <Text style={styles.pastDueBannerText}>⚠ Payment failed — update your card</Text>
+          </TouchableOpacity>
+        )}
+
+        {showCancelledBanner && (
+          <View style={styles.cancelledBanner}>
+            <Text style={styles.cancelledBannerText}>
+              Premium until {formattedEndDate}
+            </Text>
+          </View>
         )}
 
         <GlassView style={styles.profileHeader} glassEffectStyle="regular">
@@ -315,6 +346,36 @@ const styles = StyleSheet.create({
   },
   unverifiedBannerText: {
     color: '#E65100',
+    fontSize: 14,
+    fontWeight: '700',
+    textAlign: 'center',
+  },
+  pastDueBanner: {
+    backgroundColor: '#FFF0F0',
+    borderWidth: 1,
+    borderColor: '#FF3B30',
+    borderRadius: 10,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    marginBottom: 12,
+  },
+  pastDueBannerText: {
+    color: '#FF3B30',
+    fontSize: 14,
+    fontWeight: '700',
+    textAlign: 'center',
+  },
+  cancelledBanner: {
+    backgroundColor: '#FFFBEA',
+    borderWidth: 1,
+    borderColor: '#F5A623',
+    borderRadius: 10,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    marginBottom: 12,
+  },
+  cancelledBannerText: {
+    color: '#B7791F',
     fontSize: 14,
     fontWeight: '700',
     textAlign: 'center',

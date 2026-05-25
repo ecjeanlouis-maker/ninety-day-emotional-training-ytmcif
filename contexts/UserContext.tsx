@@ -13,6 +13,12 @@ import { hasAccess, AppFeature } from '@/lib/access';
 
 type Role = 'free' | 'premium' | 'admin';
 
+type AccountType = 'free' | 'premium';
+type SubscriptionStatus = 'inactive' | 'active' | 'past_due' | 'cancelled' | 'expired' | 'trialing';
+type PlanType = 'monthly' | 'yearly' | 'lifetime';
+type TrialStatus = 'none' | 'active' | 'expired' | 'converted';
+type PaymentStatus = 'none' | 'succeeded' | 'failed' | 'pending' | 'refunded';
+
 interface UserProfile {
   full_name: string;
   age_range: string;
@@ -21,7 +27,30 @@ interface UserProfile {
   emotional_control_level: number;
   role: Role;
   ai_messages_remaining: number | null;
+  // subscription fields
+  account_type: AccountType;
+  subscription_status: SubscriptionStatus;
+  stripe_customer_id: string | null;
+  stripe_subscription_id: string | null;
+  plan_type: PlanType | null;
+  subscription_start_date: string | null;
+  subscription_end_date: string | null;
+  trial_status: TrialStatus;
+  payment_status: PaymentStatus;
+  is_premium_active: boolean;
 }
+
+type SubscriptionPartial = Partial<{
+  account_type: AccountType;
+  subscription_status: SubscriptionStatus;
+  stripe_customer_id: string | null;
+  stripe_subscription_id: string | null;
+  plan_type: PlanType | null;
+  subscription_start_date: string | null;
+  subscription_end_date: string | null;
+  trial_status: TrialStatus;
+  payment_status: PaymentStatus;
+}>;
 
 interface UserContextValue {
   profile: UserProfile | null;
@@ -33,6 +62,7 @@ interface UserContextValue {
   refreshProfile: () => Promise<void>;
   consumeAiMessage: () => Promise<{ allowed: boolean; remaining: number | null; resetsAt?: string }>;
   canAccess: (feature: AppFeature) => boolean;
+  updateSubscription: (partial: SubscriptionPartial) => Promise<void>;
 }
 
 const UserContext = createContext<UserContextValue | undefined>(undefined);
@@ -78,11 +108,12 @@ export function UserProvider({ children }: { children: ReactNode }) {
     fetchProfile();
   }, [fetchProfile]);
 
-  // Effective role: admin if backend says admin; premium if RevenueCat subscribed OR backend premium/admin
+  // Effective role: admin if backend says admin; premium if RevenueCat subscribed OR
+  // backend is_premium_active OR backend role is premium/admin
   const role: Role =
     profile?.role === 'admin'
       ? 'admin'
-      : isSubscribed || profile?.role === 'premium'
+      : isSubscribed || profile?.is_premium_active === true || profile?.role === 'premium'
       ? 'premium'
       : 'free';
 
@@ -138,6 +169,21 @@ export function UserProvider({ children }: { children: ReactNode }) {
     [role]
   );
 
+  const updateSubscription = useCallback(
+    async (partial: SubscriptionPartial): Promise<void> => {
+      console.log('[UserContext] updateSubscription called with:', partial);
+      try {
+        await authenticatedPost('/api/profile/subscription', partial);
+        console.log('[UserContext] updateSubscription — backend updated, refreshing profile');
+        await fetchProfile();
+      } catch (error: any) {
+        console.error('[UserContext] updateSubscription failed:', error);
+        throw error;
+      }
+    },
+    [fetchProfile]
+  );
+
   return (
     <UserContext.Provider
       value={{
@@ -150,6 +196,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
         refreshProfile,
         consumeAiMessage,
         canAccess,
+        updateSubscription,
       }}
     >
       {children}

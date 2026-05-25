@@ -29,7 +29,7 @@ import CongratulationsModal from '@/components/CongratulationsModal';
 import Survey from './survey';
 import { useAuth } from '@/contexts/AuthContext';
 import { useSubscription } from '@/contexts/SubscriptionContext';
-// TODO: Replace isSubscribed week-gating with useUser().canAccess('ecct_full_program') from @/contexts/UserContext
+import { useUser } from '@/contexts/UserContext';
 import { useRouter } from 'expo-router';
 
 const AnimatedTouchable = Animated.createAnimatedComponent(TouchableOpacity);
@@ -90,6 +90,7 @@ export default function HomeScreen() {
   
   const { user } = useAuth();
   const { isSubscribed } = useSubscription();
+  const { canAccess } = useUser();
   const router = useRouter();
   const [showWelcome, setShowWelcome] = useState(true);
   const [showSurvey, setShowSurvey] = useState(false);
@@ -162,11 +163,13 @@ export default function HomeScreen() {
     setSelectedTechnique(null);
   };
 
+  const hasFullAccess = isSubscribed || canAccess('ecct_full_program');
+
   const handleTechniquePress = (id: number, week: number) => {
-    console.log('User tapped technique:', id, 'Week:', week);
+    console.log('User tapped technique:', id, 'Week:', week, '— hasFullAccess:', hasFullAccess);
     
-    if (week > 1 && !isSubscribed) {
-      console.log('User attempted to access Week', week, 'without subscription — pushing paywall');
+    if (week > 1 && !hasFullAccess) {
+      console.log('User attempted to access Week', week, 'without full access — pushing paywall');
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
       router.push('/paywall');
       return;
@@ -179,8 +182,8 @@ export default function HomeScreen() {
   const handleCheckboxPress = (id: number, week: number) => {
     console.log('User toggled technique completion:', id, 'Week:', week);
     
-    if (week > 1 && !isSubscribed) {
-      console.log('User attempted to complete Week', week, 'without subscription — pushing paywall');
+    if (week > 1 && !hasFullAccess) {
+      console.log('User attempted to complete Week', week, 'without full access — pushing paywall');
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
       router.push('/paywall');
       return;
@@ -479,7 +482,7 @@ export default function HomeScreen() {
           >
             {(Object.keys(PROGRAM_CONFIGS) as Array<keyof typeof PROGRAM_CONFIGS>).map((programKey) => {
               const config = PROGRAM_CONFIGS[programKey];
-              const startLabel = isSubscribed ? 'Start' : 'Start Free';
+              const startLabel = hasFullAccess ? 'Start' : 'Start Free';
               return (
                 <View key={programKey} style={styles.programCard}>
                   <LinearGradient
@@ -543,7 +546,7 @@ export default function HomeScreen() {
             style={styles.selectionFooter}
           >
             <Text style={styles.selectionFooterText}>
-              {isSubscribed
+              {hasFullAccess
                 ? 'Pro Member — all 12 weeks unlocked across every program.'
                 : 'Start Free gives you access to Week 1. Upgrade anytime to unlock all 12 weeks.'}
             </Text>
@@ -601,15 +604,15 @@ export default function HomeScreen() {
             style={styles.freeTrialBanner}
           >
             <IconSymbol
-              ios_icon_name={isSubscribed ? 'checkmark.seal.fill' : 'info.circle'}
-              android_material_icon_name={isSubscribed ? 'verified' : 'info'}
+              ios_icon_name={hasFullAccess ? 'checkmark.seal.fill' : 'info.circle'}
+              android_material_icon_name={hasFullAccess ? 'verified' : 'info'}
               size={20}
-              color={isSubscribed ? '#27AE60' : programColor}
+              color={hasFullAccess ? '#27AE60' : programColor}
             />
             <Text style={styles.freeTrialText}>
-              {isSubscribed ? 'Pro Member — All Weeks Unlocked' : 'Free Trial: Week 1 Only'}
+              {hasFullAccess ? 'Pro Member — All Weeks Unlocked' : 'Free Trial: Week 1 Only'}
             </Text>
-            {!isSubscribed && (
+            {!hasFullAccess && (
               <TouchableOpacity
                 style={[styles.upgradeButton, { backgroundColor: programColor }]}
                 onPress={() => {
@@ -676,7 +679,7 @@ export default function HomeScreen() {
             const isExpanded = selectedTechnique === technique.id;
             const isCompleted = completedTechniques.has(technique.id);
             const weekText = `Week ${technique.week}`;
-            const isLocked = technique.week > 1 && !isSubscribed;
+            const isLocked = technique.week > 1 && !hasFullAccess;
 
             return (
               <TechniqueCard

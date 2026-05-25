@@ -6,7 +6,7 @@ import {
   ScrollView,
   TouchableOpacity,
   ActivityIndicator,
-  Alert,
+  Modal,
   Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -15,6 +15,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
 import Purchases, { PurchasesPackage } from 'react-native-purchases';
 import { useSubscription } from '@/contexts/SubscriptionContext';
+import { useUser } from '@/contexts/UserContext';
 import { colors } from '@/styles/commonStyles';
 import { IconSymbol } from '@/components/IconSymbol';
 
@@ -41,14 +42,47 @@ const PREMIUM_FEATURES = [
   },
 ];
 
+function derivePlanType(identifier: string): 'lifetime' | 'yearly' | 'monthly' {
+  const lower = identifier.toLowerCase();
+  if (lower.includes('lifetime')) return 'lifetime';
+  if (lower.includes('year') || lower.includes('annual')) return 'yearly';
+  return 'monthly';
+}
+
+function deriveEndDate(planType: 'lifetime' | 'yearly' | 'monthly'): string | null {
+  if (planType === 'lifetime') return null;
+  const now = new Date();
+  if (planType === 'yearly') {
+    now.setDate(now.getDate() + 365);
+  } else {
+    now.setDate(now.getDate() + 30);
+  }
+  return now.toISOString();
+}
+
 export default function PaywallScreen() {
   const router = useRouter();
   const { isSubscribed, restorePurchases, refreshSubscription } = useSubscription();
+  const { updateSubscription } = useUser();
   const [packages, setPackages] = useState<PurchasesPackage[]>([]);
   const [selectedPackage, setSelectedPackage] = useState<PurchasesPackage | null>(null);
   const [loadingPackages, setLoadingPackages] = useState(true);
   const [purchasing, setPurchasing] = useState(false);
   const [restoring, setRestoring] = useState(false);
+  const [feedbackModal, setFeedbackModal] = useState<{
+    visible: boolean;
+    title: string;
+    message: string;
+    type: 'error' | 'success';
+  }>({ visible: false, title: '', message: '', type: 'error' });
+
+  const showFeedback = (title: string, message: string, type: 'error' | 'success' = 'error') => {
+    setFeedbackModal({ visible: true, title, message, type });
+  };
+
+  const hideFeedback = () => {
+    setFeedbackModal((prev) => ({ ...prev, visible: false }));
+  };
 
   useEffect(() => {
     console.log('[Paywall] Screen mounted — fetching offerings');
@@ -87,10 +121,30 @@ export default function PaywallScreen() {
       const { customerInfo } = await Purchases.purchasePackage(selectedPackage);
       console.log('[Paywall] Purchase complete — entitlements:', Object.keys(customerInfo.entitlements.active));
       await refreshSubscription();
+
+      // Sync backend subscription state — best-effort, non-blocking
+      const planType = derivePlanType(
+        selectedPackage.product?.identifier ?? selectedPackage.identifier
+      );
+      const endDate = deriveEndDate(planType);
+      try {
+        await updateSubscription({
+          account_type: 'premium',
+          subscription_status: 'active',
+          plan_type: planType,
+          subscription_start_date: new Date().toISOString(),
+          subscription_end_date: endDate,
+          trial_status: 'none',
+          payment_status: 'succeeded',
+        });
+        console.log('[Paywall] Backend subscription synced successfully');
+      } catch (syncErr) {
+        console.warn('[Paywall] Backend subscription sync failed (non-fatal):', syncErr);
+      }
     } catch (e: any) {
       if (!e.userCancelled) {
         console.warn('[Paywall] Purchase failed:', e);
-        Alert.alert('Purchase Failed', e.message ?? 'Something went wrong. Please try again.');
+        showFeedback('Purchase Failed', e.message ?? 'Something went wrong. Please try again.', 'error');
       } else {
         console.log('[Paywall] User cancelled purchase');
       }
@@ -104,6 +158,19 @@ export default function PaywallScreen() {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     setRestoring(true);
     await restorePurchases();
+    // If restore succeeded and user is now subscribed, sync backend
+    if (isSubscribed) {
+      try {
+        await updateSubscription({
+          account_type: 'premium',
+          subscription_status: 'active',
+          payment_status: 'succeeded',
+        });
+        console.log('[Paywall] Backend subscription synced after restore');
+      } catch (syncErr) {
+        console.warn('[Paywall] Backend sync after restore failed (non-fatal):', syncErr);
+      }
+    }
     setRestoring(false);
   };
 
@@ -114,8 +181,8 @@ export default function PaywallScreen() {
   };
 
   const selectedPrice = selectedPackage?.product?.priceString ?? '';
-  const selectedTitle = selectedPackage?.product?.title ?? '';
-  const selectedDescription = selectedPackage?.product?.description ?? '';
+  const feedbackIconName = feedbackModal.type === 'success' ? 'checkmark.circle.fill' : 'xmark.circle.fill';
+  const feedbackIconColor = feedbackModal.type === 'success' ? '#27AE60' : '#FF3B30';
 
   return (
     <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
@@ -231,7 +298,9 @@ export default function PaywallScreen() {
             activeOpacity={0.9}
           >
             {purchasing ? (
-              <ActivityIndicator color="#FFFFFF" />
+              <View style={styles.ctaLoadingWrapper}>
+                <ActivityIndicator color="#FFFFFF" />
+              </View>
             ) : (
               <LinearGradient
                 colors={[colors.primary, colors.secondary]}
@@ -266,6 +335,30 @@ export default function PaywallScreen() {
           </Text>
         </View>
       </ScrollView>
+
+      {/* Feedback Modal */}
+      <Modal
+        visible={feedbackModal.visible}
+        transparent
+        animationType="fade"
+        onRequestClose={hideFeedback}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalCard}>
+            <IconSymbol
+              ios_icon_name={feedbackIconName}
+              android_material_icon_name={feedbackModal.type === 'success' ? 'check-circle' : 'cancel'}
+              size={48}
+              color={feedbackIconColor}
+            />
+            <Text style={styles.modalTitle}>{feedbackModal.title}</Text>
+            <Text style={styles.modalMessage}>{feedbackModal.message}</Text>
+            <TouchableOpacity style={styles.modalButton} onPress={hideFeedback} activeOpacity={0.8}>
+              <Text style={styles.modalButtonText}>OK</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -459,6 +552,12 @@ const styles = StyleSheet.create({
   ctaButtonDisabled: {
     opacity: 0.6,
   },
+  ctaLoadingWrapper: {
+    backgroundColor: colors.primary,
+    paddingVertical: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   ctaGradient: {
     paddingVertical: 18,
     paddingHorizontal: 32,
@@ -486,5 +585,50 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     lineHeight: 16,
     paddingHorizontal: 8,
+  },
+  // Feedback modal
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 32,
+  },
+  modalCard: {
+    backgroundColor: colors.card,
+    borderRadius: 20,
+    padding: 32,
+    alignItems: 'center',
+    width: '100%',
+    gap: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.15,
+    shadowRadius: 24,
+    elevation: 8,
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: colors.text,
+    textAlign: 'center',
+  },
+  modalMessage: {
+    fontSize: 14,
+    color: colors.textSecondary,
+    textAlign: 'center',
+    lineHeight: 20,
+  },
+  modalButton: {
+    backgroundColor: colors.primary,
+    paddingVertical: 12,
+    paddingHorizontal: 40,
+    borderRadius: 12,
+    marginTop: 4,
+  },
+  modalButtonText: {
+    color: '#FFFFFF',
+    fontSize: 15,
+    fontWeight: '700',
   },
 });
