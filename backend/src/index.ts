@@ -23,34 +23,75 @@ export const app = await createApplication(schema);
 // Export App type for use in route files
 export type App = typeof app;
 
+// Hook into swagger generation to add bearerAuth security scheme
+// This enables routes with security: [{ bearerAuth: [] }] to resolve correctly
+app.fastify.addHook('onSend', async (request, reply, payload) => {
+  if (request.url === '/openapi.yaml' || request.url === '/openapi.json') {
+    try {
+      let spec = payload;
+      if (typeof payload === 'string') {
+        spec = JSON.parse(payload);
+      }
+      if (spec && typeof spec === 'object') {
+        const specObj = spec as any;
+        specObj.components = specObj.components || {};
+        specObj.components.securitySchemes = specObj.components.securitySchemes || {};
+        specObj.components.securitySchemes.bearerAuth = {
+          type: 'http',
+          scheme: 'bearer',
+          bearerFormat: 'JWT',
+        };
+        return JSON.stringify(specObj);
+      }
+    } catch (error) {
+      console.error('[OPENAPI_HOOK_ERROR] Failed to add bearerAuth to OpenAPI spec:', error);
+    }
+  }
+  return payload;
+});
+
 // Enable authentication with email verification and password reset
 app.withAuth({
   emailAndPassword: {
     requireEmailVerification: false,
     autoSignInAfterVerification: true,
     sendVerificationEmail: async ({ user, url }) => {
-      const { html, text } = verificationEmailTemplate({
-        userName: user.name || undefined,
-        url,
-      });
-      await sendEmail({
-        to: user.email,
-        subject: 'Verify your email address',
-        html,
-        text,
-      });
+      try {
+        const { html, text } = verificationEmailTemplate({
+          userName: user.name || undefined,
+          url,
+        });
+        const result = await sendEmail({
+          to: user.email,
+          subject: 'Verify your email address',
+          html,
+          text,
+        });
+        if (!result.ok) {
+          console.error('[HOOK CRASH sendVerificationEmail]:', (result as any).error);
+        }
+      } catch (error) {
+        console.error('[HOOK CRASH sendVerificationEmail]:', error, (error as any)?.stack);
+      }
     },
     sendResetPassword: async ({ user, url }) => {
-      const { html, text } = resetPasswordEmailTemplate({
-        userName: user.name || undefined,
-        url,
-      });
-      await sendEmail({
-        to: user.email,
-        subject: 'Reset your password',
-        html,
-        text,
-      });
+      try {
+        const { html, text } = resetPasswordEmailTemplate({
+          userName: user.name || undefined,
+          url,
+        });
+        const result = await sendEmail({
+          to: user.email,
+          subject: 'Reset your password',
+          html,
+          text,
+        });
+        if (!result.ok) {
+          console.error('[HOOK CRASH sendResetPassword]:', (result as any).error);
+        }
+      } catch (error) {
+        console.error('[HOOK CRASH sendResetPassword]:', error, (error as any)?.stack);
+      }
     },
   },
   databaseHooks: {
@@ -69,16 +110,16 @@ app.withAuth({
               text,
             }).catch((error) => {
               console.error(
-                '[AUTH_HOOK_ERROR] Welcome email send failed for user',
-                user.id,
-                error instanceof Error ? error.message : error
+                '[HOOK CRASH user.create.after]:',
+                error instanceof Error ? error.message : error,
+                (error as any)?.stack
               );
             });
           } catch (error) {
             console.error(
-              '[AUTH_HOOK_ERROR] Welcome email hook failed for user',
-              user.id,
-              error instanceof Error ? error.message : error
+              '[HOOK CRASH user.create.after]:',
+              error instanceof Error ? error.message : error,
+              (error as any)?.stack
             );
           }
         },
@@ -118,15 +159,16 @@ app.withAuth({
               }
             } catch (dbError) {
               console.error(
-                '[AUTH_HOOK_ERROR] Failed to promote user to admin',
-                user.id,
-                dbError instanceof Error ? dbError.message : dbError
+                '[HOOK CRASH session.create.after]:',
+                dbError instanceof Error ? dbError.message : dbError,
+                (dbError as any)?.stack
               );
             }
           } catch (error) {
             console.error(
-              '[AUTH_HOOK_ERROR] Session create hook failed',
-              error instanceof Error ? error.message : error
+              '[HOOK CRASH session.create.after]:',
+              error instanceof Error ? error.message : error,
+              (error as any)?.stack
             );
           }
         },
