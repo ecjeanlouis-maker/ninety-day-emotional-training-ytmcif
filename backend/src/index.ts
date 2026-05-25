@@ -1,4 +1,5 @@
 import { createApplication } from "@specific-dev/framework";
+import { eq } from 'drizzle-orm';
 import * as appSchema from './db/schema.js';
 import * as authSchema from './db/auth-schema.js';
 import { registerPaymentRoutes } from './routes/payments.js';
@@ -56,15 +57,78 @@ app.withAuth({
     user: {
       create: {
         after: async (user) => {
-          const { html, text } = welcomeEmailTemplate({
-            userName: user.name || undefined,
-          });
-          await sendEmail({
-            to: user.email,
-            subject: 'Welcome to Control & Confidence',
-            html,
-            text,
-          });
+          try {
+            const { html, text } = welcomeEmailTemplate({
+              userName: user.name || undefined,
+            });
+            // Fire-and-forget email send with error isolation
+            sendEmail({
+              to: user.email,
+              subject: 'Welcome to Control & Confidence',
+              html,
+              text,
+            }).catch((error) => {
+              console.error(
+                '[AUTH_HOOK_ERROR] Welcome email send failed for user',
+                user.id,
+                error instanceof Error ? error.message : error
+              );
+            });
+          } catch (error) {
+            console.error(
+              '[AUTH_HOOK_ERROR] Welcome email hook failed for user',
+              user.id,
+              error instanceof Error ? error.message : error
+            );
+          }
+        },
+      },
+    },
+    session: {
+      create: {
+        after: async (session) => {
+          try {
+            const adminEmails = process.env.ADMIN_EMAILS?.split(',').map((e) => e.trim()).filter(Boolean) || [];
+
+            if (!adminEmails.length) {
+              return; // No admin promotion configured
+            }
+
+            // Check if this user's email is in the admin list
+            const user = session.user;
+            if (!user?.email || !adminEmails.includes(user.email)) {
+              return; // Not an admin email
+            }
+
+            // Try to promote user to admin in user_profiles
+            try {
+              const profile = await app.db
+                .select()
+                .from(appSchema.userProfiles)
+                .where(eq(appSchema.userProfiles.userId, user.id))
+                .limit(1);
+
+              if (profile.length > 0) {
+                await app.db
+                  .update(appSchema.userProfiles)
+                  .set({ role: 'admin', updatedAt: new Date() })
+                  .where(eq(appSchema.userProfiles.userId, user.id));
+
+                app.logger.info({ userId: user.id, email: user.email }, 'User promoted to admin');
+              }
+            } catch (dbError) {
+              console.error(
+                '[AUTH_HOOK_ERROR] Failed to promote user to admin',
+                user.id,
+                dbError instanceof Error ? dbError.message : dbError
+              );
+            }
+          } catch (error) {
+            console.error(
+              '[AUTH_HOOK_ERROR] Session create hook failed',
+              error instanceof Error ? error.message : error
+            );
+          }
         },
       },
     },
@@ -78,12 +142,17 @@ registerProfileRoutes(app);
 registerStripeRoutes(app);
 registerAdminRoutes(app);
 
-// Bootstrap Stripe if configured
+// Bootstrap Stripe if configured - wrap in try/catch to prevent startup failure
 try {
   await bootstrapStripe();
   app.logger.info('Stripe bootstrapped successfully');
 } catch (error) {
-  app.logger.warn({ err: error }, 'Stripe bootstrap failed or not configured');
+  // Log the error but do not rethrow - Stripe misconfiguration should not crash the server
+  console.error(
+    '[STRIPE_BOOTSTRAP_ERROR]',
+    error instanceof Error ? error.message : String(error)
+  );
+  app.logger.warn({ err: error }, 'Stripe bootstrap failed or not configured - continuing without Stripe');
 }
 
 await app.run();
