@@ -27,6 +27,8 @@ import Animated, {
 import CongratulationsModal from '@/components/CongratulationsModal';
 import BillingModal from '@/components/BillingModal';
 import Survey from './survey.ios';
+import { useAuth } from '@/contexts/AuthContext';
+import { useRouter } from 'expo-router';
 
 const AnimatedTouchable = Animated.createAnimatedComponent(TouchableOpacity);
 
@@ -84,6 +86,8 @@ const PROGRAM_CONFIGS = {
 export default function HomeScreen() {
   console.log('HomeScreen rendered (iOS)');
   
+  const { user } = useAuth();
+  const router = useRouter();
   const [showWelcome, setShowWelcome] = useState(true);
   const [showSurvey, setShowSurvey] = useState(false);
   const [selectedProgram, setSelectedProgram] = useState<ProgramType>(null);
@@ -265,15 +269,15 @@ export default function HomeScreen() {
     );
   }
 
-  if (showWelcome) {
+  if (showWelcome && !user) {
     return (
       <SafeAreaView style={styles.container} edges={['top']}>
-        <ScrollView 
+        <ScrollView
           style={styles.scrollView}
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
         >
-          <Animated.View 
+          <Animated.View
             entering={FadeIn.duration(1000)}
             style={styles.welcomeHero}
           >
@@ -299,7 +303,84 @@ export default function HomeScreen() {
             </LinearGradient>
           </Animated.View>
 
-          <Animated.View 
+          <Animated.View
+            entering={FadeInDown.delay(300).duration(800)}
+            style={styles.welcomeButtonContainer}
+          >
+            <TouchableOpacity
+              style={styles.welcomeButton}
+              onPress={() => {
+                console.log('User tapped Sign In on welcome screen (iOS)');
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                router.push('/auth');
+              }}
+              activeOpacity={0.9}
+            >
+              <LinearGradient
+                colors={[colors.primary, colors.secondary]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+                style={styles.welcomeButtonGradient}
+              >
+                <Text style={styles.welcomeButtonText}>Sign In</Text>
+                <IconSymbol
+                  ios_icon_name="arrow.right"
+                  android_material_icon_name="arrow-forward"
+                  size={24}
+                  color="#FFFFFF"
+                />
+              </LinearGradient>
+            </TouchableOpacity>
+          </Animated.View>
+
+          <Animated.View
+            entering={FadeInDown.delay(500).duration(800)}
+            style={styles.welcomeFooter}
+          >
+            <Text style={styles.welcomeFooterText}>
+              Sign in to begin your personalized assessment and start your 90-day journey.
+            </Text>
+          </Animated.View>
+        </ScrollView>
+      </SafeAreaView>
+    );
+  }
+
+  if (showWelcome && user) {
+    return (
+      <SafeAreaView style={styles.container} edges={['top']}>
+        <ScrollView
+          style={styles.scrollView}
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+        >
+          <Animated.View
+            entering={FadeIn.duration(1000)}
+            style={styles.welcomeHero}
+          >
+            <LinearGradient
+              colors={[colors.primary, colors.accent]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={styles.welcomeHeroGradient}
+            >
+              <View style={styles.welcomeIconContainer}>
+                <IconSymbol
+                  ios_icon_name="star.fill"
+                  android_material_icon_name="star"
+                  size={64}
+                  color="#FFFFFF"
+                />
+              </View>
+              <Text style={styles.welcomeTitle}>Welcome to Your</Text>
+              <Text style={styles.welcomeTitle}>Transformation Journey</Text>
+              <Text style={styles.welcomeSubtitle}>
+                90 days to become the best version of yourself
+              </Text>
+            </LinearGradient>
+          </Animated.View>
+
+          <Animated.View
             entering={FadeInDown.delay(300).duration(800)}
             style={styles.welcomeContent}
           >
@@ -311,7 +392,7 @@ export default function HomeScreen() {
             </Text>
           </Animated.View>
 
-          <Animated.View 
+          <Animated.View
             entering={FadeInDown.delay(500).duration(800)}
             style={styles.welcomeStats}
           >
@@ -349,7 +430,7 @@ export default function HomeScreen() {
             </View>
           </Animated.View>
 
-          <Animated.View 
+          <Animated.View
             entering={FadeInDown.delay(700).duration(800)}
             style={styles.welcomeButtonContainer}
           >
@@ -375,7 +456,7 @@ export default function HomeScreen() {
             </TouchableOpacity>
           </Animated.View>
 
-          <Animated.View 
+          <Animated.View
             entering={FadeInDown.delay(900).duration(800)}
             style={styles.welcomeFooter}
           >

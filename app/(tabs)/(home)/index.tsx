@@ -7,7 +7,6 @@ import {
   ScrollView,
   TouchableOpacity,
   Platform,
-  Modal,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { IconSymbol } from '@/components/IconSymbol';
@@ -111,8 +110,6 @@ export default function HomeScreen() {
     'social-anxiety': false,
     thoughts: false,
   });
-  const [showSignInPrompt, setShowSignInPrompt] = useState(false);
-  
   const currentDay = 1;
   const totalDays = 90;
   const progressPercentage = (currentDay / totalDays) * 100;
@@ -263,13 +260,6 @@ export default function HomeScreen() {
     setCompletedTechniqueData(null);
   };
 
-  const handleSignInPrompt = () => {
-    console.log('User tapped Sign In from prompt');
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    setShowSignInPrompt(false);
-    router.push('/auth');
-  };
-
   if (showSurvey) {
     return (
       <Survey 
@@ -279,199 +269,203 @@ export default function HomeScreen() {
     );
   }
 
-  if (showWelcome) {
+  if (showWelcome && !user) {
     return (
-      <>
-        <SafeAreaView style={styles.container} edges={['top']}>
-          <ScrollView 
-            style={styles.scrollView}
-            contentContainerStyle={styles.scrollContent}
-            showsVerticalScrollIndicator={false}
+      <SafeAreaView style={styles.container} edges={['top']}>
+        <ScrollView
+          style={styles.scrollView}
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+        >
+          <Animated.View
+            entering={FadeIn.duration(1000)}
+            style={styles.welcomeHero}
           >
-            <Animated.View 
-              entering={FadeIn.duration(1000)}
-              style={styles.welcomeHero}
+            <LinearGradient
+              colors={[colors.primary, colors.accent]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={styles.welcomeHeroGradient}
+            >
+              <View style={styles.welcomeIconContainer}>
+                <IconSymbol
+                  ios_icon_name="star.fill"
+                  android_material_icon_name="star"
+                  size={64}
+                  color="#FFFFFF"
+                />
+              </View>
+              <Text style={styles.welcomeTitle}>Welcome to Your</Text>
+              <Text style={styles.welcomeTitle}>Transformation Journey</Text>
+              <Text style={styles.welcomeSubtitle}>
+                90 days to become the best version of yourself
+              </Text>
+            </LinearGradient>
+          </Animated.View>
+
+          <Animated.View
+            entering={FadeInDown.delay(300).duration(800)}
+            style={styles.welcomeButtonContainer}
+          >
+            <TouchableOpacity
+              style={styles.welcomeButton}
+              onPress={() => {
+                console.log('User tapped Sign In on welcome screen');
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                router.push('/auth');
+              }}
+              activeOpacity={0.9}
             >
               <LinearGradient
-                colors={[colors.primary, colors.accent]}
+                colors={[colors.primary, colors.secondary]}
                 start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
-                style={styles.welcomeHeroGradient}
+                end={{ x: 1, y: 0 }}
+                style={styles.welcomeButtonGradient}
               >
-                <View style={styles.welcomeIconContainer}>
-                  <IconSymbol
-                    ios_icon_name="star.fill"
-                    android_material_icon_name="star"
-                    size={64}
-                    color="#FFFFFF"
-                  />
-                </View>
-                <Text style={styles.welcomeTitle}>Welcome to Your</Text>
-                <Text style={styles.welcomeTitle}>Transformation Journey</Text>
-                <Text style={styles.welcomeSubtitle}>
-                  90 days to become the best version of yourself
-                </Text>
+                <Text style={styles.welcomeButtonText}>Sign In</Text>
+                <IconSymbol
+                  ios_icon_name="arrow.right"
+                  android_material_icon_name="arrow-forward"
+                  size={24}
+                  color="#FFFFFF"
+                />
               </LinearGradient>
-            </Animated.View>
+            </TouchableOpacity>
+          </Animated.View>
 
-            {!user && (
-              <Animated.View 
-                entering={FadeInDown.delay(200).duration(800)}
-                style={styles.signInPromptCard}
-              >
-                <View style={styles.signInPromptContent}>
-                  <IconSymbol
-                    ios_icon_name="person.circle"
-                    android_material_icon_name="account-circle"
-                    size={40}
-                    color={colors.primary}
-                  />
-                  <View style={styles.signInPromptTextContainer}>
-                    <Text style={styles.signInPromptTitle}>Sign in to save your progress</Text>
-                    <Text style={styles.signInPromptSubtitle}>
-                      Track your journey across all devices
-                    </Text>
-                  </View>
-                </View>
-                <TouchableOpacity
-                  style={styles.signInPromptButton}
-                  onPress={handleSignInPrompt}
-                  activeOpacity={0.8}
-                >
-                  <Text style={styles.signInPromptButtonText}>Sign In</Text>
-                  <IconSymbol
-                    ios_icon_name="arrow.right"
-                    android_material_icon_name="arrow-forward"
-                    size={18}
-                    color="#FFFFFF"
-                  />
-                </TouchableOpacity>
-              </Animated.View>
-            )}
+          <Animated.View
+            entering={FadeInDown.delay(500).duration(800)}
+            style={styles.welcomeFooter}
+          >
+            <Text style={styles.welcomeFooterText}>
+              Sign in to begin your personalized assessment and start your 90-day journey.
+            </Text>
+          </Animated.View>
+        </ScrollView>
+      </SafeAreaView>
+    );
+  }
 
-            <Animated.View 
-              entering={FadeInDown.delay(300).duration(800)}
-              style={styles.welcomeContent}
-            >
-              <Text style={styles.welcomeQuestion}>
-                What psychological goal are you trying to achieve?
-              </Text>
-              <Text style={styles.welcomeDescription}>
-                Choose the area you want to focus on for the next 12 weeks. Each program contains 12 powerful techniques designed to create lasting transformation.
-              </Text>
-            </Animated.View>
-
-            <Animated.View 
-              entering={FadeInDown.delay(500).duration(800)}
-              style={styles.welcomeStats}
-            >
-              <View style={styles.welcomeStatItem}>
-                <IconSymbol
-                  ios_icon_name="calendar"
-                  android_material_icon_name="calendar-today"
-                  size={32}
-                  color={colors.primary}
-                />
-                <Text style={styles.welcomeStatNumber}>90</Text>
-                <Text style={styles.welcomeStatLabel}>Days</Text>
-              </View>
-              <View style={styles.welcomeStatDivider} />
-              <View style={styles.welcomeStatItem}>
-                <IconSymbol
-                  ios_icon_name="list.bullet"
-                  android_material_icon_name="list"
-                  size={32}
-                  color={colors.primary}
-                />
-                <Text style={styles.welcomeStatNumber}>12</Text>
-                <Text style={styles.welcomeStatLabel}>Techniques</Text>
-              </View>
-              <View style={styles.welcomeStatDivider} />
-              <View style={styles.welcomeStatItem}>
-                <IconSymbol
-                  ios_icon_name="chart.line.uptrend.xyaxis"
-                  android_material_icon_name="trending-up"
-                  size={32}
-                  color={colors.primary}
-                />
-                <Text style={styles.welcomeStatNumber}>100%</Text>
-                <Text style={styles.welcomeStatLabel}>Growth</Text>
-              </View>
-            </Animated.View>
-
-            <Animated.View 
-              entering={FadeInDown.delay(700).duration(800)}
-              style={styles.welcomeButtonContainer}
-            >
-              <TouchableOpacity
-                style={styles.welcomeButton}
-                onPress={handleBeginAssessment}
-                activeOpacity={0.9}
-              >
-                <LinearGradient
-                  colors={[colors.primary, colors.secondary]}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 0 }}
-                  style={styles.welcomeButtonGradient}
-                >
-                  <Text style={styles.welcomeButtonText}>Begin Assessment</Text>
-                  <IconSymbol
-                    ios_icon_name="arrow.right"
-                    android_material_icon_name="arrow-forward"
-                    size={24}
-                    color="#FFFFFF"
-                  />
-                </LinearGradient>
-              </TouchableOpacity>
-            </Animated.View>
-
-            <Animated.View 
-              entering={FadeInDown.delay(900).duration(800)}
-              style={styles.welcomeFooter}
-            >
-              <Text style={styles.welcomeFooterText}>
-                Join thousands who have transformed their lives through our proven 12-week programs
-              </Text>
-            </Animated.View>
-          </ScrollView>
-        </SafeAreaView>
-
-        <Modal
-          visible={showSignInPrompt}
-          transparent
-          animationType="fade"
-          onRequestClose={() => setShowSignInPrompt(false)}
+  if (showWelcome && user) {
+    return (
+      <SafeAreaView style={styles.container} edges={['top']}>
+        <ScrollView
+          style={styles.scrollView}
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
         >
-          <View style={styles.modalOverlay}>
-            <Animated.View entering={FadeIn.duration(300)} style={styles.signInModal}>
+          <Animated.View
+            entering={FadeIn.duration(1000)}
+            style={styles.welcomeHero}
+          >
+            <LinearGradient
+              colors={[colors.primary, colors.accent]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={styles.welcomeHeroGradient}
+            >
+              <View style={styles.welcomeIconContainer}>
+                <IconSymbol
+                  ios_icon_name="star.fill"
+                  android_material_icon_name="star"
+                  size={64}
+                  color="#FFFFFF"
+                />
+              </View>
+              <Text style={styles.welcomeTitle}>Welcome to Your</Text>
+              <Text style={styles.welcomeTitle}>Transformation Journey</Text>
+              <Text style={styles.welcomeSubtitle}>
+                90 days to become the best version of yourself
+              </Text>
+            </LinearGradient>
+          </Animated.View>
+
+          <Animated.View
+            entering={FadeInDown.delay(300).duration(800)}
+            style={styles.welcomeContent}
+          >
+            <Text style={styles.welcomeQuestion}>
+              What psychological goal are you trying to achieve?
+            </Text>
+            <Text style={styles.welcomeDescription}>
+              Choose the area you want to focus on for the next 12 weeks. Each program contains 12 powerful techniques designed to create lasting transformation.
+            </Text>
+          </Animated.View>
+
+          <Animated.View
+            entering={FadeInDown.delay(500).duration(800)}
+            style={styles.welcomeStats}
+          >
+            <View style={styles.welcomeStatItem}>
               <IconSymbol
-                ios_icon_name="person.circle.fill"
-                android_material_icon_name="account-circle"
-                size={64}
+                ios_icon_name="calendar"
+                android_material_icon_name="calendar-today"
+                size={32}
                 color={colors.primary}
               />
-              <Text style={styles.signInModalTitle}>Sign in to continue</Text>
-              <Text style={styles.signInModalSubtitle}>
-                Create an account or sign in to save your progress and access your programs across all devices.
-              </Text>
-              <TouchableOpacity
-                style={styles.signInModalButton}
-                onPress={handleSignInPrompt}
-                activeOpacity={0.8}
+              <Text style={styles.welcomeStatNumber}>90</Text>
+              <Text style={styles.welcomeStatLabel}>Days</Text>
+            </View>
+            <View style={styles.welcomeStatDivider} />
+            <View style={styles.welcomeStatItem}>
+              <IconSymbol
+                ios_icon_name="list.bullet"
+                android_material_icon_name="list"
+                size={32}
+                color={colors.primary}
+              />
+              <Text style={styles.welcomeStatNumber}>12</Text>
+              <Text style={styles.welcomeStatLabel}>Techniques</Text>
+            </View>
+            <View style={styles.welcomeStatDivider} />
+            <View style={styles.welcomeStatItem}>
+              <IconSymbol
+                ios_icon_name="chart.line.uptrend.xyaxis"
+                android_material_icon_name="trending-up"
+                size={32}
+                color={colors.primary}
+              />
+              <Text style={styles.welcomeStatNumber}>100%</Text>
+              <Text style={styles.welcomeStatLabel}>Growth</Text>
+            </View>
+          </Animated.View>
+
+          <Animated.View
+            entering={FadeInDown.delay(700).duration(800)}
+            style={styles.welcomeButtonContainer}
+          >
+            <TouchableOpacity
+              style={styles.welcomeButton}
+              onPress={handleBeginAssessment}
+              activeOpacity={0.9}
+            >
+              <LinearGradient
+                colors={[colors.primary, colors.secondary]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+                style={styles.welcomeButtonGradient}
               >
-                <Text style={styles.signInModalButtonText}>Sign In or Create Account</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={styles.signInModalCancelButton}
-                onPress={() => setShowSignInPrompt(false)}
-                activeOpacity={0.7}
-              >
-                <Text style={styles.signInModalCancelText}>Maybe Later</Text>
-              </TouchableOpacity>
-            </Animated.View>
-          </View>
-        </Modal>
-      </>
+                <Text style={styles.welcomeButtonText}>Begin Assessment</Text>
+                <IconSymbol
+                  ios_icon_name="arrow.right"
+                  android_material_icon_name="arrow-forward"
+                  size={24}
+                  color="#FFFFFF"
+                />
+              </LinearGradient>
+            </TouchableOpacity>
+          </Animated.View>
+
+          <Animated.View
+            entering={FadeInDown.delay(900).duration(800)}
+            style={styles.welcomeFooter}
+          >
+            <Text style={styles.welcomeFooterText}>
+              Join thousands who have transformed their lives through our proven 12-week programs
+            </Text>
+          </Animated.View>
+        </ScrollView>
+      </SafeAreaView>
     );
   }
 
@@ -1048,107 +1042,6 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginTop: 12,
     opacity: 0.95,
-  },
-  signInPromptCard: {
-    backgroundColor: colors.card,
-    borderRadius: 16,
-    padding: 20,
-    marginBottom: 24,
-    borderWidth: 2,
-    borderColor: colors.primary,
-    boxShadow: '0px 4px 16px rgba(107, 76, 230, 0.15)',
-    elevation: 4,
-  },
-  signInPromptContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 16,
-    gap: 16,
-  },
-  signInPromptTextContainer: {
-    flex: 1,
-  },
-  signInPromptTitle: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: colors.text,
-    marginBottom: 4,
-  },
-  signInPromptSubtitle: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: colors.textSecondary,
-  },
-  signInPromptButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: colors.primary,
-    paddingVertical: 12,
-    paddingHorizontal: 24,
-    borderRadius: 12,
-    gap: 8,
-  },
-  signInPromptButtonText: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: '#FFFFFF',
-  },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.6)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 20,
-  },
-  signInModal: {
-    backgroundColor: colors.card,
-    borderRadius: 24,
-    padding: 32,
-    alignItems: 'center',
-    maxWidth: 400,
-    width: '100%',
-    boxShadow: '0px 8px 32px rgba(0, 0, 0, 0.3)',
-    elevation: 8,
-  },
-  signInModalTitle: {
-    fontSize: 24,
-    fontWeight: '800',
-    color: colors.text,
-    marginTop: 16,
-    marginBottom: 12,
-    textAlign: 'center',
-  },
-  signInModalSubtitle: {
-    fontSize: 15,
-    fontWeight: '500',
-    color: colors.textSecondary,
-    textAlign: 'center',
-    lineHeight: 22,
-    marginBottom: 24,
-  },
-  signInModalButton: {
-    backgroundColor: colors.primary,
-    paddingVertical: 14,
-    paddingHorizontal: 32,
-    borderRadius: 12,
-    width: '100%',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  signInModalButtonText: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#FFFFFF',
-  },
-  signInModalCancelButton: {
-    paddingVertical: 12,
-    paddingHorizontal: 24,
-  },
-  signInModalCancelText: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: colors.textSecondary,
   },
   welcomeContent: {
     marginBottom: 32,
