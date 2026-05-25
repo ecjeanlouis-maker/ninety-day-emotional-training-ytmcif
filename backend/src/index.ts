@@ -23,31 +23,10 @@ export const app = await createApplication(schema);
 // Export App type for use in route files
 export type App = typeof app;
 
-// Hook into swagger generation to add bearerAuth security scheme
-// This enables routes with security: [{ bearerAuth: [] }] to resolve correctly
-app.fastify.addHook('onSend', async (request, reply, payload) => {
-  if (request.url === '/openapi.yaml' || request.url === '/openapi.json') {
-    try {
-      let spec = payload;
-      if (typeof payload === 'string') {
-        spec = JSON.parse(payload);
-      }
-      if (spec && typeof spec === 'object') {
-        const specObj = spec as any;
-        specObj.components = specObj.components || {};
-        specObj.components.securitySchemes = specObj.components.securitySchemes || {};
-        specObj.components.securitySchemes.bearerAuth = {
-          type: 'http',
-          scheme: 'bearer',
-          bearerFormat: 'JWT',
-        };
-        return JSON.stringify(specObj);
-      }
-    } catch (error) {
-      console.error('[OPENAPI_HOOK_ERROR] Failed to add bearerAuth to OpenAPI spec:', error);
-    }
-  }
-  return payload;
+// Add global error handler for better diagnostics
+app.fastify.setErrorHandler((error: any, request, reply) => {
+  console.error('[GLOBAL ERROR HANDLER]', error?.message, error?.stack, error?.cause ?? '');
+  reply.status(error?.statusCode ?? 500).send({ error: error?.message ?? 'Internal server error' });
 });
 
 // Enable authentication with email verification and password reset
@@ -68,10 +47,10 @@ app.withAuth({
           text,
         });
         if (!result.ok) {
-          console.error('[HOOK CRASH sendVerificationEmail]:', (result as any).error);
+          console.error('[AUTH sendVerificationEmail ERROR]', (result as any).error);
         }
-      } catch (error) {
-        console.error('[HOOK CRASH sendVerificationEmail]:', error, (error as any)?.stack);
+      } catch (error: any) {
+        console.error('[AUTH sendVerificationEmail ERROR]', error?.message, error?.stack);
       }
     },
     sendResetPassword: async ({ user, url }) => {
@@ -87,10 +66,10 @@ app.withAuth({
           text,
         });
         if (!result.ok) {
-          console.error('[HOOK CRASH sendResetPassword]:', (result as any).error);
+          console.error('[AUTH sendResetPassword ERROR]', (result as any).error);
         }
-      } catch (error) {
-        console.error('[HOOK CRASH sendResetPassword]:', error, (error as any)?.stack);
+      } catch (error: any) {
+        console.error('[AUTH sendResetPassword ERROR]', error?.message, error?.stack);
       }
     },
   },
@@ -108,19 +87,11 @@ app.withAuth({
               subject: 'Welcome to Control & Confidence',
               html,
               text,
-            }).catch((error) => {
-              console.error(
-                '[HOOK CRASH user.create.after]:',
-                error instanceof Error ? error.message : error,
-                (error as any)?.stack
-              );
+            }).catch((error: any) => {
+              console.error('[AUTH user.create.after ERROR]', error?.message, error?.stack);
             });
-          } catch (error) {
-            console.error(
-              '[HOOK CRASH user.create.after]:',
-              error instanceof Error ? error.message : error,
-              (error as any)?.stack
-            );
+          } catch (error: any) {
+            console.error('[AUTH user.create.after ERROR]', error?.message, error?.stack);
           }
         },
       },
@@ -157,19 +128,11 @@ app.withAuth({
 
                 app.logger.info({ userId: user.id, email: user.email }, 'User promoted to admin');
               }
-            } catch (dbError) {
-              console.error(
-                '[HOOK CRASH session.create.after]:',
-                dbError instanceof Error ? dbError.message : dbError,
-                (dbError as any)?.stack
-              );
+            } catch (dbError: any) {
+              console.error('[AUTH session.create.after ERROR]', dbError?.message, dbError?.stack);
             }
-          } catch (error) {
-            console.error(
-              '[HOOK CRASH session.create.after]:',
-              error instanceof Error ? error.message : error,
-              (error as any)?.stack
-            );
+          } catch (error: any) {
+            console.error('[AUTH session.create.after ERROR]', error?.message, error?.stack);
           }
         },
       },
@@ -188,13 +151,11 @@ registerAdminRoutes(app);
 try {
   await bootstrapStripe();
   app.logger.info('Stripe bootstrapped successfully');
-} catch (error) {
-  // Log the error but do not rethrow - Stripe misconfiguration should not crash the server
-  console.error(
-    '[STRIPE_BOOTSTRAP_ERROR]',
-    error instanceof Error ? error.message : String(error)
-  );
-  app.logger.warn({ err: error }, 'Stripe bootstrap failed or not configured - continuing without Stripe');
+} catch (error: any) {
+  // Log the specific Stripe error but don't crash the server
+  const errorMsg = error?.message ?? String(error);
+  console.error('[Stripe bootstrap error]', errorMsg);
+  app.logger.warn({ err: error }, 'Stripe bootstrap failed - continuing without Stripe');
 }
 
 await app.run();
