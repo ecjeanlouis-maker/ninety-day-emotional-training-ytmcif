@@ -3,6 +3,7 @@ import { useRouter, useSegments } from "expo-router";
 import { useAuth } from "@/contexts/AuthContext";
 
 const PUBLIC_ROUTES = new Set([
+  "(tabs)",
   "auth",
   "signup",
   "forgot-password",
