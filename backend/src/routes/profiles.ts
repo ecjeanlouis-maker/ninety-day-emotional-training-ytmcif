@@ -56,6 +56,16 @@ interface ProfileResponse {
   role: string;
   is_active: boolean;
   ai_messages_remaining: number | null;
+  account_type: string;
+  subscription_status: string;
+  stripe_customer_id: string | null;
+  stripe_subscription_id: string | null;
+  plan_type: string | null;
+  subscription_start_date: string | null;
+  subscription_end_date: string | null;
+  trial_status: string;
+  payment_status: string;
+  is_premium_active: boolean;
   created_at: string;
   updated_at: string;
 }
@@ -79,6 +89,19 @@ function computeAiMessagesRemaining(profile: {
   return Math.max(0, 3 - profile.aiMessagesUsedToday);
 }
 
+function computeIsPremiumActive(profile: any): boolean {
+  if (profile.accountType !== 'premium') {
+    return false;
+  }
+  if (!['active', 'trialing'].includes(profile.subscriptionStatus)) {
+    return false;
+  }
+  if (profile.subscriptionEndDate === null || profile.subscriptionEndDate === undefined) {
+    return true;
+  }
+  return profile.subscriptionEndDate > new Date();
+}
+
 function formatProfileResponse(profile: any): ProfileResponse {
   return {
     user_id: profile.userId,
@@ -90,6 +113,16 @@ function formatProfileResponse(profile: any): ProfileResponse {
     role: profile.role,
     is_active: profile.isActive,
     ai_messages_remaining: computeAiMessagesRemaining(profile),
+    account_type: profile.accountType,
+    subscription_status: profile.subscriptionStatus,
+    stripe_customer_id: profile.stripeCustomerId || null,
+    stripe_subscription_id: profile.stripeSubscriptionId || null,
+    plan_type: profile.planType || null,
+    subscription_start_date: profile.subscriptionStartDate?.toISOString() || null,
+    subscription_end_date: profile.subscriptionEndDate?.toISOString() || null,
+    trial_status: profile.trialStatus,
+    payment_status: profile.paymentStatus,
+    is_premium_active: computeIsPremiumActive(profile),
     created_at: profile.createdAt.toISOString(),
     updated_at: profile.updatedAt.toISOString(),
   };
@@ -130,6 +163,16 @@ export function registerProfileRoutes(app: App) {
               role: { type: 'string' },
               is_active: { type: 'boolean' },
               ai_messages_remaining: { type: ['integer', 'null'] },
+              account_type: { type: 'string', enum: ['free', 'premium'] },
+              subscription_status: { type: 'string', enum: ['inactive', 'active', 'past_due', 'cancelled', 'expired', 'trialing'] },
+              stripe_customer_id: { type: ['string', 'null'] },
+              stripe_subscription_id: { type: ['string', 'null'] },
+              plan_type: { type: ['string', 'null'], enum: ['monthly', 'yearly', 'lifetime'] },
+              subscription_start_date: { type: ['string', 'null'], format: 'date-time' },
+              subscription_end_date: { type: ['string', 'null'], format: 'date-time' },
+              trial_status: { type: 'string', enum: ['none', 'active', 'expired', 'converted'] },
+              payment_status: { type: 'string', enum: ['none', 'succeeded', 'failed', 'pending', 'refunded'] },
+              is_premium_active: { type: 'boolean' },
               created_at: { type: 'string', format: 'date-time' },
               updated_at: { type: 'string', format: 'date-time' },
             },
@@ -200,6 +243,10 @@ export function registerProfileRoutes(app: App) {
               createdAt: now,
               aiMessagesUsedToday: 0,
               aiMessagesResetAt: now,
+              accountType: 'free',
+              subscriptionStatus: 'inactive',
+              trialStatus: 'none',
+              paymentStatus: 'none',
             })
             .returning();
           profile = inserted[0];
@@ -235,6 +282,16 @@ export function registerProfileRoutes(app: App) {
               role: { type: 'string' },
               is_active: { type: 'boolean' },
               ai_messages_remaining: { type: ['integer', 'null'] },
+              account_type: { type: 'string', enum: ['free', 'premium'] },
+              subscription_status: { type: 'string', enum: ['inactive', 'active', 'past_due', 'cancelled', 'expired', 'trialing'] },
+              stripe_customer_id: { type: ['string', 'null'] },
+              stripe_subscription_id: { type: ['string', 'null'] },
+              plan_type: { type: ['string', 'null'], enum: ['monthly', 'yearly', 'lifetime'] },
+              subscription_start_date: { type: ['string', 'null'], format: 'date-time' },
+              subscription_end_date: { type: ['string', 'null'], format: 'date-time' },
+              trial_status: { type: 'string', enum: ['none', 'active', 'expired', 'converted'] },
+              payment_status: { type: 'string', enum: ['none', 'succeeded', 'failed', 'pending', 'refunded'] },
+              is_premium_active: { type: 'boolean' },
               created_at: { type: 'string', format: 'date-time' },
               updated_at: { type: 'string', format: 'date-time' },
             },
@@ -307,6 +364,16 @@ export function registerProfileRoutes(app: App) {
               role: { type: 'string' },
               is_active: { type: 'boolean' },
               ai_messages_remaining: { type: ['integer', 'null'] },
+              account_type: { type: 'string', enum: ['free', 'premium'] },
+              subscription_status: { type: 'string', enum: ['inactive', 'active', 'past_due', 'cancelled', 'expired', 'trialing'] },
+              stripe_customer_id: { type: ['string', 'null'] },
+              stripe_subscription_id: { type: ['string', 'null'] },
+              plan_type: { type: ['string', 'null'], enum: ['monthly', 'yearly', 'lifetime'] },
+              subscription_start_date: { type: ['string', 'null'], format: 'date-time' },
+              subscription_end_date: { type: ['string', 'null'], format: 'date-time' },
+              trial_status: { type: 'string', enum: ['none', 'active', 'expired', 'converted'] },
+              payment_status: { type: 'string', enum: ['none', 'succeeded', 'failed', 'pending', 'refunded'] },
+              is_premium_active: { type: 'boolean' },
               created_at: { type: 'string', format: 'date-time' },
               updated_at: { type: 'string', format: 'date-time' },
             },
@@ -573,6 +640,16 @@ export function registerProfileRoutes(app: App) {
               role: { type: 'string' },
               is_active: { type: 'boolean' },
               ai_messages_remaining: { type: ['integer', 'null'] },
+              account_type: { type: 'string', enum: ['free', 'premium'] },
+              subscription_status: { type: 'string', enum: ['inactive', 'active', 'past_due', 'cancelled', 'expired', 'trialing'] },
+              stripe_customer_id: { type: ['string', 'null'] },
+              stripe_subscription_id: { type: ['string', 'null'] },
+              plan_type: { type: ['string', 'null'], enum: ['monthly', 'yearly', 'lifetime'] },
+              subscription_start_date: { type: ['string', 'null'], format: 'date-time' },
+              subscription_end_date: { type: ['string', 'null'], format: 'date-time' },
+              trial_status: { type: 'string', enum: ['none', 'active', 'expired', 'converted'] },
+              payment_status: { type: 'string', enum: ['none', 'succeeded', 'failed', 'pending', 'refunded'] },
+              is_premium_active: { type: 'boolean' },
               created_at: { type: 'string', format: 'date-time' },
               updated_at: { type: 'string', format: 'date-time' },
             },
@@ -636,6 +713,240 @@ export function registerProfileRoutes(app: App) {
         return formatProfileResponse(updated[0]);
       } catch (error) {
         app.logger.error({ err: error, userId: session.user.id }, 'Failed to update role');
+        throw error;
+      }
+    }
+  );
+
+  // POST /api/profile/subscription - Update subscription fields
+  app.fastify.post(
+    '/api/profile/subscription',
+    {
+      schema: {
+        description: 'Update authenticated user subscription fields',
+        tags: ['profiles'],
+        body: {
+          type: 'object',
+          required: ['account_type'],
+          properties: {
+            account_type: { type: 'string', enum: ['free', 'premium'] },
+            subscription_status: { type: 'string', enum: ['inactive', 'active', 'past_due', 'cancelled', 'expired', 'trialing'] },
+            stripe_customer_id: { type: ['string', 'null'] },
+            stripe_subscription_id: { type: ['string', 'null'] },
+            plan_type: { type: ['string', 'null'], enum: ['monthly', 'yearly', 'lifetime'] },
+            subscription_start_date: { type: ['string', 'null'], format: 'date-time' },
+            subscription_end_date: { type: ['string', 'null'], format: 'date-time' },
+            trial_status: { type: 'string', enum: ['none', 'active', 'expired', 'converted'] },
+            payment_status: { type: 'string', enum: ['none', 'succeeded', 'failed', 'pending', 'refunded'] },
+          },
+        },
+        response: {
+          200: {
+            description: 'Subscription updated',
+            type: 'object',
+            properties: {
+              user_id: { type: 'string' },
+              full_name: { type: 'string' },
+              age_range: { type: 'string' },
+              main_goal: { type: 'string' },
+              confidence_level: { type: 'integer' },
+              emotional_control_level: { type: 'integer' },
+              role: { type: 'string' },
+              is_active: { type: 'boolean' },
+              ai_messages_remaining: { type: ['integer', 'null'] },
+              account_type: { type: 'string', enum: ['free', 'premium'] },
+              subscription_status: { type: 'string', enum: ['inactive', 'active', 'past_due', 'cancelled', 'expired', 'trialing'] },
+              stripe_customer_id: { type: ['string', 'null'] },
+              stripe_subscription_id: { type: ['string', 'null'] },
+              plan_type: { type: ['string', 'null'], enum: ['monthly', 'yearly', 'lifetime'] },
+              subscription_start_date: { type: ['string', 'null'], format: 'date-time' },
+              subscription_end_date: { type: ['string', 'null'], format: 'date-time' },
+              trial_status: { type: 'string', enum: ['none', 'active', 'expired', 'converted'] },
+              payment_status: { type: 'string', enum: ['none', 'succeeded', 'failed', 'pending', 'refunded'] },
+              is_premium_active: { type: 'boolean' },
+              created_at: { type: 'string', format: 'date-time' },
+              updated_at: { type: 'string', format: 'date-time' },
+            },
+          },
+          400: {
+            description: 'Validation error',
+            type: 'object',
+            properties: {
+              error: { type: 'string' },
+              fields: { type: 'object' },
+            },
+          },
+          401: {
+            description: 'Unauthorized',
+            type: 'object',
+            properties: { error: { type: 'string' } },
+          },
+          404: {
+            description: 'Profile not found',
+            type: 'object',
+            properties: { error: { type: 'string' } },
+          },
+        },
+      },
+    },
+    async (request: FastifyRequest, reply: FastifyReply) => {
+      const session = await requireAuth(request, reply);
+      if (!session) return;
+
+      const userId = session.user.id;
+      const body = request.body as any;
+
+      app.logger.info({ userId }, 'Updating subscription fields');
+
+      // Validate account_type is required
+      if (!body.account_type) {
+        return reply.status(400).send({
+          error: 'validation_error',
+          fields: {
+            account_type: 'account_type is required',
+          },
+        });
+      }
+
+      // Validate account_type enum
+      if (!['free', 'premium'].includes(body.account_type)) {
+        return reply.status(400).send({
+          error: 'validation_error',
+          fields: {
+            account_type: "account_type must be 'free' or 'premium'",
+          },
+        });
+      }
+
+      const errors: Record<string, string> = {};
+
+      // Validate subscription_status if provided
+      if (body.subscription_status !== undefined) {
+        if (!['inactive', 'active', 'past_due', 'cancelled', 'expired', 'trialing'].includes(body.subscription_status)) {
+          errors.subscription_status = "subscription_status must be one of: inactive, active, past_due, cancelled, expired, trialing";
+        }
+      }
+
+      // Validate plan_type if provided
+      if (body.plan_type !== undefined && body.plan_type !== null) {
+        if (!['monthly', 'yearly', 'lifetime'].includes(body.plan_type)) {
+          errors.plan_type = "plan_type must be one of: monthly, yearly, lifetime";
+        }
+      }
+
+      // Validate trial_status if provided
+      if (body.trial_status !== undefined) {
+        if (!['none', 'active', 'expired', 'converted'].includes(body.trial_status)) {
+          errors.trial_status = "trial_status must be one of: none, active, expired, converted";
+        }
+      }
+
+      // Validate payment_status if provided
+      if (body.payment_status !== undefined) {
+        if (!['none', 'succeeded', 'failed', 'pending', 'refunded'].includes(body.payment_status)) {
+          errors.payment_status = "payment_status must be one of: none, succeeded, failed, pending, refunded";
+        }
+      }
+
+      // Validate dates if provided
+      if (body.subscription_start_date !== undefined && body.subscription_start_date !== null) {
+        try {
+          new Date(body.subscription_start_date);
+        } catch {
+          errors.subscription_start_date = 'subscription_start_date must be a valid ISO 8601 date string';
+        }
+      }
+
+      if (body.subscription_end_date !== undefined && body.subscription_end_date !== null) {
+        try {
+          new Date(body.subscription_end_date);
+        } catch {
+          errors.subscription_end_date = 'subscription_end_date must be a valid ISO 8601 date string';
+        }
+      }
+
+      if (Object.keys(errors).length > 0) {
+        return reply.status(400).send({
+          error: 'validation_error',
+          fields: errors,
+        });
+      }
+
+      try {
+        // Check if profile exists
+        const existingProfile = await app.db
+          .select()
+          .from(schema.userProfiles)
+          .where(eq(schema.userProfiles.userId, userId));
+
+        if (existingProfile.length === 0) {
+          return reply.status(404).send({ error: 'profile_not_found' });
+        }
+
+        // Build update object with only provided fields
+        const updateData: any = {
+          updatedAt: new Date(),
+        };
+
+        if (body.account_type !== undefined) {
+          updateData.accountType = body.account_type;
+        }
+
+        if (body.subscription_status !== undefined) {
+          updateData.subscriptionStatus = body.subscription_status;
+        }
+
+        if (body.stripe_customer_id !== undefined) {
+          updateData.stripeCustomerId = body.stripe_customer_id;
+        }
+
+        if (body.stripe_subscription_id !== undefined) {
+          updateData.stripeSubscriptionId = body.stripe_subscription_id;
+        }
+
+        if (body.plan_type !== undefined) {
+          updateData.planType = body.plan_type;
+        }
+
+        if (body.subscription_start_date !== undefined) {
+          updateData.subscriptionStartDate = body.subscription_start_date ? new Date(body.subscription_start_date) : null;
+        }
+
+        if (body.subscription_end_date !== undefined) {
+          updateData.subscriptionEndDate = body.subscription_end_date ? new Date(body.subscription_end_date) : null;
+        }
+
+        if (body.trial_status !== undefined) {
+          updateData.trialStatus = body.trial_status;
+        }
+
+        if (body.payment_status !== undefined) {
+          updateData.paymentStatus = body.payment_status;
+        }
+
+        // Synchronise role for backwards compatibility
+        if (body.account_type !== undefined) {
+          const currentProfile = existingProfile[0];
+          if (body.account_type === 'premium') {
+            updateData.role = 'premium';
+          } else if (body.account_type === 'free') {
+            // Only change to 'free' if not admin
+            if (currentProfile.role !== 'admin') {
+              updateData.role = 'free';
+            }
+          }
+        }
+
+        const updated = await app.db
+          .update(schema.userProfiles)
+          .set(updateData)
+          .where(eq(schema.userProfiles.userId, userId))
+          .returning();
+
+        app.logger.info({ userId, accountType: body.account_type }, 'Subscription fields updated successfully');
+        return formatProfileResponse(updated[0]);
+      } catch (error) {
+        app.logger.error({ err: error, userId }, 'Failed to update subscription fields');
         throw error;
       }
     }

@@ -63,6 +63,16 @@ export const userProfiles = pgTable('user_profiles', {
   isActive: boolean('is_active').notNull().default(true),
   aiMessagesUsedToday: integer('ai_messages_used_today').notNull().default(0),
   aiMessagesResetAt: timestamp('ai_messages_reset_at', { withTimezone: true }).notNull().defaultNow(),
+  // Subscription fields
+  accountType: text('account_type').notNull().default('free'), // 'free', 'premium'
+  subscriptionStatus: text('subscription_status').notNull().default('inactive'), // 'inactive', 'active', 'past_due', 'cancelled', 'expired', 'trialing'
+  stripeCustomerId: text('stripe_customer_id'),
+  stripeSubscriptionId: text('stripe_subscription_id'),
+  planType: text('plan_type'), // 'monthly', 'yearly', 'lifetime'
+  subscriptionStartDate: timestamp('subscription_start_date', { withTimezone: true }),
+  subscriptionEndDate: timestamp('subscription_end_date', { withTimezone: true }),
+  trialStatus: text('trial_status').notNull().default('none'), // 'none', 'active', 'expired', 'converted'
+  paymentStatus: text('payment_status').notNull().default('none'), // 'none', 'succeeded', 'failed', 'pending', 'refunded'
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 });
