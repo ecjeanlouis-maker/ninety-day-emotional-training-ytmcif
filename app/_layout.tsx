@@ -18,6 +18,7 @@ import { WidgetProvider } from "@/contexts/WidgetContext";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { SubscriptionProvider } from "@/contexts/SubscriptionContext";
 import { UserProvider } from "@/contexts/UserContext";
+import { AuthGate } from "@/components/AuthGate";
 // Note: Error logging is auto-initialized via index.ts import
 
 // Prevent the splash screen from auto-hiding before asset loading is complete.
@@ -88,6 +89,7 @@ export default function RootLayout() {
             <SubscriptionProvider>
               <UserProvider>
               <WidgetProvider>
+                <AuthGate>
                 <GestureHandlerRootView>
                   <Stack>
                     {/* Main app with tabs */}
@@ -106,6 +108,7 @@ export default function RootLayout() {
                   </Stack>
                   <SystemBars style={"auto"} />
                 </GestureHandlerRootView>
+                </AuthGate>
               </WidgetProvider>
               </UserProvider>
             </SubscriptionProvider>

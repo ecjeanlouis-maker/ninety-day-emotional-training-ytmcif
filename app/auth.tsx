@@ -58,8 +58,8 @@ export default function AuthScreen() {
     try {
       console.log("[Auth] Calling signInWithEmail...");
       await signInWithEmail(email, password);
-      console.log("[Auth] Sign in successful, navigating to /");
-      router.replace("/");
+      console.log("[Auth] Sign in successful, navigating to /auth-callback");
+      router.replace("/auth-callback");
     } catch (error: any) {
       console.log("[Auth] Sign in failed:", error.message);
       showFeedback("Sign In Failed", error.message || "Please check your credentials and try again.", "error");
@@ -90,8 +90,8 @@ export default function AuthScreen() {
       } else {
         await signInWithApple();
       }
-      console.log("[Auth] Social auth successful, navigating to /");
-      router.replace("/");
+      console.log("[Auth] Social auth successful, navigating to /auth-callback");
+      router.replace("/auth-callback");
     } catch (error: any) {
       if (error.message !== "Authentication cancelled") {
         console.log("[Auth] Social auth failed:", error.message);
