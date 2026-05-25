@@ -8,6 +8,13 @@
       "when": 1779674060463,
       "tag": "20260525015420_huge_maximus",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1779675680789,
+      "tag": "20260525022120_bright_doctor_faustus",
+      "breakpoints": true
     }
   ]
 }
