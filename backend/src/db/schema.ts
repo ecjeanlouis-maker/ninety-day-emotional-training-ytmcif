@@ -1,9 +1,6 @@
 import { pgTable, uuid, text, timestamp, boolean, decimal } from 'drizzle-orm/pg-core';
 import { user } from './auth-schema.js';
 
-// Re-export auth schema tables for migration
-export { user, session, account, verification } from './auth-schema.js';
-
 export const paymentMethods = pgTable('payment_methods', {
   id: uuid('id').primaryKey().defaultRandom(),
   userId: text('user_id')
