@@ -11,95 +11,81 @@ import {
   ScrollView,
   Modal,
 } from "react-native";
-import { useAuth } from "@/contexts/AuthContext";
 import { useRouter } from "expo-router";
 import { colors } from "@/styles/commonStyles";
+import { authClient } from "@/lib/auth";
 import Animated, { FadeIn, FadeOut } from "react-native-reanimated";
 import * as Haptics from "expo-haptics";
+import * as Linking from "expo-linking";
 
-export default function AuthScreen() {
+export default function ForgotPasswordScreen() {
   const router = useRouter();
-  const { signInWithEmail, signInWithGoogle, signInWithApple, loading: authLoading } = useAuth();
 
   const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [feedbackModal, setFeedbackModal] = useState<{
     visible: boolean;
     title: string;
     message: string;
     type: "error" | "success";
+    onClose?: () => void;
   }>({ visible: false, title: "", message: "", type: "error" });
 
-  const showFeedback = (title: string, message: string, type: "error" | "success" = "error") => {
-    setFeedbackModal({ visible: true, title, message, type });
+  const showFeedback = (
+    title: string,
+    message: string,
+    type: "error" | "success" = "error",
+    onClose?: () => void
+  ) => {
+    setFeedbackModal({ visible: true, title, message, type, onClose });
   };
 
   const hideFeedback = () => {
-    setFeedbackModal((prev) => ({ ...prev, visible: false }));
+    const onClose = feedbackModal.onClose;
+    setFeedbackModal((prev) => ({ ...prev, visible: false, onClose: undefined }));
+    if (onClose) onClose();
   };
 
-  if (authLoading) {
-    return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color={colors.primary} />
-      </View>
-    );
-  }
-
-  const handleSignIn = async () => {
-    console.log("[Auth] Sign In button pressed — email:", email);
+  const handleSendResetLink = async () => {
+    console.log("[ForgotPassword] Send Reset Link pressed — email:", email);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    if (!email || !password) {
-      showFeedback("Missing Fields", "Please enter your email and password.", "error");
+
+    if (!email) {
+      showFeedback("Missing Email", "Please enter your email address.", "error");
       return;
     }
+    if (!email.includes("@")) {
+      showFeedback("Invalid Email", "Please enter a valid email address.", "error");
+      return;
+    }
+
     setLoading(true);
     try {
-      console.log("[Auth] Calling signInWithEmail...");
-      await signInWithEmail(email, password);
-      console.log("[Auth] Sign in successful, navigating to /");
-      router.replace("/");
+      const redirectTo = Linking.createURL("/reset-password");
+      console.log("[ForgotPassword] Calling forgetPassword — redirectTo:", redirectTo);
+      const result = await authClient.forgetPassword({ email, redirectTo });
+      if (result.error) {
+        throw new Error(result.error.message || "Failed to send reset link.");
+      }
+      console.log("[ForgotPassword] Reset link sent successfully");
+      showFeedback(
+        "Email Sent!",
+        "Check your email for the password reset link.",
+        "success",
+        () => router.replace("/auth")
+      );
     } catch (error: any) {
-      console.log("[Auth] Sign in failed:", error.message);
-      showFeedback("Sign In Failed", error.message || "Please check your credentials and try again.", "error");
+      console.log("[ForgotPassword] Failed to send reset link:", error.message);
+      showFeedback("Request Failed", error.message || "Could not send reset link. Please try again.", "error");
     } finally {
       setLoading(false);
     }
   };
 
-  const handleForgotPassword = () => {
-    console.log("[Auth] Forgot Password tapped");
+  const handleBack = () => {
+    console.log("[ForgotPassword] Back to Sign In tapped");
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    router.push("/forgot-password");
-  };
-
-  const handleGoToSignUp = () => {
-    console.log("[Auth] Navigate to Sign Up tapped");
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    router.push("/signup");
-  };
-
-  const handleSocialAuth = async (provider: "google" | "apple") => {
-    console.log("[Auth] Social auth tapped — provider:", provider);
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    setLoading(true);
-    try {
-      if (provider === "google") {
-        await signInWithGoogle();
-      } else {
-        await signInWithApple();
-      }
-      console.log("[Auth] Social auth successful, navigating to /");
-      router.replace("/");
-    } catch (error: any) {
-      if (error.message !== "Authentication cancelled") {
-        console.log("[Auth] Social auth failed:", error.message);
-        showFeedback("Sign In Failed", error.message || "Social authentication failed. Please try again.", "error");
-      }
-    } finally {
-      setLoading(false);
-    }
+    router.back();
   };
 
   return (
@@ -116,8 +102,10 @@ export default function AuthScreen() {
             <Text style={styles.appName}>Control & Confidence</Text>
           </View>
 
-          <Text style={styles.title}>Welcome Back</Text>
-          <Text style={styles.subtitle}>Sign in to access your programs and progress</Text>
+          <Text style={styles.title}>Reset Password</Text>
+          <Text style={styles.subtitle}>
+            Enter your email and we'll send you a link to reset your password.
+          </Text>
 
           <TextInput
             style={styles.input}
@@ -130,61 +118,21 @@ export default function AuthScreen() {
             autoCorrect={false}
           />
 
-          <TextInput
-            style={styles.input}
-            placeholder="Password"
-            placeholderTextColor="#999"
-            value={password}
-            onChangeText={setPassword}
-            secureTextEntry
-            autoCapitalize="none"
-          />
-
-          <TouchableOpacity style={styles.forgotPasswordButton} onPress={handleForgotPassword}>
-            <Text style={styles.forgotPasswordText}>Forgot Password?</Text>
-          </TouchableOpacity>
-
           <TouchableOpacity
             style={[styles.primaryButton, loading && styles.buttonDisabled]}
-            onPress={handleSignIn}
+            onPress={handleSendResetLink}
             disabled={loading}
           >
             {loading ? (
               <ActivityIndicator color="#fff" />
             ) : (
-              <Text style={styles.primaryButtonText}>Sign In</Text>
+              <Text style={styles.primaryButtonText}>Send Reset Link</Text>
             )}
           </TouchableOpacity>
 
-          <TouchableOpacity style={styles.switchModeButton} onPress={handleGoToSignUp}>
-            <Text style={styles.switchModeText}>Don't have an account? Sign Up</Text>
+          <TouchableOpacity style={styles.backButton} onPress={handleBack}>
+            <Text style={styles.backButtonText}>Back to Sign In</Text>
           </TouchableOpacity>
-
-          <View style={styles.divider}>
-            <View style={styles.dividerLine} />
-            <Text style={styles.dividerText}>or continue with</Text>
-            <View style={styles.dividerLine} />
-          </View>
-
-          <TouchableOpacity
-            style={styles.socialButton}
-            onPress={() => handleSocialAuth("google")}
-            disabled={loading}
-          >
-            <Text style={styles.socialButtonText}>🌐  Continue with Google</Text>
-          </TouchableOpacity>
-
-          {Platform.OS === "ios" && (
-            <TouchableOpacity
-              style={[styles.socialButton, styles.appleButton]}
-              onPress={() => handleSocialAuth("apple")}
-              disabled={loading}
-            >
-              <Text style={[styles.socialButtonText, styles.appleButtonText]}>
-                🍎  Continue with Apple
-              </Text>
-            </TouchableOpacity>
-          )}
         </View>
       </ScrollView>
 
@@ -232,12 +180,6 @@ export default function AuthScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.background,
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
     backgroundColor: colors.background,
   },
   scrollContent: {
@@ -298,16 +240,6 @@ const styles = StyleSheet.create({
     color: colors.text,
     fontWeight: "500",
   },
-  forgotPasswordButton: {
-    alignSelf: "flex-end",
-    marginBottom: 16,
-    marginTop: -8,
-  },
-  forgotPasswordText: {
-    color: colors.primary,
-    fontSize: 14,
-    fontWeight: "600",
-  },
   primaryButton: {
     height: 52,
     backgroundColor: colors.primary,
@@ -325,52 +257,14 @@ const styles = StyleSheet.create({
   buttonDisabled: {
     opacity: 0.6,
   },
-  switchModeButton: {
+  backButton: {
     marginTop: 16,
     alignItems: "center",
   },
-  switchModeText: {
+  backButtonText: {
     color: colors.primary,
     fontSize: 14,
     fontWeight: "600",
-  },
-  divider: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginVertical: 24,
-  },
-  dividerLine: {
-    flex: 1,
-    height: 1,
-    backgroundColor: colors.border,
-  },
-  dividerText: {
-    marginHorizontal: 12,
-    color: colors.textSecondary,
-    fontSize: 14,
-    fontWeight: "500",
-  },
-  socialButton: {
-    height: 52,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 12,
-    justifyContent: "center",
-    alignItems: "center",
-    marginBottom: 12,
-    backgroundColor: colors.card,
-  },
-  socialButtonText: {
-    fontSize: 16,
-    color: colors.text,
-    fontWeight: "600",
-  },
-  appleButton: {
-    backgroundColor: "#000",
-    borderColor: "#000",
-  },
-  appleButtonText: {
-    color: "#fff",
   },
   modalOverlay: {
     flex: 1,

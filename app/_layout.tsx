@@ -91,6 +91,12 @@ export default function RootLayout() {
                     {/* Main app with tabs */}
                     <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
                     <Stack.Screen name="auth" options={{ headerShown: false }} />
+                    <Stack.Screen name="signup" options={{ headerShown: false }} />
+                    <Stack.Screen name="forgot-password" options={{ headerShown: false }} />
+                    <Stack.Screen name="reset-password" options={{ headerShown: false }} />
+                    <Stack.Screen name="email-verification-pending" options={{ headerShown: false }} />
+                    <Stack.Screen name="verify-email" options={{ headerShown: false }} />
+                    <Stack.Screen name="profile-edit" options={{ headerShown: false }} />
                     <Stack.Screen name="auth-popup" options={{ headerShown: false }} />
                     <Stack.Screen name="auth-callback" options={{ headerShown: false }} />
                     <Stack.Screen name="paywall" options={{ headerShown: false, presentation: 'modal' }} />

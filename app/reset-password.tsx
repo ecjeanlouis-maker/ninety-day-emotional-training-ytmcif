@@ -11,96 +11,103 @@ import {
   ScrollView,
   Modal,
 } from "react-native";
-import { useAuth } from "@/contexts/AuthContext";
-import { useRouter } from "expo-router";
+import { useRouter, useLocalSearchParams } from "expo-router";
 import { colors } from "@/styles/commonStyles";
+import { authClient } from "@/lib/auth";
 import Animated, { FadeIn, FadeOut } from "react-native-reanimated";
 import * as Haptics from "expo-haptics";
 
-export default function AuthScreen() {
+export default function ResetPasswordScreen() {
   const router = useRouter();
-  const { signInWithEmail, signInWithGoogle, signInWithApple, loading: authLoading } = useAuth();
+  const { token } = useLocalSearchParams<{ token?: string }>();
 
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [feedbackModal, setFeedbackModal] = useState<{
     visible: boolean;
     title: string;
     message: string;
     type: "error" | "success";
+    onClose?: () => void;
   }>({ visible: false, title: "", message: "", type: "error" });
 
-  const showFeedback = (title: string, message: string, type: "error" | "success" = "error") => {
-    setFeedbackModal({ visible: true, title, message, type });
+  const showFeedback = (
+    title: string,
+    message: string,
+    type: "error" | "success" = "error",
+    onClose?: () => void
+  ) => {
+    setFeedbackModal({ visible: true, title, message, type, onClose });
   };
 
   const hideFeedback = () => {
-    setFeedbackModal((prev) => ({ ...prev, visible: false }));
+    const onClose = feedbackModal.onClose;
+    setFeedbackModal((prev) => ({ ...prev, visible: false, onClose: undefined }));
+    if (onClose) onClose();
   };
 
-  if (authLoading) {
+  const handleResetPassword = async () => {
+    console.log("[ResetPassword] Reset Password button pressed");
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+
+    if (!newPassword || !confirmPassword) {
+      showFeedback("Missing Fields", "Please fill in both password fields.", "error");
+      return;
+    }
+    if (newPassword.length < 8) {
+      showFeedback("Weak Password", "Password must be at least 8 characters.", "error");
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      showFeedback("Password Mismatch", "Passwords do not match. Please try again.", "error");
+      return;
+    }
+
+    setLoading(true);
+    try {
+      console.log("[ResetPassword] Calling resetPassword with token...");
+      const result = await authClient.resetPassword({ newPassword, token: token as string });
+      if (result.error) {
+        throw new Error(result.error.message || "Failed to reset password.");
+      }
+      console.log("[ResetPassword] Password reset successfully");
+      showFeedback(
+        "Password Reset!",
+        "Your password has been reset. Please sign in with your new password.",
+        "success",
+        () => router.replace("/auth")
+      );
+    } catch (error: any) {
+      console.log("[ResetPassword] Reset failed:", error.message);
+      showFeedback("Reset Failed", error.message || "Could not reset password. Please try again.", "error");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleGoToAuth = () => {
+    console.log("[ResetPassword] Go to Sign In tapped");
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    router.replace("/auth");
+  };
+
+  if (!token) {
     return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color={colors.primary} />
+      <View style={styles.centeredContainer}>
+        <View style={styles.errorIconContainer}>
+          <Text style={styles.errorIcon}>⚠️</Text>
+        </View>
+        <Text style={styles.errorTitle}>Invalid Reset Link</Text>
+        <Text style={styles.errorSubtitle}>
+          This password reset link is invalid or has expired. Please request a new one.
+        </Text>
+        <TouchableOpacity style={styles.primaryButton} onPress={handleGoToAuth}>
+          <Text style={styles.primaryButtonText}>Back to Sign In</Text>
+        </TouchableOpacity>
       </View>
     );
   }
-
-  const handleSignIn = async () => {
-    console.log("[Auth] Sign In button pressed — email:", email);
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    if (!email || !password) {
-      showFeedback("Missing Fields", "Please enter your email and password.", "error");
-      return;
-    }
-    setLoading(true);
-    try {
-      console.log("[Auth] Calling signInWithEmail...");
-      await signInWithEmail(email, password);
-      console.log("[Auth] Sign in successful, navigating to /");
-      router.replace("/");
-    } catch (error: any) {
-      console.log("[Auth] Sign in failed:", error.message);
-      showFeedback("Sign In Failed", error.message || "Please check your credentials and try again.", "error");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleForgotPassword = () => {
-    console.log("[Auth] Forgot Password tapped");
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    router.push("/forgot-password");
-  };
-
-  const handleGoToSignUp = () => {
-    console.log("[Auth] Navigate to Sign Up tapped");
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    router.push("/signup");
-  };
-
-  const handleSocialAuth = async (provider: "google" | "apple") => {
-    console.log("[Auth] Social auth tapped — provider:", provider);
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    setLoading(true);
-    try {
-      if (provider === "google") {
-        await signInWithGoogle();
-      } else {
-        await signInWithApple();
-      }
-      console.log("[Auth] Social auth successful, navigating to /");
-      router.replace("/");
-    } catch (error: any) {
-      if (error.message !== "Authentication cancelled") {
-        console.log("[Auth] Social auth failed:", error.message);
-        showFeedback("Sign In Failed", error.message || "Social authentication failed. Please try again.", "error");
-      }
-    } finally {
-      setLoading(false);
-    }
-  };
 
   return (
     <KeyboardAvoidingView
@@ -116,75 +123,44 @@ export default function AuthScreen() {
             <Text style={styles.appName}>Control & Confidence</Text>
           </View>
 
-          <Text style={styles.title}>Welcome Back</Text>
-          <Text style={styles.subtitle}>Sign in to access your programs and progress</Text>
+          <Text style={styles.title}>Set New Password</Text>
+          <Text style={styles.subtitle}>Choose a strong password for your account.</Text>
 
           <TextInput
             style={styles.input}
-            placeholder="Email"
+            placeholder="New Password (min. 8 characters)"
             placeholderTextColor="#999"
-            value={email}
-            onChangeText={setEmail}
-            keyboardType="email-address"
-            autoCapitalize="none"
-            autoCorrect={false}
-          />
-
-          <TextInput
-            style={styles.input}
-            placeholder="Password"
-            placeholderTextColor="#999"
-            value={password}
-            onChangeText={setPassword}
+            value={newPassword}
+            onChangeText={setNewPassword}
             secureTextEntry
             autoCapitalize="none"
           />
 
-          <TouchableOpacity style={styles.forgotPasswordButton} onPress={handleForgotPassword}>
-            <Text style={styles.forgotPasswordText}>Forgot Password?</Text>
-          </TouchableOpacity>
+          <TextInput
+            style={styles.input}
+            placeholder="Confirm New Password"
+            placeholderTextColor="#999"
+            value={confirmPassword}
+            onChangeText={setConfirmPassword}
+            secureTextEntry
+            autoCapitalize="none"
+          />
 
           <TouchableOpacity
             style={[styles.primaryButton, loading && styles.buttonDisabled]}
-            onPress={handleSignIn}
+            onPress={handleResetPassword}
             disabled={loading}
           >
             {loading ? (
               <ActivityIndicator color="#fff" />
             ) : (
-              <Text style={styles.primaryButtonText}>Sign In</Text>
+              <Text style={styles.primaryButtonText}>Reset Password</Text>
             )}
           </TouchableOpacity>
 
-          <TouchableOpacity style={styles.switchModeButton} onPress={handleGoToSignUp}>
-            <Text style={styles.switchModeText}>Don't have an account? Sign Up</Text>
+          <TouchableOpacity style={styles.backButton} onPress={handleGoToAuth}>
+            <Text style={styles.backButtonText}>Back to Sign In</Text>
           </TouchableOpacity>
-
-          <View style={styles.divider}>
-            <View style={styles.dividerLine} />
-            <Text style={styles.dividerText}>or continue with</Text>
-            <View style={styles.dividerLine} />
-          </View>
-
-          <TouchableOpacity
-            style={styles.socialButton}
-            onPress={() => handleSocialAuth("google")}
-            disabled={loading}
-          >
-            <Text style={styles.socialButtonText}>🌐  Continue with Google</Text>
-          </TouchableOpacity>
-
-          {Platform.OS === "ios" && (
-            <TouchableOpacity
-              style={[styles.socialButton, styles.appleButton]}
-              onPress={() => handleSocialAuth("apple")}
-              disabled={loading}
-            >
-              <Text style={[styles.socialButtonText, styles.appleButtonText]}>
-                🍎  Continue with Apple
-              </Text>
-            </TouchableOpacity>
-          )}
         </View>
       </ScrollView>
 
@@ -234,11 +210,38 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.background,
   },
-  loadingContainer: {
+  centeredContainer: {
     flex: 1,
+    backgroundColor: colors.background,
     justifyContent: "center",
     alignItems: "center",
-    backgroundColor: colors.background,
+    padding: 32,
+  },
+  errorIconContainer: {
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    backgroundColor: "#FFF0F0",
+    justifyContent: "center",
+    alignItems: "center",
+    marginBottom: 24,
+  },
+  errorIcon: {
+    fontSize: 48,
+  },
+  errorTitle: {
+    fontSize: 24,
+    fontWeight: "800",
+    color: colors.text,
+    marginBottom: 12,
+    textAlign: "center",
+  },
+  errorSubtitle: {
+    fontSize: 14,
+    color: colors.textSecondary,
+    textAlign: "center",
+    lineHeight: 20,
+    marginBottom: 32,
   },
   scrollContent: {
     flexGrow: 1,
@@ -298,16 +301,6 @@ const styles = StyleSheet.create({
     color: colors.text,
     fontWeight: "500",
   },
-  forgotPasswordButton: {
-    alignSelf: "flex-end",
-    marginBottom: 16,
-    marginTop: -8,
-  },
-  forgotPasswordText: {
-    color: colors.primary,
-    fontSize: 14,
-    fontWeight: "600",
-  },
   primaryButton: {
     height: 52,
     backgroundColor: colors.primary,
@@ -325,52 +318,14 @@ const styles = StyleSheet.create({
   buttonDisabled: {
     opacity: 0.6,
   },
-  switchModeButton: {
+  backButton: {
     marginTop: 16,
     alignItems: "center",
   },
-  switchModeText: {
+  backButtonText: {
     color: colors.primary,
     fontSize: 14,
     fontWeight: "600",
-  },
-  divider: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginVertical: 24,
-  },
-  dividerLine: {
-    flex: 1,
-    height: 1,
-    backgroundColor: colors.border,
-  },
-  dividerText: {
-    marginHorizontal: 12,
-    color: colors.textSecondary,
-    fontSize: 14,
-    fontWeight: "500",
-  },
-  socialButton: {
-    height: 52,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 12,
-    justifyContent: "center",
-    alignItems: "center",
-    marginBottom: 12,
-    backgroundColor: colors.card,
-  },
-  socialButtonText: {
-    fontSize: 16,
-    color: colors.text,
-    fontWeight: "600",
-  },
-  appleButton: {
-    backgroundColor: "#000",
-    borderColor: "#000",
-  },
-  appleButtonText: {
-    color: "#fff",
   },
   modalOverlay: {
     flex: 1,

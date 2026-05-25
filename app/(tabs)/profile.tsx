@@ -16,6 +16,12 @@ export default function ProfileScreen() {
   const { user, loading, signOut } = useAuth();
   const { isSubscribed, restorePurchases } = useSubscription();
 
+  const handleEditProfile = () => {
+    console.log('[Profile] Edit Profile tapped');
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    router.push('/profile-edit');
+  };
+
   const handleSubscription = () => {
     console.log('User tapped Subscription — isSubscribed:', isSubscribed);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
@@ -40,9 +46,16 @@ export default function ProfileScreen() {
     await signOut();
   };
 
+  const handleVerifyEmail = () => {
+    console.log('[Profile] Verify Email banner tapped');
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    router.push('/email-verification-pending');
+  };
+
   const displayName = user?.name || user?.email?.split('@')[0] || 'Guest';
   const displayEmail = user?.email || 'Not signed in';
   const subscriptionLabel = isSubscribed ? 'Pro Member — Manage Subscription' : 'Upgrade to Pro';
+  const showUnverifiedBanner = !!user && user.emailVerified === false;
 
   return (
     <SafeAreaView style={[styles.safeArea, { backgroundColor: theme.colors.background }]} edges={['top']}>
@@ -53,6 +66,12 @@ export default function ProfileScreen() {
           Platform.OS !== 'ios' && styles.contentContainerWithTabBar
         ]}
       >
+        {showUnverifiedBanner && (
+          <TouchableOpacity style={styles.unverifiedBanner} onPress={handleVerifyEmail} activeOpacity={0.8}>
+            <Text style={styles.unverifiedBannerText}>⚠ Email not verified — Verify Now</Text>
+          </TouchableOpacity>
+        )}
+
         <GlassView style={[
           styles.profileHeader,
           Platform.OS !== 'ios' && { backgroundColor: theme.dark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)' }
@@ -73,50 +92,123 @@ export default function ProfileScreen() {
           )}
         </GlassView>
 
-        <GlassView style={[
-          styles.section,
-          Platform.OS !== 'ios' && { backgroundColor: theme.dark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)' }
-        ]} glassEffectStyle="regular">
-          <TouchableOpacity
-            style={styles.menuItem}
-            onPress={handleSubscription}
-            activeOpacity={0.7}
-          >
-            <View style={styles.menuItemLeft}>
+        {user && (
+          <GlassView style={[
+            styles.section,
+            Platform.OS !== 'ios' && { backgroundColor: theme.dark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)' }
+          ]} glassEffectStyle="regular">
+            <TouchableOpacity
+              style={styles.menuItem}
+              onPress={handleEditProfile}
+              activeOpacity={0.7}
+            >
+              <View style={styles.menuItemLeft}>
+                <IconSymbol
+                  ios_icon_name="person.crop.circle"
+                  android_material_icon_name="edit"
+                  size={20}
+                  color={theme.colors.primary}
+                />
+                <Text style={[styles.menuItemText, { color: theme.colors.text }]}>Edit Profile</Text>
+              </View>
               <IconSymbol
-                ios_icon_name="star.circle.fill"
-                android_material_icon_name="star"
+                ios_icon_name="chevron.right"
+                android_material_icon_name="arrow-forward"
                 size={20}
-                color={isSubscribed ? '#27AE60' : theme.colors.primary}
+                color={theme.dark ? '#98989D' : '#666'}
               />
-              <Text style={[styles.menuItemText, { color: theme.colors.text }]}>{subscriptionLabel}</Text>
-            </View>
-            <IconSymbol
-              ios_icon_name="chevron.right"
-              android_material_icon_name="arrow-forward"
-              size={20}
-              color={theme.dark ? '#98989D' : '#666'}
-            />
-          </TouchableOpacity>
+            </TouchableOpacity>
 
-          <View style={styles.menuDivider} />
+            <View style={styles.menuDivider} />
 
-          <TouchableOpacity
-            style={styles.menuItem}
-            onPress={handleRestorePurchases}
-            activeOpacity={0.7}
-          >
-            <View style={styles.menuItemLeft}>
+            <TouchableOpacity
+              style={styles.menuItem}
+              onPress={handleSubscription}
+              activeOpacity={0.7}
+            >
+              <View style={styles.menuItemLeft}>
+                <IconSymbol
+                  ios_icon_name="star.circle.fill"
+                  android_material_icon_name="star"
+                  size={20}
+                  color={isSubscribed ? '#27AE60' : theme.colors.primary}
+                />
+                <Text style={[styles.menuItemText, { color: theme.colors.text }]}>{subscriptionLabel}</Text>
+              </View>
               <IconSymbol
-                ios_icon_name="arrow.clockwise.circle"
-                android_material_icon_name="refresh"
+                ios_icon_name="chevron.right"
+                android_material_icon_name="arrow-forward"
                 size={20}
-                color={theme.colors.primary}
+                color={theme.dark ? '#98989D' : '#666'}
               />
-              <Text style={[styles.menuItemText, { color: theme.colors.text }]}>Restore Purchases</Text>
-            </View>
-          </TouchableOpacity>
-        </GlassView>
+            </TouchableOpacity>
+
+            <View style={styles.menuDivider} />
+
+            <TouchableOpacity
+              style={styles.menuItem}
+              onPress={handleRestorePurchases}
+              activeOpacity={0.7}
+            >
+              <View style={styles.menuItemLeft}>
+                <IconSymbol
+                  ios_icon_name="arrow.clockwise.circle"
+                  android_material_icon_name="refresh"
+                  size={20}
+                  color={theme.colors.primary}
+                />
+                <Text style={[styles.menuItemText, { color: theme.colors.text }]}>Restore Purchases</Text>
+              </View>
+            </TouchableOpacity>
+          </GlassView>
+        )}
+
+        {!user && (
+          <GlassView style={[
+            styles.section,
+            Platform.OS !== 'ios' && { backgroundColor: theme.dark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)' }
+          ]} glassEffectStyle="regular">
+            <TouchableOpacity
+              style={styles.menuItem}
+              onPress={handleSubscription}
+              activeOpacity={0.7}
+            >
+              <View style={styles.menuItemLeft}>
+                <IconSymbol
+                  ios_icon_name="star.circle.fill"
+                  android_material_icon_name="star"
+                  size={20}
+                  color={isSubscribed ? '#27AE60' : theme.colors.primary}
+                />
+                <Text style={[styles.menuItemText, { color: theme.colors.text }]}>{subscriptionLabel}</Text>
+              </View>
+              <IconSymbol
+                ios_icon_name="chevron.right"
+                android_material_icon_name="arrow-forward"
+                size={20}
+                color={theme.dark ? '#98989D' : '#666'}
+              />
+            </TouchableOpacity>
+
+            <View style={styles.menuDivider} />
+
+            <TouchableOpacity
+              style={styles.menuItem}
+              onPress={handleRestorePurchases}
+              activeOpacity={0.7}
+            >
+              <View style={styles.menuItemLeft}>
+                <IconSymbol
+                  ios_icon_name="arrow.clockwise.circle"
+                  android_material_icon_name="refresh"
+                  size={20}
+                  color={theme.colors.primary}
+                />
+                <Text style={[styles.menuItemText, { color: theme.colors.text }]}>Restore Purchases</Text>
+              </View>
+            </TouchableOpacity>
+          </GlassView>
+        )}
 
         <GlassView style={[
           styles.section,
@@ -205,6 +297,21 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '700',
     color: '#FFFFFF',
+  },
+  unverifiedBanner: {
+    backgroundColor: '#FFF8E1',
+    borderWidth: 1,
+    borderColor: '#FFD54F',
+    borderRadius: 10,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    marginBottom: 12,
+  },
+  unverifiedBannerText: {
+    color: '#E65100',
+    fontSize: 14,
+    fontWeight: '700',
+    textAlign: 'center',
   },
   section: {
     borderRadius: 12,
