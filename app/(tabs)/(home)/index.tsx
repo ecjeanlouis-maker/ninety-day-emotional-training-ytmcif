@@ -29,6 +29,7 @@ import CongratulationsModal from '@/components/CongratulationsModal';
 import Survey from './survey';
 import { useAuth } from '@/contexts/AuthContext';
 import { useSubscription } from '@/contexts/SubscriptionContext';
+// TODO: Replace isSubscribed week-gating with useUser().canAccess('ecct_full_program') from @/contexts/UserContext
 import { useRouter } from 'expo-router';
 
 const AnimatedTouchable = Animated.createAnimatedComponent(TouchableOpacity);

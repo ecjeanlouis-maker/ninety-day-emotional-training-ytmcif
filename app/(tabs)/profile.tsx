@@ -9,12 +9,14 @@ import { useRouter } from "expo-router";
 import * as Haptics from "expo-haptics";
 import { useAuth } from "@/contexts/AuthContext";
 import { useSubscription } from "@/contexts/SubscriptionContext";
+import { useUser } from "@/contexts/UserContext";
 
 export default function ProfileScreen() {
   const theme = useTheme();
   const router = useRouter();
   const { user, loading, signOut } = useAuth();
   const { isSubscribed, restorePurchases } = useSubscription();
+  const { role } = useUser();
 
   const handleEditProfile = () => {
     console.log('[Profile] Edit Profile tapped');
@@ -56,6 +58,8 @@ export default function ProfileScreen() {
   const displayEmail = user?.email || 'Not signed in';
   const subscriptionLabel = isSubscribed ? 'Pro Member — Manage Subscription' : 'Upgrade to Pro';
   const showUnverifiedBanner = !!user && user.emailVerified === false;
+  const rolePillLabel = role === 'premium' ? 'Premium' : 'Free';
+  const rolePillColor = role === 'premium' ? '#27AE60' : '#8E8E93';
 
   return (
     <SafeAreaView style={[styles.safeArea, { backgroundColor: theme.colors.background }]} edges={['top']}>
@@ -82,7 +86,12 @@ export default function ProfileScreen() {
             <>
               <IconSymbol ios_icon_name="person.circle.fill" android_material_icon_name="person" size={80} color={theme.colors.primary} />
               <Text style={[styles.name, { color: theme.colors.text }]}>{displayName}</Text>
-              <Text style={[styles.email, { color: theme.dark ? '#98989D' : '#666' }]}>{displayEmail}</Text>
+              <View style={styles.emailRow}>
+                <Text style={[styles.email, { color: theme.dark ? '#98989D' : '#666' }]}>{displayEmail}</Text>
+                <View style={[styles.rolePill, { backgroundColor: rolePillColor }]}>
+                  <Text style={styles.rolePillText}>{rolePillLabel}</Text>
+                </View>
+              </View>
               {isSubscribed && (
                 <View style={styles.proBadge}>
                   <Text style={styles.proBadgeText}>⚡ Pro Member</Text>
@@ -285,6 +294,21 @@ const styles = StyleSheet.create({
   },
   email: {
     fontSize: 16,
+  },
+  emailRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  rolePill: {
+    paddingHorizontal: 10,
+    paddingVertical: 3,
+    borderRadius: 12,
+  },
+  rolePillText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#FFFFFF',
   },
   proBadge: {
     backgroundColor: '#27AE60',

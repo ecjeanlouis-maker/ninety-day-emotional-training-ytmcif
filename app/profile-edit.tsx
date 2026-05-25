@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   View,
   Text,
@@ -15,12 +15,51 @@ import { useRouter } from "expo-router";
 import { colors } from "@/styles/commonStyles";
 import { authClient } from "@/lib/auth";
 import { useAuth } from "@/contexts/AuthContext";
+import { useUser } from "@/contexts/UserContext";
+import { authenticatedPatch } from "@/utils/api";
 import Animated, { FadeIn, FadeOut } from "react-native-reanimated";
 import * as Haptics from "expo-haptics";
+
+// ─── Enum types (must match backend exactly) ────────────────────────────────
+type AgeRange = 'under_18' | '18_24' | '25_34' | '35_44' | '45_54' | '55_plus';
+type MainGoal =
+  | 'emotional_control'
+  | 'build_confidence'
+  | 'manage_anger'
+  | 'reduce_stress'
+  | 'social_anxiety'
+  | 'thought_regulation';
+
+const AGE_RANGES: { label: string; value: AgeRange }[] = [
+  { label: 'Under 18', value: 'under_18' },
+  { label: '18–24', value: '18_24' },
+  { label: '25–34', value: '25_34' },
+  { label: '35–44', value: '35_44' },
+  { label: '45–54', value: '45_54' },
+  { label: '55+', value: '55_plus' },
+];
+
+const MAIN_GOALS: { label: string; value: MainGoal }[] = [
+  { label: 'Emotional Control', value: 'emotional_control' },
+  { label: 'Build Confidence', value: 'build_confidence' },
+  { label: 'Manage Anger', value: 'manage_anger' },
+  { label: 'Reduce Stress', value: 'reduce_stress' },
+  { label: 'Social Anxiety', value: 'social_anxiety' },
+  { label: 'Thought Regulation', value: 'thought_regulation' },
+];
+
+const CONFIDENCE_LABELS: Record<number, string> = {
+  1: 'Very low', 2: 'Low', 3: 'Moderate', 4: 'High', 5: 'Very high',
+};
+
+const EMOTIONAL_LABELS: Record<number, string> = {
+  1: 'Reactive', 2: 'Somewhat reactive', 3: 'Moderate', 4: 'Mostly regulated', 5: 'Highly regulated',
+};
 
 export default function ProfileEditScreen() {
   const router = useRouter();
   const { user, signOut, fetchUser } = useAuth();
+  const { profile, refreshProfile } = useUser();
 
   const [name, setName] = useState(user?.name || "");
   const [email, setEmail] = useState(user?.email || "");
@@ -28,7 +67,32 @@ export default function ProfileEditScreen() {
   const [newPassword, setNewPassword] = useState("");
   const [savingProfile, setSavingProfile] = useState(false);
   const [savingPassword, setSavingPassword] = useState(false);
+  const [savingPreferences, setSavingPreferences] = useState(false);
   const [signingOut, setSigningOut] = useState(false);
+
+  // ─── Preferences state (pre-filled from profile) ─────────────────────────
+  const [ageRange, setAgeRange] = useState<AgeRange | null>(
+    (profile?.age_range as AgeRange) || null
+  );
+  const [mainGoal, setMainGoal] = useState<MainGoal | null>(
+    (profile?.main_goal as MainGoal) || null
+  );
+  const [confidenceLevel, setConfidenceLevel] = useState<number | null>(
+    profile?.confidence_level || null
+  );
+  const [emotionalControlLevel, setEmotionalControlLevel] = useState<number | null>(
+    profile?.emotional_control_level || null
+  );
+
+  // Sync preferences when profile loads
+  useEffect(() => {
+    if (profile) {
+      setAgeRange((profile.age_range as AgeRange) || null);
+      setMainGoal((profile.main_goal as MainGoal) || null);
+      setConfidenceLevel(profile.confidence_level || null);
+      setEmotionalControlLevel(profile.emotional_control_level || null);
+    }
+  }, [profile?.age_range, profile?.main_goal, profile?.confidence_level, profile?.emotional_control_level]);
 
   const [feedbackModal, setFeedbackModal] = useState<{
     visible: boolean;
@@ -133,6 +197,35 @@ export default function ProfileEditScreen() {
     } catch (error: any) {
       console.log("[ProfileEdit] Sign out failed:", error.message);
       setSigningOut(false);
+    }
+  };
+
+  const handleSavePreferences = async () => {
+    console.log("[ProfileEdit] Save Preferences pressed — ageRange:", ageRange, "mainGoal:", mainGoal, "confidenceLevel:", confidenceLevel, "emotionalControlLevel:", emotionalControlLevel);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+
+    if (!ageRange || !mainGoal || !confidenceLevel || !emotionalControlLevel) {
+      showFeedback("Missing Fields", "Please fill in all preference fields.", "error");
+      return;
+    }
+
+    setSavingPreferences(true);
+    try {
+      console.log("[ProfileEdit] PATCH /api/profile — preferences");
+      await authenticatedPatch('/api/profile', {
+        age_range: ageRange,
+        main_goal: mainGoal,
+        confidence_level: confidenceLevel,
+        emotional_control_level: emotionalControlLevel,
+      });
+      console.log("[ProfileEdit] Preferences saved — refreshing profile");
+      await refreshProfile();
+      showFeedback("Preferences Saved!", "Your preferences have been updated.", "success");
+    } catch (error: any) {
+      console.log("[ProfileEdit] Save preferences failed:", error?.message);
+      showFeedback("Update Failed", error?.message || "Could not save preferences. Please try again.", "error");
+    } finally {
+      setSavingPreferences(false);
     }
   };
 
@@ -276,6 +369,128 @@ export default function ProfileEditScreen() {
               </TouchableOpacity>
             </>
           )}
+        </View>
+
+        {/* Preferences Section */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Preferences</Text>
+
+          <Text style={styles.fieldLabel}>Age Range</Text>
+          <View style={styles.pillRow}>
+            {AGE_RANGES.map((item) => {
+              const isSelected = ageRange === item.value;
+              return (
+                <TouchableOpacity
+                  key={item.value}
+                  style={[styles.pill, isSelected && styles.pillSelected]}
+                  onPress={() => {
+                    console.log("[ProfileEdit] Age range tapped:", item.value);
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    setAgeRange(item.value);
+                  }}
+                  activeOpacity={0.75}
+                >
+                  <Text style={[styles.pillText, isSelected && styles.pillTextSelected]}>
+                    {item.label}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+
+          <Text style={styles.fieldLabel}>Main Goal</Text>
+          <View style={styles.goalGrid}>
+            {MAIN_GOALS.map((item) => {
+              const isSelected = mainGoal === item.value;
+              const goalEmoji =
+                item.value === 'emotional_control' ? '❤️' :
+                item.value === 'build_confidence' ? '⭐' :
+                item.value === 'manage_anger' ? '🔥' :
+                item.value === 'reduce_stress' ? '🍃' :
+                item.value === 'social_anxiety' ? '👥' : '🧠';
+              return (
+                <TouchableOpacity
+                  key={item.value}
+                  style={[styles.goalCard, isSelected && styles.goalCardSelected]}
+                  onPress={() => {
+                    console.log("[ProfileEdit] Main goal tapped:", item.value);
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    setMainGoal(item.value);
+                  }}
+                  activeOpacity={0.75}
+                >
+                  <Text style={styles.goalIcon}>{goalEmoji}</Text>
+                  <Text style={[styles.goalLabel, isSelected && styles.goalLabelSelected]}>
+                    {item.label}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+
+          <Text style={styles.fieldLabel}>Confidence Level</Text>
+          <View style={styles.levelRow}>
+            {[1, 2, 3, 4, 5].map((n) => {
+              const isSelected = confidenceLevel === n;
+              return (
+                <TouchableOpacity
+                  key={n}
+                  style={[styles.levelCircle, isSelected && styles.levelCircleSelected]}
+                  onPress={() => {
+                    console.log("[ProfileEdit] Confidence level tapped:", n);
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    setConfidenceLevel(n);
+                  }}
+                  activeOpacity={0.75}
+                >
+                  <Text style={[styles.levelNumber, isSelected && styles.levelNumberSelected]}>
+                    {n}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+          {confidenceLevel !== null && (
+            <Text style={styles.levelHint}>{CONFIDENCE_LABELS[confidenceLevel]}</Text>
+          )}
+
+          <Text style={[styles.fieldLabel, { marginTop: 16 }]}>Emotional Control Level</Text>
+          <View style={styles.levelRow}>
+            {[1, 2, 3, 4, 5].map((n) => {
+              const isSelected = emotionalControlLevel === n;
+              return (
+                <TouchableOpacity
+                  key={n}
+                  style={[styles.levelCircle, isSelected && styles.levelCircleSelected]}
+                  onPress={() => {
+                    console.log("[ProfileEdit] Emotional control level tapped:", n);
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    setEmotionalControlLevel(n);
+                  }}
+                  activeOpacity={0.75}
+                >
+                  <Text style={[styles.levelNumber, isSelected && styles.levelNumberSelected]}>
+                    {n}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+          {emotionalControlLevel !== null && (
+            <Text style={styles.levelHint}>{EMOTIONAL_LABELS[emotionalControlLevel]}</Text>
+          )}
+
+          <TouchableOpacity
+            style={[styles.primaryButton, { marginTop: 20 }, savingPreferences && styles.buttonDisabled]}
+            onPress={handleSavePreferences}
+            disabled={savingPreferences}
+          >
+            {savingPreferences ? (
+              <ActivityIndicator color="#fff" />
+            ) : (
+              <Text style={styles.primaryButtonText}>Save Preferences</Text>
+            )}
+          </TouchableOpacity>
         </View>
 
         {/* Danger Zone */}
@@ -528,6 +743,97 @@ const styles = StyleSheet.create({
   },
   bottomPadding: {
     height: 40,
+  },
+  pillRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginBottom: 20,
+  },
+  pill: {
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 20,
+    borderWidth: 1.5,
+    borderColor: colors.border,
+    backgroundColor: colors.background,
+  },
+  pillSelected: {
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
+  },
+  pillText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: colors.textSecondary,
+  },
+  pillTextSelected: {
+    color: '#FFFFFF',
+  },
+  goalGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+    marginBottom: 20,
+  },
+  goalCard: {
+    width: '47%',
+    backgroundColor: colors.background,
+    borderRadius: 12,
+    borderWidth: 1.5,
+    borderColor: colors.border,
+    padding: 12,
+    alignItems: 'center',
+    gap: 6,
+  },
+  goalCardSelected: {
+    backgroundColor: colors.highlight,
+    borderColor: colors.primary,
+  },
+  goalIcon: {
+    fontSize: 22,
+  },
+  goalLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: colors.textSecondary,
+    textAlign: 'center',
+  },
+  goalLabelSelected: {
+    color: colors.primary,
+  },
+  levelRow: {
+    flexDirection: 'row',
+    gap: 8,
+    marginBottom: 6,
+  },
+  levelCircle: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    borderWidth: 1.5,
+    borderColor: colors.border,
+    backgroundColor: colors.background,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  levelCircleSelected: {
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
+  },
+  levelNumber: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: colors.textSecondary,
+  },
+  levelNumberSelected: {
+    color: '#FFFFFF',
+  },
+  levelHint: {
+    fontSize: 12,
+    color: colors.primary,
+    fontWeight: '600',
+    marginBottom: 4,
   },
   modalOverlay: {
     flex: 1,

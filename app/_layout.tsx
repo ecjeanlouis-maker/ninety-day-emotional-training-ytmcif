@@ -17,6 +17,7 @@ import { StatusBar } from "expo-status-bar";
 import { WidgetProvider } from "@/contexts/WidgetContext";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { SubscriptionProvider } from "@/contexts/SubscriptionContext";
+import { UserProvider } from "@/contexts/UserContext";
 // Note: Error logging is auto-initialized via index.ts import
 
 // Prevent the splash screen from auto-hiding before asset loading is complete.
@@ -85,6 +86,7 @@ export default function RootLayout() {
         >
           <AuthProvider>
             <SubscriptionProvider>
+              <UserProvider>
               <WidgetProvider>
                 <GestureHandlerRootView>
                   <Stack>
@@ -104,6 +106,7 @@ export default function RootLayout() {
                   <SystemBars style={"auto"} />
                 </GestureHandlerRootView>
               </WidgetProvider>
+              </UserProvider>
             </SubscriptionProvider>
           </AuthProvider>
         </ThemeProvider>
