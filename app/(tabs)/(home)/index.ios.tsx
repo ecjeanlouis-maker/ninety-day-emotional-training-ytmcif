@@ -293,11 +293,34 @@ export default function HomeScreen() {
           </Animated.View>
 
           <Animated.View
-            entering={FadeInDown.delay(500).duration(800)}
+            entering={FadeInDown.delay(450).duration(800)}
+            style={styles.guestButtonContainer}
+          >
+            <TouchableOpacity
+              style={styles.guestButton}
+              activeOpacity={0.85}
+              onPress={() => {
+                console.log('[Home] Continue as Guest tapped — starting assessment');
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                handleBeginAssessment();
+              }}
+            >
+              <Text style={styles.guestButtonText}>Continue as Guest</Text>
+              <IconSymbol
+                ios_icon_name="person.fill"
+                android_material_icon_name="person"
+                size={20}
+                color={colors.primary}
+              />
+            </TouchableOpacity>
+          </Animated.View>
+
+          <Animated.View
+            entering={FadeInDown.delay(600).duration(800)}
             style={styles.welcomeFooter}
           >
             <Text style={styles.welcomeFooterText}>
-              Sign in to begin your personalized assessment and start your 90-day journey.
+              Sign in to save your progress, or continue as a guest to take the assessment.
             </Text>
           </Animated.View>
         </ScrollView>
@@ -1016,6 +1039,26 @@ const styles = StyleSheet.create({
   },
   welcomeButtonContainer: {
     marginBottom: 24,
+  },
+  guestButtonContainer: {
+    marginTop: 12,
+  },
+  guestButton: {
+    borderWidth: 1.5,
+    borderColor: colors.primary,
+    borderRadius: 16,
+    paddingVertical: 16,
+    paddingHorizontal: 24,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 10,
+    backgroundColor: 'transparent',
+  },
+  guestButtonText: {
+    fontSize: 17,
+    fontWeight: '700',
+    color: colors.primary,
   },
   welcomeButton: {
     borderRadius: 16,
