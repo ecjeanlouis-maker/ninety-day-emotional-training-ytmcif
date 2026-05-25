@@ -128,7 +128,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const signInWithEmail = async (email: string, password: string) => {
     try {
       console.log("[Auth] Signing in with email:", email);
-      await authClient.signIn.email({ email, password });
+      const result = await authClient.signIn.email({ email, password });
+      if (result?.error) {
+        console.error("[Auth] ✗ Email sign-in returned error:", result.error);
+        throw new Error(result.error.message ?? "Invalid email or password");
+      }
       console.log("[Auth] ✓ Email sign-in successful");
       await fetchUser();
     } catch (error) {
@@ -140,11 +144,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const signUpWithEmail = async (email: string, password: string, name?: string) => {
     try {
       console.log("[Auth] Signing up with email:", email);
-      await authClient.signUp.email({
-        email,
-        password,
-        name,
-      });
+      const result = await authClient.signUp.email({ email, password, name });
+      if (result?.error) {
+        console.error("[Auth] ✗ Email sign-up returned error:", result.error);
+        throw new Error(result.error.message ?? "Sign-up failed");
+      }
       console.log("[Auth] ✓ Email sign-up successful");
       await fetchUser();
     } catch (error) {
