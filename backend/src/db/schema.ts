@@ -1,4 +1,4 @@
-import { pgTable, uuid, text, timestamp, boolean, decimal } from 'drizzle-orm/pg-core';
+import { pgTable, uuid, text, timestamp, boolean, decimal, integer } from 'drizzle-orm/pg-core';
 import { user } from './auth-schema.js';
 
 export const paymentMethods = pgTable('payment_methods', {
@@ -47,4 +47,18 @@ export const paymentTransactions = pgTable('payment_transactions', {
   status: text('status').notNull(), // 'succeeded', 'pending', 'failed', 'refunded'
   description: text('description'),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+});
+
+export const userProfiles = pgTable('user_profiles', {
+  userId: text('user_id').primaryKey().notNull(),
+  fullName: text('full_name').notNull(),
+  ageRange: text('age_range').notNull(), // 'under_18', '18_24', '25_34', '35_44', '45_54', '55_plus'
+  mainGoal: text('main_goal').notNull(), // 'emotional_control', 'build_confidence', etc.
+  confidenceLevel: integer('confidence_level').notNull(), // 1-5
+  emotionalControlLevel: integer('emotional_control_level').notNull(), // 1-5
+  role: text('role').notNull().default('free'), // 'free', 'premium'
+  aiMessagesUsedToday: integer('ai_messages_used_today').notNull().default(0),
+  aiMessagesResetAt: timestamp('ai_messages_reset_at', { withTimezone: true }).notNull().defaultNow(),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 });
