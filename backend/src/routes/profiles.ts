@@ -2,6 +2,7 @@ import type { App } from '../index.js';
 import type { FastifyRequest, FastifyReply } from 'fastify';
 import { eq, sql } from 'drizzle-orm';
 import * as schema from '../db/schema.js';
+import { requireAuthUserId } from '../lib/auth.js';
 
 const VALID_AGE_RANGES = ['under_18', '18_24', '25_34', '35_44', '45_54', '55_plus'];
 const VALID_MAIN_GOALS = [
@@ -166,6 +167,7 @@ export function registerProfileRoutes(app: App) {
       schema: {
         description: 'Create or update authenticated user profile',
         tags: ['profiles'],
+        security: [{ bearerAuth: [] }],
         body: {
           type: 'object',
           required: ['full_name', 'age_range', 'main_goal', 'confidence_level', 'emotional_control_level'],
@@ -296,6 +298,7 @@ export function registerProfileRoutes(app: App) {
       schema: {
         description: 'Get authenticated user profile',
         tags: ['profiles'],
+        security: [{ bearerAuth: [] }],
         response: {
           200: {
             description: 'User profile',
@@ -439,6 +442,7 @@ export function registerProfileRoutes(app: App) {
       schema: {
         description: 'Update authenticated user profile',
         tags: ['profiles'],
+        security: [{ bearerAuth: [] }],
         body: {
           type: 'object',
           properties: {
@@ -585,6 +589,7 @@ export function registerProfileRoutes(app: App) {
       schema: {
         description: 'Consume one AI message (with daily limit for free tier)',
         tags: ['profiles'],
+        security: [{ bearerAuth: [] }],
         response: {
           200: {
             description: 'AI message allowed',
@@ -718,6 +723,7 @@ export function registerProfileRoutes(app: App) {
       schema: {
         description: 'Update user role to free or premium (admin role set by system only)',
         tags: ['profiles'],
+        security: [{ bearerAuth: [] }],
         body: {
           type: 'object',
           required: ['role'],
@@ -824,6 +830,7 @@ export function registerProfileRoutes(app: App) {
       schema: {
         description: 'Update authenticated user subscription fields',
         tags: ['profiles'],
+        security: [{ bearerAuth: [] }],
         body: {
           type: 'object',
           required: ['account_type'],
@@ -1066,6 +1073,7 @@ export function registerProfileRoutes(app: App) {
       schema: {
         description: 'Start a 7-day free trial for the authenticated user',
         tags: ['profiles'],
+        security: [{ bearerAuth: [] }],
         response: {
           200: {
             description: 'Trial started',
@@ -1189,6 +1197,7 @@ export function registerProfileRoutes(app: App) {
       schema: {
         description: 'Cancel an active trial early',
         tags: ['profiles'],
+        security: [{ bearerAuth: [] }],
         response: {
           200: {
             description: 'Trial cancelled',
