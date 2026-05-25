@@ -42,7 +42,8 @@
     },
     "extra": {
       "router": {},
-      "backendUrl": "https://yt8rvpzc3a4km4e9x2umpgmuhs7cvhdm.app.specular.dev"
+      "backendUrl": "https://yt8rvpzc3a4km4e9x2umpgmuhs7cvhdm.app.specular.dev",
+      "stripePublishableKey": "pk_test_REPLACE_ME"
     }
   },
   "scheme": "Control & Confidence"

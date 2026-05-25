@@ -11,7 +11,7 @@ import { useSubscription } from '@/contexts/SubscriptionContext';
 import { authenticatedGet, authenticatedPost } from '@/utils/api';
 import { hasAccess, AppFeature } from '@/lib/access';
 
-type Role = 'free' | 'premium';
+type Role = 'free' | 'premium' | 'admin';
 
 interface UserProfile {
   full_name: string;
@@ -29,6 +29,7 @@ interface UserContextValue {
   role: Role;
   isFree: boolean;
   isPremium: boolean;
+  isAdmin: boolean;
   refreshProfile: () => Promise<void>;
   consumeAiMessage: () => Promise<{ allowed: boolean; remaining: number | null; resetsAt?: string }>;
   canAccess: (feature: AppFeature) => boolean;
@@ -77,12 +78,17 @@ export function UserProvider({ children }: { children: ReactNode }) {
     fetchProfile();
   }, [fetchProfile]);
 
-  // Effective role: premium if RevenueCat says subscribed OR backend role is premium
+  // Effective role: admin if backend says admin; premium if RevenueCat subscribed OR backend premium/admin
   const role: Role =
-    isSubscribed || profile?.role === 'premium' ? 'premium' : 'free';
+    profile?.role === 'admin'
+      ? 'admin'
+      : isSubscribed || profile?.role === 'premium'
+      ? 'premium'
+      : 'free';
 
   const isFree = role === 'free';
-  const isPremium = role === 'premium';
+  const isPremium = role === 'premium' || role === 'admin';
+  const isAdmin = role === 'admin';
 
   const refreshProfile = useCallback(async () => {
     console.log('[UserContext] refreshProfile called');
@@ -140,6 +146,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
         role,
         isFree,
         isPremium,
+        isAdmin,
         refreshProfile,
         consumeAiMessage,
         canAccess,
