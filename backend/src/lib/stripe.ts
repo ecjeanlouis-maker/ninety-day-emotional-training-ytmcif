@@ -84,8 +84,11 @@ export async function getStripePriceIds(): Promise<PriceId[]> {
 }
 
 export async function bootstrapStripe(): Promise<void> {
-  if (!isStripeConfigured()) {
-    return; // Skip if Stripe not configured
+  // Validate the key format before attempting to bootstrap
+  const stripeKey = process.env.STRIPE_SECRET_KEY;
+  if (!stripeKey || (!stripeKey.startsWith('sk_test_') && !stripeKey.startsWith('sk_live_'))) {
+    console.info('[Stripe] STRIPE_SECRET_KEY not set or invalid format — skipping Stripe bootstrap');
+    return;
   }
 
   const stripe = getStripe();

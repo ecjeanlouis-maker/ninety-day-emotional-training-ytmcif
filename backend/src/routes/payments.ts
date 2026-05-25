@@ -37,7 +37,6 @@ export function registerPaymentRoutes(app: App) {
       schema: {
         description: 'Create a new payment method',
         tags: ['payment-methods'],
-        security: [{ bearerAuth: [] }],
         body: {
           type: 'object',
           required: ['cardNumber', 'expiryMonth', 'expiryYear', 'cvv', 'cardholderName'],
@@ -168,7 +167,6 @@ export function registerPaymentRoutes(app: App) {
       schema: {
         description: "Get user's payment methods",
         tags: ['payment-methods'],
-        security: [{ bearerAuth: [] }],
         response: {
           200: {
             description: 'List of payment methods',
@@ -229,7 +227,6 @@ export function registerPaymentRoutes(app: App) {
       schema: {
         description: 'Set payment method as default',
         tags: ['payment-methods'],
-        security: [{ bearerAuth: [] }],
         params: {
           type: 'object',
           required: ['id'],
@@ -311,7 +308,6 @@ export function registerPaymentRoutes(app: App) {
       schema: {
         description: 'Delete payment method',
         tags: ['payment-methods'],
-        security: [{ bearerAuth: [] }],
         params: {
           type: 'object',
           required: ['id'],
@@ -387,7 +383,6 @@ export function registerPaymentRoutes(app: App) {
       schema: {
         description: 'Create subscription or one-time payment',
         tags: ['subscriptions'],
-        security: [{ bearerAuth: [] }],
         body: {
           type: 'object',
           required: ['programType', 'planType'],
@@ -568,7 +563,6 @@ export function registerPaymentRoutes(app: App) {
       schema: {
         description: "Get user's active subscriptions",
         tags: ['subscriptions'],
-        security: [{ bearerAuth: [] }],
         response: {
           200: {
             description: 'List of subscriptions',
@@ -634,7 +628,6 @@ export function registerPaymentRoutes(app: App) {
       schema: {
         description: 'Check if user has access to a program',
         tags: ['subscriptions'],
-        security: [{ bearerAuth: [] }],
         params: {
           type: 'object',
           required: ['programType'],
@@ -718,7 +711,6 @@ export function registerPaymentRoutes(app: App) {
       schema: {
         description: 'Cancel subscription',
         tags: ['subscriptions'],
-        security: [{ bearerAuth: [] }],
         params: {
           type: 'object',
           required: ['id'],
@@ -809,7 +801,6 @@ export function registerPaymentRoutes(app: App) {
       schema: {
         description: "Get user's payment history",
         tags: ['transactions'],
-        security: [{ bearerAuth: [] }],
         response: {
           200: {
             description: 'List of transactions',

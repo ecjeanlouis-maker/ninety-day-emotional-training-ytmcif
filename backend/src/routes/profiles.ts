@@ -167,7 +167,6 @@ export function registerProfileRoutes(app: App) {
       schema: {
         description: 'Create or update authenticated user profile',
         tags: ['profiles'],
-        security: [{ bearerAuth: [] }],
         body: {
           type: 'object',
           required: ['full_name', 'age_range', 'main_goal', 'confidence_level', 'emotional_control_level'],
@@ -298,7 +297,6 @@ export function registerProfileRoutes(app: App) {
       schema: {
         description: 'Get authenticated user profile',
         tags: ['profiles'],
-        security: [{ bearerAuth: [] }],
         response: {
           200: {
             description: 'User profile',
@@ -589,7 +587,6 @@ export function registerProfileRoutes(app: App) {
       schema: {
         description: 'Consume one AI message (with daily limit for free tier)',
         tags: ['profiles'],
-        security: [{ bearerAuth: [] }],
         response: {
           200: {
             description: 'AI message allowed',
@@ -1073,7 +1070,6 @@ export function registerProfileRoutes(app: App) {
       schema: {
         description: 'Start a 7-day free trial for the authenticated user',
         tags: ['profiles'],
-        security: [{ bearerAuth: [] }],
         response: {
           200: {
             description: 'Trial started',
@@ -1197,7 +1193,6 @@ export function registerProfileRoutes(app: App) {
       schema: {
         description: 'Cancel an active trial early',
         tags: ['profiles'],
-        security: [{ bearerAuth: [] }],
         response: {
           200: {
             description: 'Trial cancelled',
