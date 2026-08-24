@@ -10,6 +10,7 @@ const ENTITLEMENT_ID = 'pro';
 interface SubscriptionContextType {
   isSubscribed: boolean;
   isLoading: boolean;
+  isConfigured: boolean;
   customerInfo: CustomerInfo | null;
   restorePurchases: () => Promise<void>;
   refreshSubscription: () => Promise<void>;
@@ -18,6 +19,7 @@ interface SubscriptionContextType {
 const SubscriptionContext = createContext<SubscriptionContextType>({
   isSubscribed: false,
   isLoading: true,
+  isConfigured: false,
   customerInfo: null,
   restorePurchases: async () => {},
   refreshSubscription: async () => {},
@@ -28,6 +30,8 @@ export function SubscriptionProvider({ children }: { children: React.ReactNode }
   const [isSubscribed, setIsSubscribed] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [customerInfo, setCustomerInfo] = useState<CustomerInfo | null>(null);
+
+  const isConfigured = Platform.OS !== 'web' && !!(Platform.OS === 'ios' ? REVENUECAT_APPLE_KEY : REVENUECAT_GOOGLE_KEY);
 
   useEffect(() => {
     if (Platform.OS === 'web') {
@@ -128,7 +132,7 @@ export function SubscriptionProvider({ children }: { children: React.ReactNode }
   }, []);
 
   return (
-    <SubscriptionContext.Provider value={{ isSubscribed, isLoading, customerInfo, restorePurchases, refreshSubscription }}>
+    <SubscriptionContext.Provider value={{ isSubscribed, isLoading, isConfigured, customerInfo, restorePurchases, refreshSubscription }}>
       {children}
     </SubscriptionContext.Provider>
   );

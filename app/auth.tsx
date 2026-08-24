@@ -61,8 +61,14 @@ export default function AuthScreen() {
       console.log("[Auth] Sign in successful, navigating to /auth-callback");
       router.replace("/auth-callback");
     } catch (error: any) {
-      console.log("[Auth] Sign in failed:", error.message);
-      showFeedback("Sign In Failed", error.message || "Please check your credentials and try again.", "error");
+      const msg = error?.message ?? "";
+      const isNetwork = msg.includes("fetch") || msg.includes("network") || msg.includes("Network") || msg.toLowerCase().includes("failed to fetch") || msg.includes("timeout");
+      console.log("[Auth] Sign in failed — isNetwork:", isNetwork, "msg:", msg);
+      showFeedback(
+        isNetwork ? "No Connection" : "Sign In Failed",
+        isNetwork ? "Check your internet connection and try again." : (msg || "Please check your credentials and try again."),
+        "error"
+      );
     } finally {
       setLoading(false);
     }
@@ -100,8 +106,14 @@ export default function AuthScreen() {
       }
     } catch (error: any) {
       if (error?.message !== "Authentication cancelled") {
-        console.log("[Auth] Social auth failed:", error?.message);
-        showFeedback("Sign In Failed", error?.message || "Social authentication failed. Please try again.", "error");
+        const msg = error?.message ?? "";
+        const isNetwork = msg.includes("fetch") || msg.includes("network") || msg.includes("Network") || msg.toLowerCase().includes("failed to fetch");
+        console.log("[Auth] Social auth failed — isNetwork:", isNetwork, "msg:", msg);
+        showFeedback(
+          isNetwork ? "No Connection" : "Sign In Failed",
+          isNetwork ? "Check your internet connection and try again." : (msg || "Social authentication failed. Please try again."),
+          "error"
+        );
       }
     } finally {
       setLoading(false);

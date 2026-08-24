@@ -10,6 +10,7 @@ import {
   ActivityIndicator,
   RefreshControl,
 } from 'react-native';
+import { useNetworkState } from 'expo-network';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { IconSymbol } from '@/components/IconSymbol';
 import { colors } from '@/styles/commonStyles';
@@ -258,6 +259,19 @@ function TodayDashboard() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
+  const [loadTimeout, setLoadTimeout] = useState(false);
+
+  const networkState = useNetworkState();
+  const isOffline = networkState.isConnected === false;
+
+  useEffect(() => {
+    if (!loading) { setLoadTimeout(false); return; }
+    const t = setTimeout(() => {
+      console.log('[Today] Loading timeout reached (8s)');
+      setLoadTimeout(true);
+    }, 8000);
+    return () => clearTimeout(t);
+  }, [loading]);
 
   const fetchData = useCallback(async () => {
     console.log('[Today] Fetching dashboard data');
@@ -351,6 +365,39 @@ function TodayDashboard() {
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={colors.primary} />
           <Text style={styles.loadingText}>Loading your dashboard...</Text>
+          {loadTimeout && (
+            <TouchableOpacity
+              onPress={() => {
+                console.log('[Today] Timeout retry tapped');
+                setLoadTimeout(false);
+                fetchData();
+              }}
+              style={styles.retryButton}
+            >
+              <Text style={styles.retryButtonText}>Taking too long? Retry</Text>
+            </TouchableOpacity>
+          )}
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  if (!loading && !error && !progress && !onboarding) {
+    return (
+      <SafeAreaView style={styles.container} edges={['top']}>
+        <View style={styles.loadingContainer}>
+          <Text style={styles.emptyStateEmoji}>🌱</Text>
+          <Text style={styles.emptyStateTitle}>Ready to begin?</Text>
+          <Text style={styles.loadingText}>Complete your setup to start your 90-day journey.</Text>
+          <TouchableOpacity
+            style={styles.retryButton}
+            onPress={() => {
+              console.log('[Today] Empty state — Start Setup tapped');
+              handleStartJourney();
+            }}
+          >
+            <Text style={styles.retryButtonText}>Start Setup</Text>
+          </TouchableOpacity>
         </View>
       </SafeAreaView>
     );
@@ -436,6 +483,13 @@ function TodayDashboard() {
             <TouchableOpacity onPress={() => { console.log('[Today] Retry tapped'); fetchData(); }} style={styles.retryButton}>
               <Text style={styles.retryButtonText}>Retry</Text>
             </TouchableOpacity>
+          </Animated.View>
+        )}
+
+        {/* Offline banner */}
+        {isOffline && (
+          <Animated.View entering={FadeInDown.duration(400)} style={styles.offlineBanner}>
+            <Text style={styles.offlineBannerText}>📡  You're offline — showing cached data</Text>
           </Animated.View>
         )}
 
@@ -1042,6 +1096,34 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontWeight: '800',
     color: '#FFFFFF',
+  },
+
+  // Offline banner
+  offlineBanner: {
+    backgroundColor: '#FFF3CD',
+    borderRadius: 10,
+    padding: 12,
+    marginHorizontal: 16,
+    marginBottom: 10,
+    borderWidth: 1,
+    borderColor: '#FBBF24',
+  },
+  offlineBannerText: {
+    fontSize: 13,
+    color: '#92400E',
+    textAlign: 'center',
+    fontWeight: '600',
+  },
+
+  // Empty state
+  emptyStateEmoji: {
+    fontSize: 48,
+  },
+  emptyStateTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: colors.text,
+    textAlign: 'center',
   },
 
   // Disclaimer
