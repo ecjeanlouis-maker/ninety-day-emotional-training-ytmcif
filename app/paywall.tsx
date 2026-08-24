@@ -17,6 +17,7 @@ import { useSubscription } from '@/contexts/SubscriptionContext';
 import { useUser } from '@/contexts/UserContext';
 import { colors } from '@/styles/commonStyles';
 import { IconSymbol } from '@/components/IconSymbol';
+import { trackEvent } from '@/utils/analytics';
 
 const PREMIUM_FEATURES = [
   {
@@ -101,6 +102,7 @@ export default function PaywallScreen() {
 
   useEffect(() => {
     console.log('[Paywall] Screen mounted — fetching offerings');
+    trackEvent('paywall_viewed');
     fetchOfferings();
   }, []);
 
@@ -151,6 +153,7 @@ export default function PaywallScreen() {
     if (!selectedPackage || purchasing || verifying) return;
     console.log('[Paywall] User tapped purchase:', selectedPackage.identifier);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    trackEvent('purchase_started');
     setPurchasing(true);
     try {
       const { customerInfo } = await Purchases.purchasePackage(selectedPackage);
@@ -158,6 +161,7 @@ export default function PaywallScreen() {
       await refreshSubscription();
       setPurchasing(false);
       setVerifying(true);
+      trackEvent('purchase_verification_pending');
 
       // Refresh profile alongside polling (best-effort, non-blocking)
       refreshProfile().catch((e) => console.warn('[Paywall] Profile refresh failed (non-fatal):', e));
@@ -167,6 +171,7 @@ export default function PaywallScreen() {
 
       if (confirmed) {
         console.log('[Paywall] Purchase verified by backend — showing success');
+        trackEvent('purchase_verified');
         showFeedback('🎉 Welcome to Premium!', 'Your full 90-day program is now unlocked.', 'success', () => router.back());
       } else {
         console.log('[Paywall] Purchase not yet confirmed by backend — showing pending message');
@@ -181,9 +186,11 @@ export default function PaywallScreen() {
       setVerifying(false);
       if (!e.userCancelled) {
         console.warn('[Paywall] Purchase failed:', e);
+        trackEvent('purchase_failed');
         showFeedback('Purchase Failed', e.message ?? 'Something went wrong. Please try again.', 'error');
       } else {
         console.log('[Paywall] User cancelled purchase — not an error');
+        trackEvent('purchase_canceled');
       }
     }
   };
@@ -192,6 +199,7 @@ export default function PaywallScreen() {
     if (restoring || verifying) return;
     console.log('[Paywall] User tapped Restore Purchases');
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    trackEvent('restore_started');
     setRestoring(true);
     try {
       await restorePurchases();
@@ -206,9 +214,11 @@ export default function PaywallScreen() {
 
       if (confirmed) {
         console.log('[Paywall] Restore verified by backend — showing success');
+        trackEvent('restore_verified');
         showFeedback('Purchases Restored', 'Your premium access has been restored.', 'success', () => router.back());
       } else {
         console.log('[Paywall] Restore not confirmed by backend — no active subscription found');
+        trackEvent('restore_failed');
         showFeedback(
           'No Active Subscription Found',
           'No active subscription was found for this account. If you believe this is an error, contact support.',
@@ -219,6 +229,7 @@ export default function PaywallScreen() {
       setRestoring(false);
       setVerifying(false);
       console.warn('[Paywall] Restore failed:', e);
+      trackEvent('restore_failed');
       showFeedback('Restore Failed', 'Could not restore purchases. Please try again.', 'error');
     }
   };

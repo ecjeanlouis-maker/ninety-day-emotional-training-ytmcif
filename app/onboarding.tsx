@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -17,6 +17,7 @@ import Animated, { FadeInDown, FadeIn } from 'react-native-reanimated';
 import { useRouter } from 'expo-router';
 import { authenticatedPost } from '@/utils/api';
 import { IconSymbol } from '@/components/IconSymbol';
+import { trackEvent } from '@/utils/analytics';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -47,6 +48,11 @@ const TOTAL_STEPS = 5;
 export default function OnboardingScreen() {
   console.log('[Onboarding] Screen rendered');
   const router = useRouter();
+
+  useEffect(() => {
+    console.log('[Onboarding] Screen mounted — tracking onboarding_started');
+    trackEvent('onboarding_started');
+  }, []);
 
   const [step, setStep] = useState(1);
   const [preferredName, setPreferredName] = useState('');
@@ -119,6 +125,7 @@ export default function OnboardingScreen() {
       await authenticatedPost('/api/assessments', assessmentPayload);
 
       console.log('[Onboarding] Onboarding complete — navigating to Today dashboard');
+      trackEvent('onboarding_completed');
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       router.replace('/(tabs)/(home)');
     } catch (err) {

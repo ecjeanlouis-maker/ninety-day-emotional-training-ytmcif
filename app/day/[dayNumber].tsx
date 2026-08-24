@@ -16,6 +16,7 @@ import * as Haptics from 'expo-haptics';
 import Animated, { FadeInDown, FadeIn } from 'react-native-reanimated';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { authenticatedGet, authenticatedPost, authenticatedPatch } from '@/utils/api';
+import { trackEvent } from '@/utils/analytics';
 import { IconSymbol } from '@/components/IconSymbol';
 import CongratulationsModal from '@/components/CongratulationsModal';
 import { techniques } from '@/data/techniques';
@@ -234,6 +235,7 @@ export default function DayDetailScreen() {
   const handleMarkRead = async () => {
     console.log('[DayDetail] Mark as Read tapped for day:', dayNum);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    trackEvent('exercise_started', { day_number: dayNum });
     setMarkingRead(true);
     setStepError(null);
     try {
@@ -252,6 +254,7 @@ export default function DayDetailScreen() {
   const handleDrillComplete = async () => {
     console.log('[DayDetail] Drill Complete tapped for day:', dayNum);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    trackEvent('exercise_completed', { day_number: dayNum, step: 1 });
     setMarkingDrill(true);
     setStepError(null);
     try {
@@ -282,6 +285,7 @@ export default function DayDetailScreen() {
   const handleContinueToComplete = () => {
     console.log('[DayDetail] Continue to Complete tapped');
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    trackEvent('exercise_completed', { day_number: dayNum, step: 2 });
     setCurrentStep(3);
     setStepError(null);
   };
@@ -305,6 +309,7 @@ export default function DayDetailScreen() {
       console.log('[DayDetail] POST /api/program/days/:dayNum/complete payload:', payload);
       const res = await authenticatedPost<CompleteResponse>(`/api/program/days/${dayNum}/complete`, payload);
       console.log('[DayDetail] Day completed! XP:', res.xp_earned, 'Streak:', res.streak, 'Achievements:', res.achievements_unlocked);
+      trackEvent('day_completed', { day_number: dayNum });
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       setXpEarned(res.xp_earned || 0);
       setStreakCount(res.streak || 0);

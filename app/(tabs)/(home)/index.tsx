@@ -22,6 +22,7 @@ import { useSubscription } from '@/contexts/SubscriptionContext';
 import { useUser } from '@/contexts/UserContext';
 import { useRouter } from 'expo-router';
 import { authenticatedGet } from '@/utils/api';
+import { trackEvent } from '@/utils/analytics';
 import Survey from './survey';
 import { ProgramType } from '@/types/program';
 import { techniques } from '@/data/techniques';
@@ -365,6 +366,7 @@ function TodayDashboard() {
   const handleContinueTraining = () => {
     console.log('[Today] Continue Training tapped — navigating to day:', currentDay);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    trackEvent('day_viewed', { day_number: currentDay });
     router.push(`/day/${currentDay}`);
   };
 

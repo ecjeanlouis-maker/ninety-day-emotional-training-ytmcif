@@ -16,6 +16,7 @@ import * as Haptics from 'expo-haptics';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { authenticatedGet, authenticatedPost, authenticatedPut, authenticatedDelete } from '@/utils/api';
+import { trackEvent } from '@/utils/analytics';
 import { IconSymbol } from '@/components/IconSymbol';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -130,6 +131,7 @@ export default function JournalEntryScreen() {
         console.log('[JournalEntry] POST /api/journal');
         const newEntry = await authenticatedPost<JournalEntry>('/api/journal', payload);
         console.log('[JournalEntry] Entry created:', newEntry.id);
+        trackEvent('journal_entry_created', { is_new: true });
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
         router.replace(`/journal/${newEntry.id}`);
       } else {

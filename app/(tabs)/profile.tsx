@@ -18,6 +18,18 @@ export default function ProfileScreen() {
   const { isSubscribed, restorePurchases } = useSubscription();
   const { role, profile, isAdmin, isTrialing, trialDaysRemaining } = useUser();
 
+  const handleReminders = () => {
+    console.log('[Profile] Reminders tapped');
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    router.push('/reminders');
+  };
+
+  const handleAccountSettings = () => {
+    console.log('[Profile] Account & Privacy tapped');
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    router.push('/account-settings');
+  };
+
   const handleEditProfile = () => {
     console.log('[Profile] Edit Profile tapped');
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
@@ -266,6 +278,54 @@ export default function ProfileScreen() {
                 />
                 <Text style={[styles.menuItemText, { color: theme.colors.text }]}>Restore Purchases</Text>
               </View>
+            </TouchableOpacity>
+
+            <View style={styles.menuDivider} />
+
+            <TouchableOpacity
+              style={styles.menuItem}
+              onPress={handleReminders}
+              activeOpacity={0.7}
+            >
+              <View style={styles.menuItemLeft}>
+                <IconSymbol
+                  ios_icon_name="bell.fill"
+                  android_material_icon_name="notifications"
+                  size={20}
+                  color={theme.colors.primary}
+                />
+                <Text style={[styles.menuItemText, { color: theme.colors.text }]}>Reminders</Text>
+              </View>
+              <IconSymbol
+                ios_icon_name="chevron.right"
+                android_material_icon_name="arrow-forward"
+                size={20}
+                color={theme.dark ? '#98989D' : '#666'}
+              />
+            </TouchableOpacity>
+
+            <View style={styles.menuDivider} />
+
+            <TouchableOpacity
+              style={styles.menuItem}
+              onPress={handleAccountSettings}
+              activeOpacity={0.7}
+            >
+              <View style={styles.menuItemLeft}>
+                <IconSymbol
+                  ios_icon_name="shield.fill"
+                  android_material_icon_name="security"
+                  size={20}
+                  color={theme.colors.primary}
+                />
+                <Text style={[styles.menuItemText, { color: theme.colors.text }]}>Account & Privacy</Text>
+              </View>
+              <IconSymbol
+                ios_icon_name="chevron.right"
+                android_material_icon_name="arrow-forward"
+                size={20}
+                color={theme.dark ? '#98989D' : '#666'}
+              />
             </TouchableOpacity>
           </GlassView>
         )}
