@@ -674,7 +674,33 @@ export function registerProgramRoutes(app: App) {
       tags: ['program'],
       params: {
         type: 'object',
-        properties: { dayNumber: { type: 'string' } },
+        required: ['dayNumber'],
+        properties: { dayNumber: { type: 'string', description: 'Day number (1-90)' } },
+      },
+      response: {
+        200: {
+          type: 'object',
+          properties: {
+            day_number: { type: 'integer' },
+            title: { type: 'string' },
+            phase: { type: 'string' },
+            week: { type: 'integer' },
+            lesson_content: { type: 'string' },
+            drill_instructions: { type: 'string' },
+            challenge: { type: 'string' },
+            reflection_prompt: { type: 'string' },
+          },
+        },
+        401: { type: 'object', properties: { error: { type: 'string' } } },
+        403: {
+          type: 'object',
+          properties: {
+            error: { type: 'string' },
+            reason: { type: 'string' },
+            days_1_7_access: { type: 'boolean' },
+          },
+        },
+        404: { type: 'object', properties: { error: { type: 'string' } } },
       },
     },
   }, async (request: FastifyRequest, reply: FastifyReply) => {
@@ -748,7 +774,24 @@ export function registerProgramRoutes(app: App) {
       tags: ['program'],
       params: {
         type: 'object',
-        properties: { dayNumber: { type: 'string' } },
+        required: ['dayNumber'],
+        properties: { dayNumber: { type: 'string', description: 'Day number (1-90)' } },
+      },
+      response: {
+        200: {
+          type: 'object',
+          properties: {
+            day_number: { type: 'integer' },
+            completed: { type: 'boolean' },
+            lesson_read: { type: 'boolean' },
+            drill_completed: { type: 'boolean' },
+            reflection_text: { type: 'string', nullable: true },
+            completed_at: { type: 'string', nullable: true },
+          },
+        },
+        401: { type: 'object', properties: { error: { type: 'string' } } },
+        403: { type: 'object', properties: { error: { type: 'string' }, reason: { type: 'string' } } },
+        404: { type: 'object', properties: { error: { type: 'string' } } },
       },
     },
   }, async (request: FastifyRequest, reply: FastifyReply) => {
@@ -807,13 +850,37 @@ export function registerProgramRoutes(app: App) {
       tags: ['program'],
       params: {
         type: 'object',
-        properties: { dayNumber: { type: 'string' } },
+        required: ['dayNumber'],
+        properties: { dayNumber: { type: 'string', description: 'Day number (1-90)' } },
       },
       body: {
         type: 'object',
         properties: {
           lesson_read: { type: 'boolean' },
           drill_completed: { type: 'boolean' },
+        },
+      },
+      response: {
+        200: {
+          type: 'object',
+          properties: {
+            day_number: { type: 'integer' },
+            completed: { type: 'boolean' },
+            lesson_read: { type: 'boolean' },
+            drill_completed: { type: 'boolean' },
+            reflection_text: { type: 'string', nullable: true },
+            completed_at: { type: 'string', nullable: true },
+          },
+        },
+        400: { type: 'object', properties: { error: { type: 'string' } } },
+        401: { type: 'object', properties: { error: { type: 'string' } } },
+        403: {
+          type: 'object',
+          properties: {
+            error: { type: 'string' },
+            reason: { type: 'string' },
+            required_day: { type: 'integer', nullable: true },
+          },
         },
       },
     },
@@ -918,7 +985,8 @@ export function registerProgramRoutes(app: App) {
       tags: ['program'],
       params: {
         type: 'object',
-        properties: { dayNumber: { type: 'string' } },
+        required: ['dayNumber'],
+        properties: { dayNumber: { type: 'string', description: 'Day number (1-90)' } },
       },
       body: {
         type: 'object',
@@ -927,6 +995,37 @@ export function registerProgramRoutes(app: App) {
           emotional_identification: { type: 'integer', minimum: 0, maximum: 10 },
           response_control: { type: 'integer', minimum: 0, maximum: 10 },
           confidence_composure: { type: 'integer', minimum: 0, maximum: 10 },
+        },
+      },
+      response: {
+        200: {
+          type: 'object',
+          properties: {
+            day_progress: {
+              type: 'object',
+              properties: {
+                day_number: { type: 'integer' },
+                completed: { type: 'boolean' },
+                lesson_read: { type: 'boolean' },
+                drill_completed: { type: 'boolean' },
+                reflection_text: { type: 'string', nullable: true },
+                completed_at: { type: 'string', nullable: true },
+              },
+            },
+            streak: { type: 'integer' },
+            xp_earned: { type: 'integer' },
+            achievements_unlocked: { type: 'array', items: { type: 'string' } },
+          },
+        },
+        400: { type: 'object', properties: { error: { type: 'string' } } },
+        401: { type: 'object', properties: { error: { type: 'string' } } },
+        403: {
+          type: 'object',
+          properties: {
+            error: { type: 'string' },
+            reason: { type: 'string' },
+            required_day: { type: 'integer', nullable: true },
+          },
         },
       },
     },

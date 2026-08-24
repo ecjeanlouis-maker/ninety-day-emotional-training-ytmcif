@@ -17,7 +17,7 @@ export function registerEntitlementRoutes(app: App) {
           properties: {
             is_premium: { type: 'boolean' },
             status: { type: 'string' },
-            valid_until: { type: ['string', 'null'] },
+            valid_until: { type: 'string', nullable: true },
             reason: { type: 'string' },
             days_1_7_access: { type: 'boolean' },
             days_8_90_access: { type: 'boolean' },
