@@ -7,7 +7,6 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   Modal,
-  Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -22,30 +21,35 @@ import { IconSymbol } from '@/components/IconSymbol';
 const PREMIUM_FEATURES = [
   {
     icon: '🔓',
-    title: 'All 12 Weeks Unlocked',
-    description: 'Full access to every technique in your chosen program',
+    title: 'Full 90-Day ECCT Program',
+    description: 'Every technique across all 12 weeks — Awareness, Regulation, Confidence, Communication, and more.',
   },
   {
-    icon: '📚',
-    title: 'All 6 Programs',
-    description: 'Switch between Emotional Control, Confidence, Anger, Stress, Social Anxiety, and Thoughts',
+    icon: '🤖',
+    title: 'AI Coach, Unlimited',
+    description: 'Ask questions, get coached on any technique, and receive personalised guidance at any point in your journey.',
   },
   {
     icon: '📊',
-    title: 'Track Your Progress',
-    description: 'Save completion across all devices with cloud sync',
+    title: 'Progress Tracking & Streaks',
+    description: 'Cloud-synced completion, XP, streaks, and ECRS trend charts across all your devices.',
   },
   {
-    icon: '⚡',
-    title: 'Lifetime Access',
-    description: 'One-time purchase options available — no recurring fees',
+    icon: '📓',
+    title: 'Unlimited Journal & Check-ins',
+    description: 'Log emotions, reflections, and responses without limits. Build a record of your growth.',
+  },
+  {
+    icon: '🎯',
+    title: 'Daily Drills & Reflection Prompts',
+    description: 'Structured step-by-step exercises with guided reflection for every session.',
   },
 ];
 
 const TRIAL_BENEFITS = [
-  'Unlimited AI Coach',
   'Full 90-day ECCT program',
-  'All premium features',
+  'Unlimited AI Coach sessions',
+  'Progress tracking & streaks',
 ];
 
 function derivePlanType(identifier: string): 'lifetime' | 'yearly' | 'monthly' {
@@ -68,7 +72,7 @@ function deriveEndDate(planType: 'lifetime' | 'yearly' | 'monthly'): string | nu
 
 export default function PaywallScreen() {
   const router = useRouter();
-  const { isSubscribed, restorePurchases, refreshSubscription } = useSubscription();
+  const { isSubscribed, restorePurchases, refreshSubscription, isConfigured } = useSubscription();
   const { updateSubscription, profile, isTrialing, trialDaysRemaining, startTrial } = useUser();
   const [packages, setPackages] = useState<PurchasesPackage[]>([]);
   const [selectedPackage, setSelectedPackage] = useState<PurchasesPackage | null>(null);
@@ -244,6 +248,23 @@ export default function PaywallScreen() {
 
   const trialDaysLabel = trialDaysRemaining === 1 ? '1 day' : `${trialDaysRemaining ?? 0} days`;
 
+  const selectedPlanType = selectedPackage
+    ? derivePlanType(selectedPackage.product?.identifier ?? selectedPackage.identifier)
+    : null;
+
+  const ctaSuffix =
+    selectedPlanType === 'monthly' ? '/mo' :
+    selectedPlanType === 'yearly' ? '/yr' :
+    '';
+
+  const ctaLabel = selectedPackage
+    ? `Start Premium — ${selectedPrice}${ctaSuffix}`
+    : 'Select a Plan';
+
+  const ctaAccessibilityLabel = selectedPackage
+    ? `Start Premium, ${selectedPrice}`
+    : 'Select a plan first';
+
   return (
     <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
       <ScrollView
@@ -253,7 +274,13 @@ export default function PaywallScreen() {
       >
         {/* Header */}
         <View style={styles.header}>
-          <TouchableOpacity style={styles.closeButton} onPress={handleClose} activeOpacity={0.7}>
+          <TouchableOpacity
+            style={styles.closeButton}
+            onPress={handleClose}
+            activeOpacity={0.7}
+            accessibilityLabel="Close"
+            accessibilityRole="button"
+          >
             <IconSymbol
               ios_icon_name="xmark"
               android_material_icon_name="close"
@@ -271,10 +298,10 @@ export default function PaywallScreen() {
           style={styles.hero}
         >
           <Text style={styles.heroEmoji}>🧠</Text>
-          <Text style={styles.heroTitle}>Unlock Your Full</Text>
-          <Text style={styles.heroTitle}>Transformation</Text>
+          <Text style={styles.heroTitle}>Build Real Emotional Control</Text>
+          <Text style={styles.heroTitle}>in 90 Days</Text>
           <Text style={styles.heroSubtitle}>
-            90 days. 6 programs. 12 weeks each. Complete psychological transformation.
+            A structured daily program to manage emotions, build confidence, and respond — not react — under pressure.
           </Text>
         </LinearGradient>
 
@@ -310,6 +337,8 @@ export default function PaywallScreen() {
               onPress={handleStartTrial}
               disabled={startingTrial}
               activeOpacity={0.9}
+              accessibilityLabel="Start free 7-day trial"
+              accessibilityRole="button"
             >
               {startingTrial ? (
                 <View style={styles.trialButtonLoading}>
@@ -334,7 +363,7 @@ export default function PaywallScreen() {
 
         {/* Features */}
         <View style={styles.featuresContainer}>
-          <Text style={styles.featuresTitle}>Everything included</Text>
+          <Text style={styles.featuresTitle}>What you unlock with Premium</Text>
           {PREMIUM_FEATURES.map((feature, index) => (
             <View key={index} style={styles.featureRow}>
               <Text style={styles.featureIcon}>{feature.icon}</Text>
@@ -347,7 +376,14 @@ export default function PaywallScreen() {
         </View>
 
         {/* Packages */}
-        {loadingPackages ? (
+        {!isConfigured ? (
+          <View style={styles.webNoticeContainer}>
+            <Text style={styles.webNoticeTitle}>Available on iOS & Android</Text>
+            <Text style={styles.webNoticeText}>
+              Download the app to subscribe and unlock the full program on your device.
+            </Text>
+          </View>
+        ) : loadingPackages ? (
           <View style={styles.loadingContainer}>
             <ActivityIndicator size="large" color={colors.primary} />
             <Text style={styles.loadingText}>Loading plans...</Text>
@@ -363,6 +399,12 @@ export default function PaywallScreen() {
             <Text style={styles.packagesTitle}>Choose your plan</Text>
             {packages.map((pkg) => {
               const isSelected = selectedPackage?.identifier === pkg.identifier;
+              const planType = derivePlanType(pkg.product?.identifier ?? pkg.identifier);
+              const billingLabel =
+                planType === 'monthly' ? 'per month' :
+                planType === 'yearly' ? 'per year' :
+                'one-time';
+              const pkgAccessibilityLabel = pkg.product.title + ', ' + pkg.product.priceString;
               return (
                 <TouchableOpacity
                   key={pkg.identifier}
@@ -373,6 +415,9 @@ export default function PaywallScreen() {
                     setSelectedPackage(pkg);
                   }}
                   activeOpacity={0.8}
+                  accessibilityLabel={pkgAccessibilityLabel}
+                  accessibilityRole="radio"
+                  accessibilityState={{ selected: isSelected }}
                 >
                   <View style={styles.packageInfo}>
                     <Text style={[styles.packageTitle, isSelected && styles.packageTitleSelected]}>
@@ -386,6 +431,7 @@ export default function PaywallScreen() {
                     <Text style={[styles.packagePrice, isSelected && styles.packagePriceSelected]}>
                       {pkg.product.priceString}
                     </Text>
+                    <Text style={styles.packageBillingLabel}>{billingLabel}</Text>
                     {isSelected && (
                       <View style={styles.selectedBadge}>
                         <IconSymbol
@@ -404,50 +450,56 @@ export default function PaywallScreen() {
         )}
 
         {/* CTA */}
-        <View style={styles.ctaContainer}>
-          <TouchableOpacity
-            style={[styles.ctaButton, (purchasing || !selectedPackage) && styles.ctaButtonDisabled]}
-            onPress={handlePurchase}
-            disabled={purchasing || !selectedPackage}
-            activeOpacity={0.9}
-          >
-            {purchasing ? (
-              <View style={styles.ctaLoadingWrapper}>
-                <ActivityIndicator color="#FFFFFF" />
-              </View>
-            ) : (
-              <LinearGradient
-                colors={[colors.primary, colors.secondary]}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 0 }}
-                style={styles.ctaGradient}
-              >
-                <Text style={styles.ctaText}>
-                  {selectedPackage ? `Get Access — ${selectedPrice}` : 'Select a Plan'}
-                </Text>
-              </LinearGradient>
-            )}
-          </TouchableOpacity>
+        {isConfigured && (
+          <View style={styles.ctaContainer}>
+            <TouchableOpacity
+              style={[styles.ctaButton, (purchasing || !selectedPackage) && styles.ctaButtonDisabled]}
+              onPress={handlePurchase}
+              disabled={purchasing || !selectedPackage}
+              activeOpacity={0.9}
+              accessibilityLabel={ctaAccessibilityLabel}
+              accessibilityRole="button"
+              accessibilityState={{ disabled: purchasing || !selectedPackage, busy: purchasing }}
+            >
+              {purchasing ? (
+                <View style={styles.ctaLoadingWrapper}>
+                  <ActivityIndicator color="#FFFFFF" />
+                </View>
+              ) : (
+                <LinearGradient
+                  colors={[colors.primary, colors.secondary]}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 0 }}
+                  style={styles.ctaGradient}
+                >
+                  <Text style={styles.ctaText}>{ctaLabel}</Text>
+                </LinearGradient>
+              )}
+            </TouchableOpacity>
 
-          <TouchableOpacity
-            style={styles.restoreButton}
-            onPress={handleRestore}
-            disabled={restoring}
-            activeOpacity={0.7}
-          >
-            {restoring ? (
-              <ActivityIndicator size="small" color={colors.textSecondary} />
-            ) : (
-              <Text style={styles.restoreText}>Restore Purchases</Text>
-            )}
-          </TouchableOpacity>
+            <Text style={styles.trustLine}>Secure payment · Cancel anytime · No hidden fees</Text>
 
-          <Text style={styles.legalText}>
-            {Platform.OS === 'ios'
-              ? 'Payment will be charged to your Apple ID account. Subscriptions automatically renew unless cancelled at least 24 hours before the end of the current period.'
-              : 'Payment will be charged to your Google Play account. Subscriptions automatically renew unless cancelled.'}
-          </Text>
-        </View>
+            <TouchableOpacity
+              style={styles.restoreButton}
+              onPress={handleRestore}
+              disabled={restoring}
+              activeOpacity={0.7}
+              accessibilityLabel="Restore previous purchases"
+              accessibilityRole="button"
+              accessibilityState={{ busy: restoring }}
+            >
+              {restoring ? (
+                <ActivityIndicator size="small" color={colors.textSecondary} />
+              ) : (
+                <Text style={styles.restoreText}>Restore Purchases</Text>
+              )}
+            </TouchableOpacity>
+
+            <Text style={styles.legalText}>
+              Subscriptions renew automatically. Cancel anytime in your device's subscription settings. By purchasing you agree to our Terms of Service.
+            </Text>
+          </View>
+        )}
       </ScrollView>
 
       {/* Feedback Modal */}
@@ -693,6 +745,29 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     lineHeight: 20,
   },
+  webNoticeContainer: {
+    marginHorizontal: 20,
+    padding: 24,
+    backgroundColor: colors.card,
+    borderRadius: 16,
+    marginBottom: 24,
+    alignItems: 'center',
+    gap: 8,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  webNoticeTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: colors.text,
+    textAlign: 'center',
+  },
+  webNoticeText: {
+    fontSize: 14,
+    color: colors.textSecondary,
+    textAlign: 'center',
+    lineHeight: 20,
+  },
   packagesContainer: {
     marginHorizontal: 20,
     marginBottom: 24,
@@ -751,6 +826,10 @@ const styles = StyleSheet.create({
   packagePriceSelected: {
     color: colors.primary,
   },
+  packageBillingLabel: {
+    fontSize: 11,
+    color: colors.textSecondary,
+  },
   selectedBadge: {
     alignItems: 'center',
   },
@@ -783,6 +862,12 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     color: '#FFFFFF',
     letterSpacing: 0.3,
+  },
+  trustLine: {
+    fontSize: 12,
+    color: colors.textSecondary,
+    textAlign: 'center',
+    fontWeight: '500',
   },
   restoreButton: {
     alignItems: 'center',
