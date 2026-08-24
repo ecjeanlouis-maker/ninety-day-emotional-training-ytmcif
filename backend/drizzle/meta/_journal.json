@@ -5,29 +5,8 @@
     {
       "idx": 0,
       "version": "7",
-      "when": 1779674060463,
-      "tag": "20260525015420_huge_maximus",
-      "breakpoints": true
-    },
-    {
-      "idx": 1,
-      "version": "7",
-      "when": 1779675680789,
-      "tag": "20260525022120_bright_doctor_faustus",
-      "breakpoints": true
-    },
-    {
-      "idx": 2,
-      "version": "7",
-      "when": 1779676800000,
-      "tag": "20260525030000_stripe_billing",
-      "breakpoints": true
-    },
-    {
-      "idx": 3,
-      "version": "7",
-      "when": 1779677400000,
-      "tag": "20260525040000_user_profiles_subscription",
+      "when": 1787576286026,
+      "tag": "20260824125806_big_wendigo",
       "breakpoints": true
     }
   ]

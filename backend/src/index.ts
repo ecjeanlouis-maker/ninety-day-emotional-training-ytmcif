@@ -31,6 +31,13 @@ app.fastify.setErrorHandler((error: any, request, reply) => {
 
 // Enable authentication with email verification and password reset
 app.withAuth({
+  trustedOrigins: [
+    'control-confidence://',
+    'https://yt8rvpzc3a4km4e9x2umpgmuhs7cvhdm.app.specular.dev',
+    'http://localhost:8081',
+    'http://localhost:19006',
+    'exp://',
+  ],
   emailAndPassword: {
     requireEmailVerification: false,
     autoSignInAfterVerification: true,
@@ -101,32 +108,39 @@ app.withAuth({
         after: async (session) => {
           try {
             const adminEmails = process.env.ADMIN_EMAILS?.split(',').map((e) => e.trim()).filter(Boolean) || [];
+            if (!adminEmails.length) return;
 
-            if (!adminEmails.length) {
-              return; // No admin promotion configured
-            }
+            // BA 1.4.x: session hook receives Session object only — no .user property.
+            // Must use session.userId to look up the user.
+            const userId = (session as any).userId;
+            if (!userId) return;
 
-            // Check if this user's email is in the admin list
-            const user = session.user;
-            if (!user?.email || !adminEmails.includes(user.email)) {
-              return; // Not an admin email
-            }
+            // Look up the user's email from the auth schema
+            const userRows = await app.db
+              .select()
+              .from(authSchema.user)
+              .where(eq(authSchema.user.id, userId))
+              .limit(1);
 
-            // Try to promote user to admin in user_profiles
+            if (!userRows.length) return;
+            const userEmail = userRows[0].email;
+            if (!adminEmails.includes(userEmail)) return;
+
+            // Promote to admin in user_profiles if profile exists
             try {
               const profile = await app.db
                 .select()
                 .from(appSchema.userProfiles)
-                .where(eq(appSchema.userProfiles.userId, user.id))
+                .where(eq(appSchema.userProfiles.userId, userId))
                 .limit(1);
 
               if (profile.length > 0) {
                 await app.db
                   .update(appSchema.userProfiles)
                   .set({ role: 'admin', updatedAt: new Date() })
-                  .where(eq(appSchema.userProfiles.userId, user.id));
+                  .where(eq(appSchema.userProfiles.userId, userId));
 
-                app.logger.info({ userId: user.id, email: user.email }, 'User promoted to admin');
+                app.logger.info({ userId, email: userEmail }, 'User promoted to admin');
               }
             } catch (dbError: any) {
               console.error('[AUTH session.create.after ERROR]', dbError?.message, dbError?.stack);
@@ -139,6 +153,18 @@ app.withAuth({
     },
   },
 } as any);
+
+// Warn if Google OAuth credentials are missing
+const googleClientId = process.env.GOOGLE_CLIENT_ID;
+const googleClientSecret = process.env.GOOGLE_CLIENT_SECRET;
+if (!googleClientId || !googleClientSecret) {
+  app.logger.warn(
+    'Google OAuth credentials not configured. ' +
+    'Set GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET env vars. ' +
+    'Authorized JavaScript origin: https://yt8rvpzc3a4km4e9x2umpgmuhs7cvhdm.app.specular.dev ' +
+    'Authorized redirect URI: https://yt8rvpzc3a4km4e9x2umpgmuhs7cvhdm.app.specular.dev/api/auth/callback/google'
+  );
+}
 
 // Register routes - add your route modules here
 // IMPORTANT: Always use registration functions to avoid circular dependency issues

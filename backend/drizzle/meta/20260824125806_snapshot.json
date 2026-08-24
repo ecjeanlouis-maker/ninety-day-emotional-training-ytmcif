@@ -1,6 +1,6 @@
 {
-  "id": "a1c2d3e4-f5g6-h7i8-j9k0-l1m2n3o4p5q6",
-  "prevId": "07b374ad-1b56-4f4f-9782-378e61ad4b64",
+  "id": "6a550f21-fc67-4dfe-85db-819a2cfa6607",
+  "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -61,7 +61,9 @@
         "app_content_key_unique": {
           "name": "app_content_key_unique",
           "nullsNotDistinct": false,
-          "columns": ["key"]
+          "columns": [
+            "key"
+          ]
         }
       },
       "policies": {},
@@ -142,8 +144,12 @@
           "name": "payment_methods_user_id_user_id_fk",
           "tableFrom": "payment_methods",
           "tableTo": "user",
-          "columnsFrom": ["user_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -153,7 +159,9 @@
         "payment_methods_stripe_payment_method_id_unique": {
           "name": "payment_methods_stripe_payment_method_id_unique",
           "nullsNotDistinct": false,
-          "columns": ["stripe_payment_method_id"]
+          "columns": [
+            "stripe_payment_method_id"
+          ]
         }
       },
       "policies": {},
@@ -240,8 +248,12 @@
           "name": "payment_transactions_user_id_user_id_fk",
           "tableFrom": "payment_transactions",
           "tableTo": "user",
-          "columnsFrom": ["user_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -249,8 +261,12 @@
           "name": "payment_transactions_subscription_id_subscriptions_id_fk",
           "tableFrom": "payment_transactions",
           "tableTo": "subscriptions",
-          "columnsFrom": ["subscription_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "subscription_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "set null",
           "onUpdate": "no action"
         },
@@ -258,74 +274,18 @@
           "name": "payment_transactions_payment_method_id_payment_methods_id_fk",
           "tableFrom": "payment_transactions",
           "tableTo": "payment_methods",
-          "columnsFrom": ["payment_method_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "payment_method_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "set null",
           "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {},
-      "isRLSEnabled": false
-    },
-    "public.stripe_customers": {
-      "name": "stripe_customers",
-      "schema": "",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "uuid",
-          "primaryKey": true,
-          "notNull": true,
-          "default": "gen_random_uuid()"
-        },
-        "user_id": {
-          "name": "user_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "stripe_customer_id": {
-          "name": "stripe_customer_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        }
-      },
-      "indexes": {},
-      "foreignKeys": {
-        "stripe_customers_user_id_user_id_fk": {
-          "name": "stripe_customers_user_id_user_id_fk",
-          "tableFrom": "stripe_customers",
-          "tableTo": "user",
-          "columnsFrom": ["user_id"],
-          "columnsTo": ["id"],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {
-        "stripe_customers_user_id_unique": {
-          "name": "stripe_customers_user_id_unique",
-          "nullsNotDistinct": false,
-          "columns": ["user_id"]
-        },
-        "stripe_customers_stripe_customer_id_unique": {
-          "name": "stripe_customers_stripe_customer_id_unique",
-          "nullsNotDistinct": false,
-          "columns": ["stripe_customer_id"]
-        }
-      },
       "policies": {},
       "checkConstraints": {},
       "isRLSEnabled": false
@@ -383,6 +343,74 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
+    "public.stripe_customers": {
+      "name": "stripe_customers",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "user_id": {
+          "name": "user_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "stripe_customer_id": {
+          "name": "stripe_customer_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "stripe_customers_user_id_user_id_fk": {
+          "name": "stripe_customers_user_id_user_id_fk",
+          "tableFrom": "stripe_customers",
+          "tableTo": "user",
+          "columnsFrom": [
+            "user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "stripe_customers_user_id_unique": {
+          "name": "stripe_customers_user_id_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "user_id"
+          ]
+        },
+        "stripe_customers_stripe_customer_id_unique": {
+          "name": "stripe_customers_stripe_customer_id_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "stripe_customer_id"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
     "public.stripe_events": {
       "name": "stripe_events",
       "schema": "",
@@ -434,7 +462,9 @@
         "stripe_events_stripe_event_id_unique": {
           "name": "stripe_events_stripe_event_id_unique",
           "nullsNotDistinct": false,
-          "columns": ["stripe_event_id"]
+          "columns": [
+            "stripe_event_id"
+          ]
         }
       },
       "policies": {},
@@ -496,8 +526,12 @@
           "name": "subscription_reminders_user_id_user_id_fk",
           "tableFrom": "subscription_reminders",
           "tableTo": "user",
-          "columnsFrom": ["user_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -505,8 +539,12 @@
           "name": "subscription_reminders_subscription_id_subscriptions_id_fk",
           "tableFrom": "subscription_reminders",
           "tableTo": "subscriptions",
-          "columnsFrom": ["subscription_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "subscription_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -623,8 +661,12 @@
           "name": "subscriptions_user_id_user_id_fk",
           "tableFrom": "subscriptions",
           "tableTo": "user",
-          "columnsFrom": ["user_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -702,6 +744,64 @@
           "primaryKey": false,
           "notNull": true,
           "default": "now()"
+        },
+        "account_type": {
+          "name": "account_type",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'free'"
+        },
+        "subscription_status": {
+          "name": "subscription_status",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'inactive'"
+        },
+        "stripe_customer_id": {
+          "name": "stripe_customer_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "stripe_subscription_id": {
+          "name": "stripe_subscription_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "plan_type": {
+          "name": "plan_type",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "subscription_start_date": {
+          "name": "subscription_start_date",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "subscription_end_date": {
+          "name": "subscription_end_date",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "trial_status": {
+          "name": "trial_status",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'none'"
+        },
+        "payment_status": {
+          "name": "payment_status",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'none'"
         },
         "created_at": {
           "name": "created_at",
