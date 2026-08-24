@@ -20,6 +20,7 @@ import { useUser } from '@/contexts/UserContext';
 import { useSubscription } from '@/contexts/SubscriptionContext';
 import { authenticatedGet, BACKEND_URL } from '@/utils/api';
 import { IconSymbol } from '@/components/IconSymbol';
+import { canAccessDay } from '@/lib/access';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -52,8 +53,6 @@ const PHASES = [
   { key: 'Integration', label: 'Integration', color: '#1ABC9C', emoji: '🔗' },
 ];
 
-const FREE_DAYS = 3;
-
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export default function ProgramScreen() {
@@ -61,7 +60,7 @@ export default function ProgramScreen() {
   const router = useRouter();
   const { user } = useAuth();
   const { isSubscribed } = useSubscription();
-  const { canAccess } = useUser();
+  const { canAccess, entitlement } = useUser();
 
   const [days, setDays] = useState<DayContent[]>([]);
   const [progress, setProgress] = useState<DayProgress[]>([]);
@@ -71,7 +70,11 @@ export default function ProgramScreen() {
   const [selectedPhase, setSelectedPhase] = useState<string | null>(null);
   const [expandedWeeks, setExpandedWeeks] = useState<Set<number>>(new Set([1]));
 
-  const hasFullAccess = isSubscribed || canAccess('ecct_full_program');
+  // Use entitlement as authoritative source when loaded; fall back to RC/canAccess
+  const hasDays8to90Access = entitlement !== null
+    ? entitlement.days_8_90_access
+    : (isSubscribed || canAccess('ecct_full_program'));
+  const hasFullAccess = hasDays8to90Access;
 
   const fetchData = useCallback(async () => {
     console.log('[Program] Fetching program content and progress');
@@ -145,27 +148,38 @@ export default function ProgramScreen() {
   };
 
   const handleDayPress = (dayNumber: number) => {
-    console.log('[Program] Day tapped:', dayNumber, '— hasFullAccess:', hasFullAccess);
+    console.log('[Program] Day tapped:', dayNumber, '— hasDays8to90Access:', hasDays8to90Access);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     if (!user) {
       console.log('[Program] Guest tapped day — pushing auth');
       router.push('/auth');
       return;
     }
-    if (dayNumber > FREE_DAYS && !hasFullAccess) {
-      console.log('[Program] Day', dayNumber, 'locked — pushing paywall');
+    // Use entitlement-aware canAccessDay check
+    if (!canAccessDay(dayNumber, hasDays8to90Access)) {
+      console.log('[Program] Day', dayNumber, 'locked (premium required) — pushing paywall');
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
       router.push('/paywall');
+      return;
+    }
+    // Progression lock: check if previous day is completed
+    const lastCompleted = progress.filter(p => p.completed).length;
+    if (dayNumber > lastCompleted + 1) {
+      console.log('[Program] Day', dayNumber, 'locked (progression) — must complete day', lastCompleted + 1, 'first');
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
       return;
     }
     router.push(`/day/${dayNumber}`);
   };
 
-  const getDayStatus = (dayNumber: number): 'completed' | 'current' | 'locked' | 'available' => {
+  const getDayStatus = (dayNumber: number): 'completed' | 'current' | 'locked' | 'progression_locked' | 'available' => {
     const dayProg = progress.find(p => p.day_number === dayNumber);
     if (dayProg?.completed) return 'completed';
-    if (!hasFullAccess && dayNumber > FREE_DAYS) return 'locked';
+    // Premium lock: days 8-90 without access
+    if (!canAccessDay(dayNumber, hasDays8to90Access)) return 'locked';
     const lastCompleted = progress.filter(p => p.completed).length;
+    // Progression lock: can't skip ahead
+    if (dayNumber > lastCompleted + 1) return 'progression_locked';
     if (dayNumber === lastCompleted + 1) return 'current';
     return 'available';
   };
@@ -291,8 +305,8 @@ export default function ProgramScreen() {
           </View>
         )}
 
-        {/* Free user banner */}
-        {!hasFullAccess && user && (
+        {/* Premium upgrade banner — shown when entitlement is loaded and days 8-90 are locked */}
+        {!hasDays8to90Access && user && (
           <Animated.View entering={FadeInDown.delay(150).duration(500)}>
             <TouchableOpacity
               style={styles.upgradeBanner}
@@ -303,7 +317,7 @@ export default function ProgramScreen() {
               }}
               activeOpacity={0.85}
             >
-              <Text style={styles.upgradeBannerText}>🔒 Days 4–90 require Premium. Tap to unlock all 90 days.</Text>
+              <Text style={styles.upgradeBannerText}>🔒 Days 8–90 require Premium. Upgrade to unlock the full program.</Text>
             </TouchableOpacity>
           </Animated.View>
         )}
@@ -355,11 +369,28 @@ export default function ProgramScreen() {
                   {weekDays.map(day => {
                     const status = getDayStatus(day.day_number);
                     const isLocked = status === 'locked';
+                    const isProgressionLocked = status === 'progression_locked';
                     const isCompleted = status === 'completed';
                     const isCurrent = status === 'current';
+                    const isAnyLocked = isLocked || isProgressionLocked;
 
-                    const statusIcon = isCompleted ? '✓' : isLocked ? '🔒' : isCurrent ? '▶' : '';
-                    const statusColor = isCompleted ? '#27AE60' : isLocked ? '#8E8E93' : isCurrent ? colors.primary : colors.textSecondary;
+                    const statusIcon = isCompleted ? '✓' : isLocked ? '🔒' : isProgressionLocked ? '🔒' : isCurrent ? '▶' : '';
+                    const statusColor = isCompleted ? '#27AE60' : isAnyLocked ? '#8E8E93' : isCurrent ? colors.primary : colors.textSecondary;
+                    const numberBgColor = isCompleted ? '#27AE60' : isAnyLocked ? '#8E8E93' : phaseColor;
+
+                    const lastCompleted = progress.filter(p => p.completed).length;
+                    const progressionStatusText = isProgressionLocked
+                      ? `Complete Day ${lastCompleted + 1} first`
+                      : '';
+                    const statusText = isCompleted
+                      ? 'Completed'
+                      : isLocked
+                        ? 'Premium'
+                        : isProgressionLocked
+                          ? progressionStatusText
+                          : isCurrent
+                            ? 'Continue'
+                            : 'Available';
 
                     return (
                       <TouchableOpacity
@@ -368,20 +399,20 @@ export default function ProgramScreen() {
                           styles.dayCard,
                           isCompleted && styles.dayCardCompleted,
                           isCurrent && styles.dayCardCurrent,
-                          isLocked && styles.dayCardLocked,
+                          isAnyLocked && styles.dayCardLocked,
                         ]}
                         onPress={() => handleDayPress(day.day_number)}
                         activeOpacity={0.8}
                       >
-                        <View style={[styles.dayNumber, { backgroundColor: isCompleted ? '#27AE60' : isLocked ? '#8E8E93' : phaseColor }]}>
+                        <View style={[styles.dayNumber, { backgroundColor: numberBgColor }]}>
                           <Text style={styles.dayNumberText}>{day.day_number}</Text>
                         </View>
                         <View style={styles.dayInfo}>
-                          <Text style={[styles.dayTitle, isLocked && styles.dayTitleLocked]} numberOfLines={2}>
+                          <Text style={[styles.dayTitle, isAnyLocked && styles.dayTitleLocked]} numberOfLines={2}>
                             {day.title || `Day ${day.day_number}`}
                           </Text>
                           <Text style={[styles.dayStatus, { color: statusColor }]}>
-                            {isCompleted ? 'Completed' : isLocked ? 'Premium' : isCurrent ? 'Continue' : 'Available'}
+                            {statusText}
                           </Text>
                         </View>
                         <Text style={styles.dayStatusIcon}>{statusIcon}</Text>

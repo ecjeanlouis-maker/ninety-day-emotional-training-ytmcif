@@ -73,7 +73,7 @@ function deriveEndDate(planType: 'lifetime' | 'yearly' | 'monthly'): string | nu
 export default function PaywallScreen() {
   const router = useRouter();
   const { isSubscribed, restorePurchases, refreshSubscription, isConfigured } = useSubscription();
-  const { updateSubscription, profile, isTrialing, trialDaysRemaining, startTrial } = useUser();
+  const { refreshEntitlement, refreshProfile, profile, isTrialing, trialDaysRemaining, startTrial } = useUser();
   const [packages, setPackages] = useState<PurchasesPackage[]>([]);
   const [selectedPackage, setSelectedPackage] = useState<PurchasesPackage | null>(null);
   const [loadingPackages, setLoadingPackages] = useState(true);
@@ -141,24 +141,13 @@ export default function PaywallScreen() {
       console.log('[Paywall] Purchase complete — entitlements:', Object.keys(customerInfo.entitlements.active));
       await refreshSubscription();
 
-      // Sync backend subscription state — best-effort, non-blocking
-      const planType = derivePlanType(
-        selectedPackage.product?.identifier ?? selectedPackage.identifier
-      );
-      const endDate = deriveEndDate(planType);
+      // Refresh server-side entitlement and profile — best-effort, non-blocking
       try {
-        await updateSubscription({
-          account_type: 'premium',
-          subscription_status: 'active',
-          plan_type: planType,
-          subscription_start_date: new Date().toISOString(),
-          subscription_end_date: endDate,
-          trial_status: 'none',
-          payment_status: 'succeeded',
-        });
-        console.log('[Paywall] Backend subscription synced successfully');
+        await refreshEntitlement();
+        await refreshProfile();
+        console.log('[Paywall] Entitlement and profile refreshed after purchase');
       } catch (syncErr) {
-        console.warn('[Paywall] Backend subscription sync failed (non-fatal):', syncErr);
+        console.warn('[Paywall] Entitlement/profile refresh failed (non-fatal):', syncErr);
       }
     } catch (e: any) {
       if (!e.userCancelled) {
@@ -177,18 +166,13 @@ export default function PaywallScreen() {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     setRestoring(true);
     await restorePurchases();
-    // If restore succeeded and user is now subscribed, sync backend
-    if (isSubscribed) {
-      try {
-        await updateSubscription({
-          account_type: 'premium',
-          subscription_status: 'active',
-          payment_status: 'succeeded',
-        });
-        console.log('[Paywall] Backend subscription synced after restore');
-      } catch (syncErr) {
-        console.warn('[Paywall] Backend sync after restore failed (non-fatal):', syncErr);
-      }
+    // Refresh server-side entitlement and profile after restore — best-effort
+    try {
+      await refreshEntitlement();
+      await refreshProfile();
+      console.log('[Paywall] Entitlement and profile refreshed after restore');
+    } catch (syncErr) {
+      console.warn('[Paywall] Entitlement/profile refresh after restore failed (non-fatal):', syncErr);
     }
     setRestoring(false);
   };

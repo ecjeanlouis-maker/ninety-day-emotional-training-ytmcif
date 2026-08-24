@@ -19,6 +19,7 @@ import { authenticatedGet, authenticatedPost, authenticatedPatch } from '@/utils
 import { IconSymbol } from '@/components/IconSymbol';
 import CongratulationsModal from '@/components/CongratulationsModal';
 import { techniques } from '@/data/techniques';
+import { useUser } from '@/contexts/UserContext';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -121,6 +122,7 @@ export default function DayDetailScreen() {
   const router = useRouter();
   const { dayNumber } = useLocalSearchParams<{ dayNumber: string }>();
   const dayNum = parseInt(dayNumber || '1', 10);
+  const { entitlement } = useUser();
 
   console.log('[DayDetail] Screen rendered for day:', dayNum);
 
@@ -129,6 +131,8 @@ export default function DayDetailScreen() {
   const [progress, setProgress] = useState<DayProgress | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [premiumRequired, setPremiumRequired] = useState(false);
+  const [progressionRequired, setProgressionRequired] = useState<number | null>(null);
 
   // ── Step state ──
   const [currentStep, setCurrentStep] = useState(0);
@@ -158,6 +162,11 @@ export default function DayDetailScreen() {
   const [showCongrats, setShowCongrats] = useState(false);
   const submittingRef = useRef(false);
 
+  // ── Entitlement gate check (client-side fast path) ──
+  // If entitlement is loaded and day > 7 and no days_8_90_access, show premium gate immediately
+  const clientSidePremiumBlocked =
+    entitlement !== null && dayNum > 7 && !entitlement.days_8_90_access;
+
   // ── Fetch ──
   const fetchData = useCallback(async () => {
     console.log('[DayDetail] Fetching content for day:', dayNum);
@@ -169,6 +178,8 @@ export default function DayDetailScreen() {
       console.log('[DayDetail] Content loaded:', contentRes?.title);
       console.log('[DayDetail] Progress loaded:', progressRes);
       setContent(contentRes);
+      setPremiumRequired(false);
+      setProgressionRequired(null);
       if (progressRes) {
         setProgress(progressRes);
         if (progressRes.reflection_text) {
@@ -176,9 +187,29 @@ export default function DayDetailScreen() {
         }
       }
       setError(null);
-    } catch (err) {
+    } catch (err: any) {
       console.error('[DayDetail] Error fetching day content:', err);
-      setError('Unable to load day content. Please try again.');
+      // Parse 403 errors from the backend
+      const msg: string = err?.message ?? '';
+      if (msg.includes('403')) {
+        // Try to extract structured error from message
+        if (msg.includes('premium_required')) {
+          console.log('[DayDetail] 403 premium_required — showing premium gate');
+          setPremiumRequired(true);
+          setError(null);
+        } else if (msg.includes('progression_required') || msg.includes('complete_previous_day_first')) {
+          // Extract required_day from message if present
+          const match = msg.match(/"required_day"\s*:\s*(\d+)/);
+          const requiredDay = match ? parseInt(match[1], 10) : dayNum - 1;
+          console.log('[DayDetail] 403 progression_required — required day:', requiredDay);
+          setProgressionRequired(requiredDay);
+          setError(null);
+        } else {
+          setError('Access denied. Please check your subscription.');
+        }
+      } else {
+        setError('Unable to load day content. Please try again.');
+      }
     } finally {
       setLoading(false);
     }
@@ -280,9 +311,24 @@ export default function DayDetailScreen() {
       setAchievementsUnlocked(res.achievements_unlocked || []);
       setCompletedSuccess(true);
       setShowCongrats(true);
-    } catch (err) {
+    } catch (err: any) {
       console.error('[DayDetail] Error completing day:', err);
-      setStepError('Unable to complete the day. Please try again.');
+      const msg: string = err?.message ?? '';
+      if (msg.includes('403')) {
+        if (msg.includes('premium_required')) {
+          console.log('[DayDetail] Complete blocked — premium_required');
+          setPremiumRequired(true);
+        } else if (msg.includes('progression_required') || msg.includes('complete_previous_day_first')) {
+          const match = msg.match(/"required_day"\s*:\s*(\d+)/);
+          const requiredDay = match ? parseInt(match[1], 10) : dayNum - 1;
+          console.log('[DayDetail] Complete blocked — progression_required, required day:', requiredDay);
+          setStepError(`Complete Day ${requiredDay} first before starting this day.`);
+        } else {
+          setStepError('Access denied. Please check your subscription.');
+        }
+      } else {
+        setStepError('Unable to complete the day. Please try again.');
+      }
     } finally {
       setCompleting(false);
       submittingRef.current = false;
@@ -313,6 +359,108 @@ export default function DayDetailScreen() {
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={colors.primary} />
           <Text style={styles.loadingText}>Loading day content...</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  // ── Premium gate (client-side fast path or server 403 premium_required) ──
+  if (clientSidePremiumBlocked || premiumRequired) {
+    const premiumTitle = `Day ${dayNum} requires Premium`;
+    return (
+      <SafeAreaView style={styles.container} edges={['top']}>
+        <View style={styles.gateContainer}>
+          <View style={styles.gateLockCircle}>
+            <IconSymbol
+              ios_icon_name="lock.fill"
+              android_material_icon_name="lock"
+              size={36}
+              color={colors.primary}
+            />
+          </View>
+          <Text style={styles.gateTitle}>{premiumTitle}</Text>
+          <Text style={styles.gateSubtitle}>
+            Days 1–7 are free. Upgrade to unlock the full 90-day program.
+          </Text>
+          <TouchableOpacity
+            style={styles.gateUpgradeButton}
+            onPress={() => {
+              console.log('[DayDetail] Premium gate — Upgrade to Premium tapped, day:', dayNum);
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+              router.push('/paywall');
+            }}
+            activeOpacity={0.85}
+          >
+            <LinearGradient
+              colors={[colors.primary, colors.secondary]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+              style={styles.gateUpgradeGradient}
+            >
+              <Text style={styles.gateUpgradeText}>Upgrade to Premium</Text>
+            </LinearGradient>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.gateBackButton}
+            onPress={() => {
+              console.log('[DayDetail] Premium gate — Back tapped');
+              router.back();
+            }}
+            activeOpacity={0.7}
+          >
+            <Text style={styles.gateBackText}>Go Back</Text>
+          </TouchableOpacity>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  // ── Progression gate (server 403 progression_required) ──
+  if (progressionRequired !== null) {
+    const requiredDayNum = progressionRequired;
+    return (
+      <SafeAreaView style={styles.container} edges={['top']}>
+        <View style={styles.gateContainer}>
+          <View style={[styles.gateLockCircle, styles.gateLockCircleGrey]}>
+            <IconSymbol
+              ios_icon_name="lock.fill"
+              android_material_icon_name="lock"
+              size={36}
+              color="#8E8E93"
+            />
+          </View>
+          <Text style={styles.gateTitle}>Complete Day {requiredDayNum} First</Text>
+          <Text style={styles.gateSubtitle}>
+            Complete Day {requiredDayNum} first before starting this day.
+          </Text>
+          <TouchableOpacity
+            style={styles.gateUpgradeButton}
+            onPress={() => {
+              console.log('[DayDetail] Progression gate — Go to Day', requiredDayNum, 'tapped');
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+              router.replace(`/day/${requiredDayNum}`);
+            }}
+            activeOpacity={0.85}
+          >
+            <LinearGradient
+              colors={['#3B82F6', '#6366F1']}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+              style={styles.gateUpgradeGradient}
+            >
+              <Text style={styles.gateUpgradeText}>Go to Day {requiredDayNum}</Text>
+            </LinearGradient>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.gateBackButton}
+            onPress={() => {
+              console.log('[DayDetail] Progression gate — Back tapped');
+              router.back();
+            }}
+            activeOpacity={0.7}
+          >
+            <Text style={styles.gateBackText}>Go Back</Text>
+          </TouchableOpacity>
         </View>
       </SafeAreaView>
     );
@@ -1100,5 +1248,64 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginHorizontal: 16,
     fontWeight: '500',
+  },
+
+  // Premium / Progression gate
+  gateContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 32,
+    gap: 16,
+  },
+  gateLockCircle: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: '#EDE9FF',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  gateLockCircleGrey: {
+    backgroundColor: '#F2F2F7',
+  },
+  gateTitle: {
+    fontSize: 22,
+    fontWeight: '900',
+    color: colors.text,
+    textAlign: 'center',
+    lineHeight: 30,
+  },
+  gateSubtitle: {
+    fontSize: 15,
+    color: colors.textSecondary,
+    textAlign: 'center',
+    lineHeight: 22,
+    marginBottom: 8,
+  },
+  gateUpgradeButton: {
+    width: '100%',
+    borderRadius: 16,
+    overflow: 'hidden',
+  },
+  gateUpgradeGradient: {
+    paddingVertical: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  gateUpgradeText: {
+    fontSize: 17,
+    fontWeight: '800',
+    color: '#FFFFFF',
+  },
+  gateBackButton: {
+    paddingVertical: 12,
+  },
+  gateBackText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: colors.primary,
+    textDecorationLine: 'underline',
   },
 });

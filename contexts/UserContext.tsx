@@ -4,8 +4,10 @@ import React, {
   useState,
   useEffect,
   useCallback,
+  useRef,
   ReactNode,
 } from 'react';
+import { AppState, AppStateStatus } from 'react-native';
 import { useAuth } from '@/contexts/AuthContext';
 import { useSubscription } from '@/contexts/SubscriptionContext';
 import { authenticatedGet, authenticatedPost } from '@/utils/api';
@@ -42,17 +44,14 @@ interface UserProfile {
   access_state: AccessState;
 }
 
-type SubscriptionPartial = Partial<{
-  account_type: AccountType;
-  subscription_status: SubscriptionStatus;
-  stripe_customer_id: string | null;
-  stripe_subscription_id: string | null;
-  plan_type: PlanType | null;
-  subscription_start_date: string | null;
-  subscription_end_date: string | null;
-  trial_status: TrialStatus;
-  payment_status: PaymentStatus;
-}>;
+export interface EntitlementData {
+  is_premium: boolean;
+  status: string;
+  valid_until: string | null;
+  reason: string;
+  days_1_7_access: boolean;
+  days_8_90_access: boolean;
+}
 
 interface UserContextValue {
   profile: UserProfile | null;
@@ -65,10 +64,11 @@ interface UserContextValue {
   isPastDue: boolean;
   isInGracePeriod: boolean;
   trialDaysRemaining: number | null;
+  entitlement: EntitlementData | null;
   refreshProfile: () => Promise<void>;
+  refreshEntitlement: () => Promise<void>;
   consumeAiMessage: () => Promise<{ allowed: boolean; remaining: number | null; resetsAt?: string }>;
   canAccess: (feature: AppFeature) => boolean;
-  updateSubscription: (partial: SubscriptionPartial) => Promise<void>;
   startTrial: () => Promise<{ ok: true } | { ok: false; reason: 'already_used' | 'already_premium' | 'unknown' }>;
   cancelTrial: () => Promise<void>;
 }
@@ -81,6 +81,10 @@ export function UserProvider({ children }: { children: ReactNode }) {
 
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(false);
+  const [entitlement, setEntitlement] = useState<EntitlementData | null>(null);
+
+  // Track last user id to avoid redundant fetches
+  const lastUserIdRef = useRef<string | null>(null);
 
   const fetchProfile = useCallback(async () => {
     if (!user?.id) {
@@ -112,9 +116,43 @@ export function UserProvider({ children }: { children: ReactNode }) {
     }
   }, [user?.id]);
 
+  const fetchEntitlement = useCallback(async () => {
+    if (!user?.id) {
+      console.log('[UserContext] No user — skipping entitlement fetch');
+      setEntitlement(null);
+      return;
+    }
+    console.log('[UserContext] Fetching entitlement for user:', user.id);
+    try {
+      const data = await authenticatedGet<EntitlementData>('/api/entitlement');
+      console.log('[UserContext] Entitlement loaded:', data);
+      setEntitlement(data);
+    } catch (error: any) {
+      console.error('[UserContext] Failed to fetch entitlement:', error);
+      // Don't clear entitlement on error — keep stale data
+    }
+  }, [user?.id]);
+
+  // Fetch profile + entitlement when user changes
   useEffect(() => {
-    fetchProfile();
-  }, [fetchProfile]);
+    if (user?.id !== lastUserIdRef.current) {
+      lastUserIdRef.current = user?.id ?? null;
+      fetchProfile();
+      fetchEntitlement();
+    }
+  }, [user?.id, fetchProfile, fetchEntitlement]);
+
+  // AppState listener — refresh entitlement when app comes to foreground
+  useEffect(() => {
+    const handleAppStateChange = (nextState: AppStateStatus) => {
+      if (nextState === 'active' && user?.id) {
+        console.log('[UserContext] App came to foreground — refreshing entitlement');
+        fetchEntitlement();
+      }
+    };
+    const subscription = AppState.addEventListener('change', handleAppStateChange);
+    return () => subscription.remove();
+  }, [user?.id, fetchEntitlement]);
 
   // Effective role: strictly follows the 5 access rules
   const accessState = profile?.access_state;
@@ -129,6 +167,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
         || accessState === 'cancelled_grace'
         || isSubscribed                              // RevenueCat fallback
         || profile?.is_premium_active === true       // backend computed flag fallback
+        || entitlement?.is_premium === true          // entitlement authoritative source
       ? 'premium'
       // Rule 4 (expired) and inactive → free
       : 'free';
@@ -151,7 +190,14 @@ export function UserProvider({ children }: { children: ReactNode }) {
   const refreshProfile = useCallback(async () => {
     console.log('[UserContext] refreshProfile called');
     await fetchProfile();
-  }, [fetchProfile]);
+    // Also refresh entitlement after profile refresh
+    await fetchEntitlement();
+  }, [fetchProfile, fetchEntitlement]);
+
+  const refreshEntitlement = useCallback(async () => {
+    console.log('[UserContext] refreshEntitlement called');
+    await fetchEntitlement();
+  }, [fetchEntitlement]);
 
   const consumeAiMessage = useCallback(async (): Promise<{
     allowed: boolean;
@@ -191,24 +237,16 @@ export function UserProvider({ children }: { children: ReactNode }) {
 
   const canAccess = useCallback(
     (feature: AppFeature): boolean => {
-      return hasAccess(role, feature);
-    },
-    [role]
-  );
-
-  const updateSubscription = useCallback(
-    async (partial: SubscriptionPartial): Promise<void> => {
-      console.log('[UserContext] updateSubscription called with:', partial);
-      try {
-        await authenticatedPost('/api/profile/subscription', partial);
-        console.log('[UserContext] updateSubscription — backend updated, refreshing profile');
-        await fetchProfile();
-      } catch (error: any) {
-        console.error('[UserContext] updateSubscription failed:', error);
-        throw error;
+      // If entitlement is loaded, use it as the authoritative source for premium features
+      if (entitlement !== null) {
+        const effectiveRole: 'free' | 'premium' = entitlement.is_premium ? 'premium' : 'free';
+        return hasAccess(effectiveRole, feature);
       }
+      // Fall back to role-based logic (admin treated as premium for feature access)
+      const accessRole: 'free' | 'premium' = role === 'free' ? 'free' : 'premium';
+      return hasAccess(accessRole, feature);
     },
-    [fetchProfile]
+    [role, entitlement]
   );
 
   const startTrial = useCallback(async (): Promise<
@@ -217,8 +255,9 @@ export function UserProvider({ children }: { children: ReactNode }) {
     console.log('[UserContext] startTrial called');
     try {
       await authenticatedPost('/api/profile/trial/start', {});
-      console.log('[UserContext] startTrial — success, refreshing profile');
-      await refreshProfile();
+      console.log('[UserContext] startTrial — success, refreshing profile and entitlement');
+      await fetchProfile();
+      await fetchEntitlement();
       return { ok: true };
     } catch (error: any) {
       console.error('[UserContext] startTrial error:', error);
@@ -230,26 +269,24 @@ export function UserProvider({ children }: { children: ReactNode }) {
         if (msg.includes('already_premium')) {
           return { ok: false, reason: 'already_premium' };
         }
-        // Try to parse reason from message
-        if (msg.includes('already_used')) return { ok: false, reason: 'already_used' };
-        if (msg.includes('already_premium')) return { ok: false, reason: 'already_premium' };
         return { ok: false, reason: 'unknown' };
       }
       return { ok: false, reason: 'unknown' };
     }
-  }, [refreshProfile]);
+  }, [fetchProfile, fetchEntitlement]);
 
   const cancelTrial = useCallback(async (): Promise<void> => {
     console.log('[UserContext] cancelTrial called');
     try {
       await authenticatedPost('/api/profile/trial/cancel', {});
-      console.log('[UserContext] cancelTrial — success, refreshing profile');
-      await refreshProfile();
+      console.log('[UserContext] cancelTrial — success, refreshing profile and entitlement');
+      await fetchProfile();
+      await fetchEntitlement();
     } catch (error: any) {
       console.error('[UserContext] cancelTrial error:', error);
       throw error;
     }
-  }, [refreshProfile]);
+  }, [fetchProfile, fetchEntitlement]);
 
   return (
     <UserContext.Provider
@@ -264,10 +301,11 @@ export function UserProvider({ children }: { children: ReactNode }) {
         isPastDue,
         isInGracePeriod,
         trialDaysRemaining,
+        entitlement,
         refreshProfile,
+        refreshEntitlement,
         consumeAiMessage,
         canAccess,
-        updateSubscription,
         startTrial,
         cancelTrial,
       }}
