@@ -21,7 +21,7 @@ export const authClient = createAuthClient({
   baseURL: API_URL,
   plugins: [
     expoClient({
-      scheme: "control-confidence",
+      scheme: "controlconfidence",
       storagePrefix: "control-confidence",
       storage,
     }),
