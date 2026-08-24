@@ -28,6 +28,7 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     if (loading) return; // wait for auth restore
+    if (segments.length === 0) return; // router hasn't resolved yet
     const first = segments[0] ?? "";
     const isPublic = PUBLIC_ROUTES.has(first);
 

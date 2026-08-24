@@ -30,6 +30,10 @@ export function SubscriptionProvider({ children }: { children: React.ReactNode }
   const [customerInfo, setCustomerInfo] = useState<CustomerInfo | null>(null);
 
   useEffect(() => {
+    if (Platform.OS === 'web') {
+      setIsLoading(false);
+      return;
+    }
     const apiKey = Platform.OS === 'ios' ? REVENUECAT_APPLE_KEY : REVENUECAT_GOOGLE_KEY;
     if (!apiKey) {
       console.log('[SubscriptionContext] No RevenueCat API key configured — running in free mode');
@@ -72,6 +76,7 @@ export function SubscriptionProvider({ children }: { children: React.ReactNode }
   }, []);
 
   useEffect(() => {
+    if (Platform.OS === 'web') return;
     if (!user?.id) return;
     const apiKey = Platform.OS === 'ios' ? REVENUECAT_APPLE_KEY : REVENUECAT_GOOGLE_KEY;
     if (!apiKey) return;
@@ -89,6 +94,7 @@ export function SubscriptionProvider({ children }: { children: React.ReactNode }
 
   const restorePurchases = useCallback(async () => {
     console.log('[SubscriptionContext] User tapped Restore Purchases');
+    if (Platform.OS === 'web') return;
     const apiKey = Platform.OS === 'ios' ? REVENUECAT_APPLE_KEY : REVENUECAT_GOOGLE_KEY;
     if (!apiKey) {
       console.log('[SubscriptionContext] No API key — cannot restore');
@@ -107,6 +113,7 @@ export function SubscriptionProvider({ children }: { children: React.ReactNode }
 
   const refreshSubscription = useCallback(async () => {
     console.log('[SubscriptionContext] Refreshing subscription status');
+    if (Platform.OS === 'web') return;
     const apiKey = Platform.OS === 'ios' ? REVENUECAT_APPLE_KEY : REVENUECAT_GOOGLE_KEY;
     if (!apiKey) return;
     try {

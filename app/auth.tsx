@@ -90,12 +90,18 @@ export default function AuthScreen() {
       } else {
         await signInWithApple();
       }
-      console.log("[Auth] Social auth successful, navigating to /auth-callback");
-      router.replace("/auth-callback");
+      // On web, navigate to callback to process the popup token
+      // On native, the OAuth deep link handles session restoration — AuthGate routes automatically
+      if (Platform.OS === "web") {
+        console.log("[Auth] Social auth successful (web), navigating to /auth-callback");
+        router.replace("/auth-callback");
+      } else {
+        console.log("[Auth] Social auth initiated (native), waiting for deep link redirect");
+      }
     } catch (error: any) {
-      if (error.message !== "Authentication cancelled") {
-        console.log("[Auth] Social auth failed:", error.message);
-        showFeedback("Sign In Failed", error.message || "Social authentication failed. Please try again.", "error");
+      if (error?.message !== "Authentication cancelled") {
+        console.log("[Auth] Social auth failed:", error?.message);
+        showFeedback("Sign In Failed", error?.message || "Social authentication failed. Please try again.", "error");
       }
     } finally {
       setLoading(false);
