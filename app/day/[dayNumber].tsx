@@ -54,13 +54,14 @@ interface CompleteResponse {
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 const PHASE_COLORS: Record<string, string> = {
-  Awareness: '#6B4CE6',
-  Regulation: '#3B82F6',
-  'Thought Control': '#27AE60',
-  Confidence: '#FFB84D',
-  Communication: '#9B59B6',
-  Resilience: '#E74C3C',
-  Integration: '#1ABC9C',
+  'Emotional Control': '#6B4CE6',
+  'Confidence': '#FFB84D',
+  'Anger Management': '#E74C3C',
+  'Stress Management': '#3B82F6',
+  'Social Anxiety': '#F5A623',
+  'Thought Regulation': '#27AE60',
+  'Organization Skills': '#1ABC9C',
+  'Communication Skills': '#9B59B6',
 };
 
 const STEP_LABELS = ['Lesson', 'Drill', 'Reflect', 'Complete'];

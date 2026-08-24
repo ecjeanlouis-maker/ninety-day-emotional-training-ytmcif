@@ -127,7 +127,7 @@ function GuestWelcomeScreen() {
           <View style={styles.welcomeStatDivider} />
           <View style={styles.welcomeStatItem}>
             <IconSymbol ios_icon_name="list.bullet" android_material_icon_name="list" size={32} color={colors.primary} />
-            <Text style={styles.welcomeStatNumber}>6</Text>
+            <Text style={styles.welcomeStatNumber}>8</Text>
             <Text style={styles.welcomeStatLabel}>Phases</Text>
           </View>
           <View style={styles.welcomeStatDivider} />

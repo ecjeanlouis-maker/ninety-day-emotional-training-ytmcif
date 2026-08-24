@@ -1160,5 +1160,295 @@ export const techniques: Technique[] = [
     category: 'thoughts',
     practiceFrequency: 'Daily practice',
     week: 12
+  },
+  // ORGANIZATION SKILLS (Phase 7, Days 73-81)
+  {
+    id: 73,
+    title: 'Personal Organization Baseline',
+    description: 'Identify your top friction points in daily organization without judgment.',
+    practiceSteps: [
+      'Walk through your day mentally from waking to sleeping',
+      'Write down three moments where you felt stuck or lost track',
+      'For each friction point, note what made it hard to start or finish',
+      'No solutions yet — just honest observation'
+    ],
+    goal: 'Awareness of your friction points is the foundation of any useful system',
+    icon: 'search',
+    category: 'organization' as const,
+    practiceFrequency: 'Once — observation exercise',
+    week: 13
+  },
+  {
+    id: 74,
+    title: 'Values-Based Priorities',
+    description: 'Distinguish between urgent-feeling tasks and genuinely important ones.',
+    practiceSteps: [
+      'Write down everything you feel you need to do',
+      'For each item, ask: does this move me toward what I genuinely care about?',
+      'Sort into High alignment, Low alignment, and Unclear',
+      'Choose one High alignment task to protect time for today'
+    ],
+    goal: 'Spending energy on high-alignment tasks reduces overwhelm and increases meaning',
+    icon: 'flag',
+    category: 'organization' as const,
+    practiceFrequency: 'Daily — morning planning',
+    week: 13
+  },
+  {
+    id: 75,
+    title: 'Breaking Tasks into Next Actions',
+    description: 'Convert stuck or avoided tasks into clear, concrete next steps.',
+    practiceSteps: [
+      'Pick one task you have been avoiding',
+      'Ask: what is the very next physical action I would need to take?',
+      'Write it as a specific verb + object',
+      'Set a timer for 2 minutes and do only that one action'
+    ],
+    goal: 'A clear next action removes the paralysis that vague tasks create',
+    icon: 'check-circle',
+    category: 'organization' as const,
+    practiceFrequency: 'As needed — when stuck',
+    week: 13
+  },
+  {
+    id: 76,
+    title: 'Time Estimation and Realistic Planning',
+    description: 'Practice estimating task duration and compare it to actual time taken.',
+    practiceSteps: [
+      'Choose 3 tasks you plan to do today',
+      'Before starting each, write your time estimate',
+      'Time yourself doing each task',
+      'Compare estimate vs. actual and note patterns'
+    ],
+    goal: 'Accurate time estimates make planning realistic and reduce end-of-day frustration',
+    icon: 'schedule',
+    category: 'organization' as const,
+    practiceFrequency: 'Daily — planning sessions',
+    week: 14
+  },
+  {
+    id: 77,
+    title: 'Focused Work and Distraction Design',
+    description: 'Complete one focused work session and identify your top distraction.',
+    practiceSteps: [
+      'Choose one task that requires concentration',
+      'Remove your top distraction before starting',
+      'Work for 20 minutes without switching tasks',
+      'Note what distracted you and what helped you stay focused'
+    ],
+    goal: 'Focus is an environment you design, not a personality trait',
+    icon: 'center-focus-strong',
+    category: 'organization' as const,
+    practiceFrequency: 'Daily — focused work blocks',
+    week: 14
+  },
+  {
+    id: 78,
+    title: 'Creating Simple Routines and Cues',
+    description: 'Design one simple routine with a clear cue to reduce decision fatigue.',
+    practiceSteps: [
+      'Choose one recurring task you want to do more consistently',
+      'Choose a cue: a time, location, or existing habit',
+      'Write: When [cue], I will [action], for [duration]',
+      'Try it once today and note whether the cue worked'
+    ],
+    goal: 'Simple routines with clear cues become automatic and reduce mental load',
+    icon: 'repeat',
+    category: 'organization' as const,
+    practiceFrequency: 'Daily — routine practice',
+    week: 14
+  },
+  {
+    id: 79,
+    title: 'Organizing Spaces Accessibly',
+    description: 'Improve one physical or digital space so frequently needed items are easier to find.',
+    practiceSteps: [
+      'Choose one small area: a drawer, folder, inbox, or surface',
+      'Remove or archive anything unused in the past month',
+      'Place the three most-used items in the most accessible position',
+      'Label things clearly so future-you can find them without remembering a system'
+    ],
+    goal: 'An organized space is one where you can find what you need — not one that looks a certain way',
+    icon: 'folder-open',
+    category: 'organization' as const,
+    practiceFrequency: 'Weekly — space maintenance',
+    week: 15
+  },
+  {
+    id: 80,
+    title: 'Flexible Weekly Review',
+    description: 'Complete a brief weekly review and update your priorities.',
+    practiceSteps: [
+      'Set a timer for 10 minutes',
+      'Ask: what did I do this week that I feel good about?',
+      'Ask: what is still unfinished and still matters?',
+      'Ask: what do I want to protect time for next week?'
+    ],
+    goal: 'A 10-minute review that helps you feel oriented is more valuable than a perfect system you never use',
+    icon: 'event-note',
+    category: 'organization' as const,
+    practiceFrequency: 'Weekly — review session',
+    week: 15
+  },
+  {
+    id: 81,
+    title: 'Organization Integration',
+    description: 'Define your personal organization system and your recovery plan after disruption.',
+    practiceSteps: [
+      'Review the past nine days and write one friction point you reduced',
+      'Write one tool or habit that actually helped you',
+      'Write one thing you tried that did not fit — and let it go',
+      'Write your one-sentence system and your recovery plan'
+    ],
+    goal: 'A good system is not one that never breaks — it is one you can return to after it breaks',
+    icon: 'integration-instructions',
+    category: 'organization' as const,
+    practiceFrequency: 'Once — integration exercise',
+    week: 15
+  },
+  // COMMUNICATION SKILLS (Phase 8, Days 82-90)
+  {
+    id: 82,
+    title: 'Communication Baseline and Listening',
+    description: 'Observe your communication patterns and practice listening to understand.',
+    practiceSteps: [
+      'In your next conversation, practice listening to understand rather than to respond',
+      'Notice: are you thinking about what to say while the other person is still speaking?',
+      'After the conversation, write what the other person actually said',
+      'Note what you noticed about your own listening'
+    ],
+    goal: 'Most communication problems happen in the receiving half — listening to understand changes everything',
+    icon: 'hearing',
+    category: 'communication' as const,
+    practiceFrequency: 'Daily — in conversations',
+    week: 16
+  },
+  {
+    id: 83,
+    title: 'Emotion Labeling Before Speaking',
+    description: 'Practice labeling your emotion before responding in emotionally charged interactions.',
+    practiceSteps: [
+      'Before responding in a charged interaction, pause and silently name what you are feeling',
+      'Notice: does naming it change the intensity even slightly?',
+      'Write down the emotion you labeled and what you said or did next',
+      'Practice with low-stakes moments if no charged interaction occurs today'
+    ],
+    goal: 'Labeling emotion before speaking creates a pause that changes what you say and how you say it',
+    icon: 'label',
+    category: 'communication' as const,
+    practiceFrequency: 'Daily — before responding',
+    week: 16
+  },
+  {
+    id: 84,
+    title: 'Clear "I" Statements and Specific Requests',
+    description: 'Practice forming "I" statements and specific requests to communicate needs clearly.',
+    practiceSteps: [
+      'Think of a situation where you want to communicate a need or concern',
+      'Write an "I" statement: "I feel [emotion] when [situation] because [impact]"',
+      'Write a specific request: "What I am asking for is [concrete action]"',
+      'Read both aloud and notice: does it feel honest and fair?'
+    ],
+    goal: '"I" statements reduce defensiveness and increase the chance of being understood',
+    icon: 'record-voice-over',
+    category: 'communication' as const,
+    practiceFrequency: 'As needed — when communicating needs',
+    week: 16
+  },
+  {
+    id: 85,
+    title: 'Assertive Communication',
+    description: 'Practice assertive communication — clear, specific, and respectful.',
+    practiceSteps: [
+      'Think of a recent situation where you were passive or aggressive',
+      'Write what you actually said or did not say',
+      'Write an assertive version: clear, specific, and respectful',
+      'Notice what would have made the assertive version hard to say'
+    ],
+    goal: 'Assertive communication is a skill, not a personality type — it can be learned',
+    icon: 'campaign',
+    category: 'communication' as const,
+    practiceFrequency: 'Daily — in interactions',
+    week: 17
+  },
+  {
+    id: 86,
+    title: 'Boundaries and Respectful Refusal',
+    description: 'Practice one clear, respectful refusal — real or rehearsed.',
+    practiceSteps: [
+      'Think of a request you want to decline',
+      'Write a refusal: "I am not able to [request]. [Optional one-sentence reason]"',
+      'Practice saying it aloud — to yourself or a trusted person',
+      'Notice what makes it hard to say no in this situation'
+    ],
+    goal: 'A clear, respectful no is a complete sentence — you do not owe anyone a detailed justification',
+    icon: 'do-not-disturb',
+    category: 'communication' as const,
+    practiceFrequency: 'As needed — when declining requests',
+    week: 17
+  },
+  {
+    id: 87,
+    title: 'Clarifying Assumptions and Repairing Misunderstandings',
+    description: 'Practice clarifying questions and repair statements to reduce unnecessary conflict.',
+    practiceSteps: [
+      'Think of a recent misunderstanding or assumption you made',
+      'Write a clarifying question: "When you said [X], did you mean [Y]?"',
+      'Write a repair statement: "I think I misunderstood — what I heard was [X], is that right?"',
+      'Notice how forming the question changes your perspective on the situation'
+    ],
+    goal: 'Checking assumptions before reacting reduces most unnecessary conflict',
+    icon: 'help-outline',
+    category: 'communication' as const,
+    practiceFrequency: 'As needed — when confused or in conflict',
+    week: 17
+  },
+  {
+    id: 88,
+    title: 'Difficult Conversations',
+    description: 'Prepare for one difficult conversation — or identify a safer alternative.',
+    practiceSteps: [
+      'Identify one difficult conversation you have been avoiding',
+      'Write: what is my goal? What is the minimum outcome I need? What will I do if it becomes unsafe?',
+      'Write an opening sentence that is honest and non-accusatory',
+      'Consider alternatives: written communication, delay, or support from a trusted person'
+    ],
+    goal: 'Preparing for a difficult conversation means knowing your goal, your bottom line, and your exit',
+    icon: 'forum',
+    category: 'communication' as const,
+    practiceFrequency: 'As needed — before difficult conversations',
+    week: 18
+  },
+  {
+    id: 89,
+    title: 'Feedback, Empathy, and Perspective-Taking',
+    description: 'Practice giving or receiving feedback with empathy and without forced agreement.',
+    practiceSteps: [
+      'Think of a situation where you want to give feedback or recently received it',
+      'For giving: write "I noticed [observation]. The impact was [effect]. I am sharing this because [reason]"',
+      'For receiving: write the feedback, then ask "What might be true about this, even if I disagree?"',
+      'Notice: can you understand the other perspective without having to agree with it?'
+    ],
+    goal: 'Empathy does not mean agreeing — you can understand a perspective without endorsing it',
+    icon: 'people',
+    category: 'communication' as const,
+    practiceFrequency: 'As needed — in feedback situations',
+    week: 18
+  },
+  {
+    id: 90,
+    title: '90-Day Integration and Communication Plan',
+    description: 'Define your communication strengths, growth areas, and maintenance plan.',
+    practiceSteps: [
+      'Write one communication skill you have genuinely improved and how you know',
+      'Write one area you want to keep working on',
+      'Write your maintenance plan: what to return to when communication gets hard',
+      'Write the most important thing you learned about yourself in these 90 days'
+    ],
+    goal: 'The skills you have built require ongoing practice — a maintenance plan is how you keep them',
+    icon: 'emoji-events',
+    category: 'communication' as const,
+    practiceFrequency: 'Once — completion reflection',
+    week: 18
   }
 ];

@@ -82,6 +82,22 @@ const PROGRAM_CONFIGS = {
     iconIOS: 'brain.head.profile',
     color: '#27AE60',
   },
+  organization: {
+    title: 'Organization Skills',
+    subtitle: '9-Day Clarity & Focus Training',
+    description: 'Build practical systems for clarity, focus, and sustainable productivity',
+    icon: 'checklist',
+    iconIOS: 'checklist',
+    color: '#1ABC9C',
+  },
+  communication: {
+    title: 'Communication Skills',
+    subtitle: '9-Day Connection & Clarity Training',
+    description: 'Communicate clearly, assertively, and with genuine empathy',
+    icon: 'forum',
+    iconIOS: 'bubble.left.and.bubble.right',
+    color: '#9B59B6',
+  },
 };
 
 export default function HomeScreen() {
@@ -147,7 +163,7 @@ export default function HomeScreen() {
     setShowWelcome(true);
   };
 
-  const handleProgramSelect = (program: 'emotional' | 'confidence' | 'anger' | 'stress' | 'social-anxiety' | 'thoughts') => {
+  const handleProgramSelect = (program: 'emotional' | 'confidence' | 'anger' | 'stress' | 'social-anxiety' | 'thoughts' | 'organization' | 'communication') => {
     console.log('User selected program:', program, '— isSubscribed:', isSubscribed);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     setSelectedProgram(program);

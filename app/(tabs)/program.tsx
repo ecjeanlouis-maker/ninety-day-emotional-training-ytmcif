@@ -44,13 +44,14 @@ interface DayProgress {
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 const PHASES = [
-  { key: 'Awareness', label: 'Awareness', color: '#6B4CE6', emoji: '👁' },
-  { key: 'Regulation', label: 'Regulation', color: '#3B82F6', emoji: '🌊' },
-  { key: 'Thought Control', label: 'Thought Control', color: '#27AE60', emoji: '🧠' },
-  { key: 'Confidence', label: 'Confidence', color: '#FFB84D', emoji: '⭐' },
-  { key: 'Communication', label: 'Communication', color: '#9B59B6', emoji: '💬' },
-  { key: 'Resilience', label: 'Resilience', color: '#E74C3C', emoji: '🛡' },
-  { key: 'Integration', label: 'Integration', color: '#1ABC9C', emoji: '🔗' },
+  { key: 'Emotional Control',    label: 'Emotional Control',    color: '#6B4CE6', emoji: '🧘', daysStart: 1,  daysEnd: 12,  description: 'Build awareness and regulation of your emotional responses.' },
+  { key: 'Confidence',           label: 'Confidence',           color: '#FFB84D', emoji: '⭐', daysStart: 13, daysEnd: 24,  description: 'Develop unshakeable self-belief and composure under pressure.' },
+  { key: 'Anger Management',     label: 'Anger Management',     color: '#E74C3C', emoji: '🌊', daysStart: 25, daysEnd: 36,  description: 'Transform anger into constructive energy and calm responses.' },
+  { key: 'Stress Management',    label: 'Stress Management',    color: '#3B82F6', emoji: '🍃', daysStart: 37, daysEnd: 48,  description: 'Build resilience and practical tools for managing stress.' },
+  { key: 'Social Anxiety',       label: 'Social Anxiety',       color: '#F5A623', emoji: '🤝', daysStart: 49, daysEnd: 60,  description: 'Reduce social fear and build genuine connection skills.' },
+  { key: 'Thought Regulation',   label: 'Thought Regulation',   color: '#27AE60', emoji: '🧠', daysStart: 61, daysEnd: 72,  description: 'Master your inner narrative and break unhelpful thought patterns.' },
+  { key: 'Organization Skills',  label: 'Organization Skills',  color: '#1ABC9C', emoji: '📋', daysStart: 73, daysEnd: 81,  description: 'Build practical systems for clarity, focus, and sustainable productivity.' },
+  { key: 'Communication Skills', label: 'Communication Skills', color: '#9B59B6', emoji: '💬', daysStart: 82, daysEnd: 90,  description: 'Communicate clearly, assertively, and with genuine empathy.' },
 ];
 
 // ─── Component ────────────────────────────────────────────────────────────────
@@ -286,6 +287,8 @@ export default function ProgramScreen() {
                   style={[styles.phasePill, isActive && { backgroundColor: phase.color, borderColor: phase.color }]}
                   onPress={() => handlePhaseSelect(phase.key)}
                   activeOpacity={0.8}
+                  accessibilityLabel={`Filter by ${phase.label} phase, Days ${phase.daysStart} to ${phase.daysEnd}`}
+                  accessibilityRole="button"
                 >
                   <Text style={styles.phasePillEmoji}>{phase.emoji}</Text>
                   <Text style={[styles.phasePillText, isActive && styles.phasePillTextActive]}>{phase.label}</Text>
@@ -321,6 +324,58 @@ export default function ProgramScreen() {
             </TouchableOpacity>
           </Animated.View>
         )}
+
+        {/* Phase Overview Cards */}
+        <Animated.View entering={FadeInDown.delay(175).duration(500)}>
+          <Text style={styles.sectionLabel}>8 Phases</Text>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.phaseCardsContent}
+            style={styles.phaseCardsScroll}
+            accessibilityLabel="Phase overview — scroll to see all 8 phases"
+          >
+            {PHASES.map((phase) => {
+              const phaseDays = days.filter(d => d.phase === phase.key);
+              const phaseCompleted = phaseDays.filter(d => getDayStatus(d.day_number) === 'completed').length;
+              const phaseTotal = phaseDays.length || (phase.daysEnd - phase.daysStart + 1);
+              const phaseProgress = phaseTotal > 0 ? phaseCompleted / phaseTotal : 0;
+              const isPhaseCompleted = phaseCompleted === phaseTotal && phaseTotal > 0;
+              const isCurrentPhase = !isPhaseCompleted && phaseDays.some(d => getDayStatus(d.day_number) === 'current');
+              const isLocked = phaseDays.length > 0 && phaseDays.every(d => getDayStatus(d.day_number) === 'locked' || getDayStatus(d.day_number) === 'progression_locked');
+              const progressBarWidth = `${Math.round(phaseProgress * 100)}%` as `${number}%`;
+              const phaseCardBorderStyle = isCurrentPhase ? { borderColor: phase.color, borderWidth: 2 } : {};
+              const phaseCardBgStyle = isPhaseCompleted ? styles.phaseCardCompleted : {};
+              const completedLabel = isPhaseCompleted ? ', completed' : isCurrentPhase ? ', current phase' : isLocked ? ', locked' : '';
+              const accessLabel = `${phase.label}, Days ${phase.daysStart} to ${phase.daysEnd}, ${phaseCompleted} of ${phaseTotal} days completed${completedLabel}`;
+
+              return (
+                <TouchableOpacity
+                  key={phase.key}
+                  style={[styles.phaseCard, phaseCardBorderStyle, phaseCardBgStyle]}
+                  onPress={() => handlePhaseSelect(selectedPhase === phase.key ? null : phase.key)}
+                  activeOpacity={0.85}
+                  accessibilityLabel={accessLabel}
+                  accessibilityRole="button"
+                >
+                  <Text style={styles.phaseCardEmoji}>{phase.emoji}</Text>
+                  <Text style={styles.phaseCardLabel} numberOfLines={2}>{phase.label}</Text>
+                  <Text style={styles.phaseCardRange}>
+                    Days {phase.daysStart}
+                    {'–'}
+                    {phase.daysEnd}
+                  </Text>
+                  <View style={styles.phaseCardProgressTrack}>
+                    <View style={[styles.phaseCardProgressFill, { width: progressBarWidth, backgroundColor: phase.color }]} />
+                  </View>
+                  <Text style={styles.phaseCardCount}>{phaseCompleted}/{phaseTotal}</Text>
+                  {isPhaseCompleted && <Text style={styles.phaseCardDone}>✓</Text>}
+                  {isCurrentPhase && <View style={[styles.phaseCardCurrentDot, { backgroundColor: phase.color }]} />}
+                </TouchableOpacity>
+              );
+            })}
+          </ScrollView>
+        </Animated.View>
 
         {/* Week accordions */}
         {weekNumbers.map((week, weekIdx) => {
@@ -714,5 +769,82 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     textAlign: 'center',
     lineHeight: 20,
+  },
+  sectionLabel: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: colors.textSecondary,
+    paddingHorizontal: 16,
+    paddingTop: 4,
+    paddingBottom: 8,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  phaseCardsScroll: {
+    marginTop: 4,
+  },
+  phaseCardsContent: {
+    paddingHorizontal: 16,
+    gap: 10,
+    paddingVertical: 4,
+    paddingBottom: 8,
+  },
+  phaseCard: {
+    width: 110,
+    backgroundColor: colors.card,
+    borderRadius: 14,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: colors.border,
+    gap: 4,
+    alignItems: 'center',
+  },
+  phaseCardCompleted: {
+    backgroundColor: '#F0FFF4',
+    borderColor: '#27AE60',
+  },
+  phaseCardEmoji: {
+    fontSize: 24,
+    marginBottom: 2,
+  },
+  phaseCardLabel: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: colors.text,
+    textAlign: 'center',
+    lineHeight: 14,
+  },
+  phaseCardRange: {
+    fontSize: 10,
+    color: colors.textSecondary,
+    fontWeight: '500',
+  },
+  phaseCardProgressTrack: {
+    width: '100%',
+    height: 4,
+    backgroundColor: colors.highlight,
+    borderRadius: 2,
+    overflow: 'hidden',
+    marginTop: 4,
+  },
+  phaseCardProgressFill: {
+    height: '100%',
+    borderRadius: 2,
+  },
+  phaseCardCount: {
+    fontSize: 10,
+    color: colors.textSecondary,
+    fontWeight: '600',
+  },
+  phaseCardDone: {
+    fontSize: 12,
+    color: '#27AE60',
+    fontWeight: '800',
+  },
+  phaseCardCurrentDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    marginTop: 2,
   },
 });
