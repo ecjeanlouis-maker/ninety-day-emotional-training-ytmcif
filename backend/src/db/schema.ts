@@ -188,3 +188,30 @@ export const userDayProgress = pgTable('user_day_progress', {
 }, (t) => ({
   userDayUnique: uniqueIndex('user_day_unique').on(t.userId, t.dayNumber),
 }));
+
+export const emotionalCheckins = pgTable('emotional_checkins', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  userId: text('user_id')
+    .notNull()
+    .references(() => user.id, { onDelete: 'cascade' }),
+  emotion: text('emotion').notNull(),
+  intensity: integer('intensity').notNull().default(3),
+  triggerNote: text('trigger_note'),
+  chosenResponse: text('chosen_response'),
+  notes: text('notes'),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+});
+
+export const journalEntries = pgTable('journal_entries', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  userId: text('user_id')
+    .notNull()
+    .references(() => user.id, { onDelete: 'cascade' }),
+  title: text('title').notNull().default('Untitled Entry'),
+  content: text('content').notNull().default(''),
+  mood: text('mood'),
+  tags: jsonb('tags').notNull().default([]),
+  isPrivate: boolean('is_private').notNull().default(true),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+});
