@@ -30,11 +30,13 @@ interface DayContent {
   day_number: number;
   title: string;
   phase: string;
+  phase_number?: number;
   week: number;
   lesson_content: string;
   drill_instructions: string;
   challenge: string;
   reflection_prompt: string;
+  estimated_time?: string;
 }
 
 interface DayProgressResponse {
@@ -70,8 +72,34 @@ function weekToPhase(week: number): string {
   return 'Integration';
 }
 
+// Centralized 8-phase registry — single source of truth
+export const PHASE_REGISTRY = [
+  { phase: 1, key: 'Emotional Control',    label: 'Emotional Control',    daysStart: 1,  daysEnd: 12, color: '#6B4CE6', emoji: '🧘', description: 'Build awareness and regulation of your emotional responses.' },
+  { phase: 2, key: 'Confidence',           label: 'Confidence',           daysStart: 13, daysEnd: 24, color: '#FFB84D', emoji: '⭐', description: 'Develop unshakeable self-belief and composure under pressure.' },
+  { phase: 3, key: 'Anger Management',     label: 'Anger Management',     daysStart: 25, daysEnd: 36, color: '#E74C3C', emoji: '🌊', description: 'Transform anger into constructive energy and calm responses.' },
+  { phase: 4, key: 'Stress Management',    label: 'Stress Management',    daysStart: 37, daysEnd: 48, color: '#3B82F6', emoji: '🍃', description: 'Build resilience and practical tools for managing stress.' },
+  { phase: 5, key: 'Social Anxiety',       label: 'Social Anxiety',       daysStart: 49, daysEnd: 60, color: '#F5A623', emoji: '🤝', description: 'Reduce social fear and build genuine connection skills.' },
+  { phase: 6, key: 'Thought Regulation',   label: 'Thought Regulation',   daysStart: 61, daysEnd: 72, color: '#27AE60', emoji: '🧠', description: 'Master your inner narrative and break unhelpful thought patterns.' },
+  { phase: 7, key: 'Organization Skills',  label: 'Organization Skills',  daysStart: 73, daysEnd: 81, color: '#1ABC9C', emoji: '📋', description: 'Build practical systems for clarity, focus, and sustainable productivity.' },
+  { phase: 8, key: 'Communication Skills', label: 'Communication Skills', daysStart: 82, daysEnd: 90, color: '#9B59B6', emoji: '💬', description: 'Communicate clearly, assertively, and with genuine empathy.' },
+];
+
+function dayToPhaseKey(dayNumber: number): string {
+  for (const p of PHASE_REGISTRY) {
+    if (dayNumber >= p.daysStart && dayNumber <= p.daysEnd) return p.key;
+  }
+  return 'Emotional Control';
+}
+
+function dayToPhaseNumber(dayNumber: number): number {
+  for (const p of PHASE_REGISTRY) {
+    if (dayNumber >= p.daysStart && dayNumber <= p.daysEnd) return p.phase;
+  }
+  return 1;
+}
+
 // Build the 90-day content array from the techniques data
-const PROGRAM_DAYS: DayContent[] = [
+const PROGRAM_DAYS_RAW: DayContent[] = [
   // Days 1-12: Emotional Control
   {
     day_number: 1, title: 'Deep Breathing Exercise', phase: 'Awareness', week: 1,
@@ -582,30 +610,177 @@ const PROGRAM_DAYS: DayContent[] = [
     challenge: "Apply today's technique in a real situation you encounter today.",
     reflection_prompt: "How did today's practice affect your emotional state? What did you notice?"
   },
-  // Days 73-90: Template days (Integration phase)
-  ...Array.from({ length: 18 }, (_, i) => {
-    const dayNum = 73 + i;
-    const phases = ['Resilience', 'Resilience', 'Integration', 'Integration', 'Resilience', 'Integration', 'Resilience', 'Integration', 'Integration'];
-    const phase = phases[Math.floor(i / 2)] || 'Integration';
-    const weekInPhase = Math.floor(i / 2) + 1;
-    return {
-      day_number: dayNum,
-      title: `Day ${dayNum} Practice`,
-      phase,
-      week: weekInPhase,
-      lesson_content: 'Continue building your emotional control skills with today\'s focused practice.',
-      drill_instructions: '1. Find a quiet space\n2. Practice today\'s technique for 10 minutes\n3. Notice your emotional state before and after',
-      challenge: "Apply today's technique in one real situation.",
-      reflection_prompt: "What did you notice about your emotional responses today?"
-    };
-  }),
+  // Phase 7 — Organization Skills (Days 73–81)
+  {
+    day_number: 73, title: 'Personal Organization Baseline and Friction Audit',
+    phase: 'Organization Skills', phase_number: 7, week: 13, estimated_time: '5–10 minutes',
+    lesson_content: 'Most disorganization is not a character flaw — it is friction. Friction is anything that makes a task harder to start or finish than it needs to be. Today you will observe your own patterns without judgment. You are not diagnosing yourself; you are gathering information. Notice where things pile up, where you lose track, and where you feel most overwhelmed. That is your friction map — the starting point for building a system that actually fits your life.\n\nObjective: Identify your top three friction points in daily organization.',
+    drill_instructions: 'Set a timer for 5 minutes.\nWalk through your day mentally from waking to sleeping.\nWrite down (or voice-note) three moments where you felt stuck, lost track of something, or had to search for information.\nFor each friction point, note: What was the task? What made it hard to start or finish?\nNo solutions yet — just honest observation.',
+    challenge: 'Today, when you notice a friction moment in real life, pause and name it: "This is friction." Do not fix it yet — just notice it.',
+    reflection_prompt: 'What were your three friction points? Was anything surprising about what you noticed?'
+  },
+  {
+    day_number: 74, title: 'Values-Based Priorities',
+    phase: 'Organization Skills', phase_number: 7, week: 13, estimated_time: '5–10 minutes',
+    lesson_content: 'Not everything on your to-do list deserves equal attention. When everything feels urgent, nothing gets done well. Values-based prioritization means asking: which tasks move me toward what actually matters to me — not what feels pressing in the moment? This is not about productivity for its own sake. It is about spending your limited energy on things that align with your real goals and values.\n\nObjective: Distinguish between urgent-feeling tasks and genuinely important ones.',
+    drill_instructions: 'Write down everything you feel you need to do today or this week — do not filter.\nFor each item, ask: If I do this, does it move me toward something I genuinely care about?\nSort into three groups: High alignment (matters to me), Low alignment (feels urgent but is not important to me), Unclear.\nChoose one High alignment task to protect time for today.\nNote: It is okay if most items are Unclear — that is useful information.',
+    challenge: 'Before starting any task today, take 10 seconds to ask: Is this high alignment or am I just responding to urgency?',
+    reflection_prompt: 'Which task did you protect time for? How did it feel to consciously choose it over other demands?'
+  },
+  {
+    day_number: 75, title: 'Breaking Tasks into Next Actions',
+    phase: 'Organization Skills', phase_number: 7, week: 13, estimated_time: '5–10 minutes',
+    lesson_content: 'Vague tasks create paralysis. "Sort out finances" or "deal with the email backlog" are not tasks — they are outcomes. A next action is the smallest, most concrete physical step you could take right now. When you know exactly what to do next, starting becomes much easier. This skill is especially useful for tasks you have been avoiding.\n\nObjective: Convert at least one stuck or avoided task into a clear next action.',
+    drill_instructions: 'Pick one task you have been avoiding or that feels overwhelming.\nAsk: What is the very next physical action I would need to take to move this forward?\nWrite that action as a specific verb + object: "Open the document," "Send one email to X," "Find the receipt in the folder."\nSet a timer for 2 minutes and do only that one action.\nAfter 2 minutes, stop — or continue if you want to. The goal was just to start.',
+    challenge: 'For any task you feel resistance toward today, write the next action before deciding whether to do it.',
+    reflection_prompt: 'What task did you break down? Did naming the next action change how you felt about starting it?'
+  },
+  {
+    day_number: 76, title: 'Time Estimation and Realistic Planning',
+    phase: 'Organization Skills', phase_number: 7, week: 14, estimated_time: '5–10 minutes',
+    lesson_content: 'Most people underestimate how long tasks take — this is called the planning fallacy. It is not a personal failing; it is a well-documented cognitive pattern. Realistic planning means building in buffers, accounting for interruptions, and being honest about your energy levels at different times of day. A plan that fits your real life is more useful than an ideal plan you cannot follow.\n\nObjective: Practice estimating task duration and compare it to actual time taken.',
+    drill_instructions: 'Choose 3 tasks you plan to do today.\nBefore starting each one, write down your estimate: "I think this will take ___ minutes."\nTime yourself doing each task.\nAfter all three, compare estimate vs. actual.\nNote: Were you consistently over or under? At what time of day were you most accurate?',
+    challenge: 'When planning tomorrow, add a 25% buffer to your time estimates for each task.',
+    reflection_prompt: 'How accurate were your estimates? What surprised you about how long things actually took?'
+  },
+  {
+    day_number: 77, title: 'Focused Work and Distraction Design',
+    phase: 'Organization Skills', phase_number: 7, week: 14, estimated_time: '5–10 minutes',
+    lesson_content: 'Focus is not a personality trait — it is an environment you design. Distractions are not a sign of weakness; they are a sign that your environment has not been set up to support concentration. Today you will experiment with one focused work session and notice what helps and what gets in the way. You do not need to eliminate all distractions — you need to reduce the ones that matter most to you.\n\nObjective: Complete one focused work session and identify your top distraction.',
+    drill_instructions: 'Choose one task that requires concentration.\nBefore starting: put your phone face-down or in another room, close unneeded browser tabs, and note your start time.\nWork for 20 minutes without switching tasks. If you get distracted, note what pulled your attention and return to the task — no self-criticism.\nAfter 20 minutes, write down: What distracted you? What helped you stay focused?\nAlternative if 20 minutes is not possible: try 10 minutes. The length matters less than the observation.',
+    challenge: 'Identify your single biggest distraction today and change one thing about your environment to reduce it.',
+    reflection_prompt: 'What was your top distraction? What one environmental change made the biggest difference?'
+  },
+  {
+    day_number: 78, title: 'Creating Simple Routines and Cues',
+    phase: 'Organization Skills', phase_number: 7, week: 14, estimated_time: '5–10 minutes',
+    lesson_content: 'Routines reduce decision fatigue. When a sequence of actions becomes automatic, you spend less mental energy deciding what to do next. A cue is a trigger that starts a routine — a time, a location, or an action that signals "now I do this." Simple routines do not need to be elaborate. A two-step morning routine is more sustainable than a ten-step one you abandon after a week.\n\nObjective: Design one simple routine with a clear cue.',
+    drill_instructions: 'Think of one recurring task you want to do more consistently (e.g., reviewing your to-do list, a short movement break, preparing for the next day).\nChoose a cue: a specific time, a location, or an existing habit you can attach it to (e.g., "after I make coffee").\nWrite the routine as: When [cue], I will [action], for [duration].\nTry it once today.\nNote: If the cue does not work, that is useful information — adjust it tomorrow.',
+    challenge: 'Use your new cue today and notice whether it triggered the routine automatically or required effort.',
+    reflection_prompt: 'What routine did you design? Did the cue work? What would you adjust?'
+  },
+  {
+    day_number: 79, title: 'Organizing Physical and Digital Spaces Accessibly',
+    phase: 'Organization Skills', phase_number: 7, week: 15, estimated_time: '5–10 minutes',
+    lesson_content: 'An organized space is one where you can find what you need without searching. It does not need to look a certain way or meet anyone else\'s standard. Accessibility matters: a system that requires physical effort, fine motor precision, or visual scanning you find difficult is not a good system for you, regardless of how it looks. Today you will improve one small area — not your whole life, just one area.\n\nObjective: Improve one physical or digital space so that one frequently needed item is easier to find.\n\nNote: If physical organization is difficult due to mobility, energy, or executive function challenges, focus on a digital space (a folder, a bookmark, a note). Both are equally valid.',
+    drill_instructions: 'Choose one small area: a drawer, a folder on your phone, your email inbox, your desktop, or a physical surface.\nRemove or archive anything you have not used in the past month.\nPlace the three most frequently used items in the most accessible position.\nLabel or name things clearly so future-you can find them without remembering a system.\nStop after 10 minutes — do not try to organize everything.',
+    challenge: 'The next time you cannot find something, note where it was and where it should have been. That gap is your next organization target.',
+    reflection_prompt: 'What area did you improve? What made it easier to find things? What would you do differently?'
+  },
+  {
+    day_number: 80, title: 'Flexible Weekly Review and Reprioritization',
+    phase: 'Organization Skills', phase_number: 7, week: 15, estimated_time: '5–10 minutes',
+    lesson_content: 'A weekly review is not about judging how much you accomplished. It is about pausing to ask: what is still relevant, what has changed, and what do I want to focus on next? Flexibility is a feature, not a failure. Plans change because life changes. A review that takes 10 minutes and helps you feel oriented is more valuable than a perfect system you never use.\n\nObjective: Complete a brief weekly review and update your priorities.',
+    drill_instructions: 'Set a timer for 10 minutes.\nAsk yourself three questions and write brief answers:\n1. What did I actually do this week that I feel good about?\n2. What is still unfinished and still matters?\n3. What is one thing I want to protect time for next week?\nUpdate your task list or notes based on your answers.\nNote: If you do not have a task list, a simple note on paper or your phone is enough.',
+    challenge: 'Schedule your next weekly review right now — pick a day and time that is realistic for you.',
+    reflection_prompt: 'What did you notice during your review? What shifted in your priorities?'
+  },
+  {
+    day_number: 81, title: 'Organization Integration: Your System and Recovery Plan',
+    phase: 'Organization Skills', phase_number: 7, week: 15, estimated_time: '5–10 minutes',
+    lesson_content: 'You have spent nine days building awareness and experimenting with organization tools. Today is about integration: choosing what to keep, letting go of what did not fit, and planning for disruption. Disruption is inevitable — illness, unexpected demands, difficult periods. A good system is not one that never breaks; it is one you can return to after it breaks. Recovery is part of the system.\n\nObjective: Define your personal organization system and your recovery plan.',
+    drill_instructions: 'Review the past nine days. Write down:\n1. One friction point you have reduced.\n2. One tool or habit that actually helped you (even a little).\n3. One thing you tried that did not fit — and that is okay to let go.\nWrite a one-sentence description of your personal organization approach: "My system is ___." It can be simple.\nWrite one sentence about how you will restart after a disruption: "When I fall off track, I will ___."',
+    challenge: 'Share your one-sentence system with someone you trust, or write it somewhere you will see it.',
+    reflection_prompt: 'What does your personal organization system look like now? How will you recover when it breaks down?'
+  },
+  // Phase 8 — Communication Skills (Days 82–90)
+  {
+    day_number: 82, title: 'Communication Baseline and Listening',
+    phase: 'Communication Skills', phase_number: 8, week: 16, estimated_time: '5–10 minutes',
+    lesson_content: 'Communication is not just speaking — it is the full loop of sending and receiving. Most communication problems happen in the receiving half: we listen to respond rather than to understand. Today you will observe your own communication patterns without judgment. You are not diagnosing yourself as a bad communicator; you are gathering information about where your patterns serve you and where they do not.\n\nObjective: Identify one communication pattern you want to understand better.',
+    drill_instructions: 'In your next conversation today, practice listening to understand rather than to respond.\nNotice: Are you thinking about what to say while the other person is still speaking?\nAfter the conversation, write down: What did the other person actually say? What did you notice about your own listening?\nAlternative if you do not have a conversation today: recall a recent conversation and replay it in your mind with this question: Was I listening to understand or to respond?\nNote: This is observation only — no performance required.',
+    challenge: 'In one conversation today, wait until the other person has fully finished before you begin forming your response.',
+    reflection_prompt: 'What did you notice about your listening? Was there a moment where you caught yourself preparing a response instead of listening?'
+  },
+  {
+    day_number: 83, title: 'Emotion Labeling Before Speaking',
+    phase: 'Communication Skills', phase_number: 8, week: 16, estimated_time: '5–10 minutes',
+    lesson_content: 'When we speak from unprocessed emotion, we often say things we do not mean or communicate in ways that create more conflict. Labeling your emotion before speaking — even silently — creates a brief pause that changes what you say and how you say it. This is not about suppressing emotion; it is about choosing how to express it. You do not need to share the label with anyone.\n\nObjective: Practice labeling your emotion before responding in at least one interaction.',
+    drill_instructions: 'Before your next emotionally charged interaction (or in a recalled one), pause and silently name what you are feeling: "I am feeling frustrated," "I am feeling anxious," "I am feeling dismissed."\nNotice: Does naming it change the intensity even slightly?\nWrite down the emotion you labeled and what you said or did next.\nAlternative: If you are not in a charged interaction today, practice with a low-stakes moment — a minor annoyance or frustration.',
+    challenge: 'Today, before responding to any message or request that triggers a reaction, pause for 5 seconds and name the emotion first.',
+    reflection_prompt: 'What emotion did you label? Did naming it change how you responded?'
+  },
+  {
+    day_number: 84, title: 'Clear "I" Statements and Specific Requests',
+    phase: 'Communication Skills', phase_number: 8, week: 16, estimated_time: '5–10 minutes',
+    lesson_content: '"You always do this" creates defensiveness. "I feel frustrated when meetings run over because I lose my afternoon focus" is specific, owned, and actionable. "I" statements describe your experience without blaming. Specific requests tell the other person exactly what would help — not what they should stop doing, but what you are asking for. Both skills reduce conflict and increase the chance of being understood.\n\nObjective: Practice forming one "I" statement and one specific request.',
+    drill_instructions: 'Think of a situation where you want to communicate a need or concern.\nWrite an "I" statement using this structure: "I feel [emotion] when [specific situation] because [impact on me]."\nWrite a specific request: "What I am asking for is [concrete, observable action]."\nRead both aloud or to yourself. Notice: Does it feel honest? Does it feel fair?\nYou do not need to send or say this today — the practice is in the writing.\nAlternative: If no current situation comes to mind, use a past one.',
+    challenge: 'In one real interaction today, replace a "you" accusation with an "I" statement.',
+    reflection_prompt: 'What did you write? How did forming the "I" statement change how you thought about the situation?'
+  },
+  {
+    day_number: 85, title: 'Assertive Communication: Not Passive, Not Aggressive',
+    phase: 'Communication Skills', phase_number: 8, week: 17, estimated_time: '5–10 minutes',
+    lesson_content: 'Assertive communication means expressing your needs, opinions, and boundaries clearly and respectfully — without aggression and without self-erasure. Passive communication leaves your needs unmet. Aggressive communication damages relationships. Assertive communication is a skill, not a personality type. It can be learned, and it looks different in different contexts and cultures. Today you will practice recognizing the difference.\n\nObjective: Identify one situation where you tend toward passive or aggressive communication and practice an assertive alternative.',
+    drill_instructions: 'Think of a recent situation where you either said nothing when you wanted to speak (passive) or spoke in a way that felt too forceful (aggressive).\nWrite what you actually said (or did not say).\nNow write an assertive version: clear, specific, respectful, and honest.\nNotice: What would have made the assertive version hard to say in that moment?\nAlternative: If no situation comes to mind, use a hypothetical: "If someone took credit for my work, I would assertively say..."',
+    challenge: 'Today, in one low-stakes situation, practice saying what you actually think or need — clearly and respectfully.',
+    reflection_prompt: 'What situation did you work with? What made the assertive version feel different from what you actually said?'
+  },
+  {
+    day_number: 86, title: 'Boundaries and Respectful Refusal',
+    phase: 'Communication Skills', phase_number: 8, week: 17, estimated_time: '5–10 minutes',
+    lesson_content: 'A boundary is not a wall — it is information about what you need to function well. Saying no is not selfish; it is honest. Respectful refusal means declining clearly without over-explaining, apologizing excessively, or leaving the other person confused. You do not owe anyone a detailed justification for your limits. A simple, clear no is a complete sentence.\n\nObjective: Practice one clear, respectful refusal — real or rehearsed.\n\nSafety note: If saying no in your current environment carries real risk — to your safety, housing, or employment — please prioritize your safety. You can rehearse privately, choose written communication, or delay. These skills are options, not obligations.',
+    drill_instructions: 'Think of a request you want to decline or have recently declined awkwardly.\nWrite a refusal using this structure: "I am not able to [request]. [Optional: one-sentence reason if you choose to share it.]"\nPractice saying it aloud — to yourself, to a mirror, or to a trusted person.\nNotice: What makes it hard to say no in this situation? Is it fear of conflict, guilt, or something else?\nAlternative: If no current situation applies, rehearse a hypothetical refusal.',
+    challenge: 'Today, decline one request — however small — without over-explaining or apologizing.',
+    reflection_prompt: 'What did you decline or rehearse declining? What made it feel difficult or easier than expected?'
+  },
+  {
+    day_number: 87, title: 'Clarifying Assumptions and Repairing Misunderstandings',
+    phase: 'Communication Skills', phase_number: 8, week: 17, estimated_time: '5–10 minutes',
+    lesson_content: 'Most conflict is not about facts — it is about assumptions. We assume we know what someone meant, what they intended, or how they feel. Checking assumptions before reacting reduces unnecessary conflict. Repairing a misunderstanding — acknowledging it and clarifying — is a communication skill, not an admission of failure. It takes more courage to repair than to avoid.\n\nObjective: Practice one clarifying question and one repair statement.',
+    drill_instructions: 'Think of a recent misunderstanding or a situation where you assumed something about another person\'s meaning or intent.\nWrite a clarifying question you could have asked: "When you said [X], did you mean [Y]?"\nWrite a repair statement: "I think I misunderstood what you meant. What I heard was [X] — is that what you intended?"\nAlternative: If no recent misunderstanding comes to mind, use a hypothetical.\nNote: You do not need to send or say these today — the practice is in forming them.',
+    challenge: 'In one interaction today, ask a clarifying question before assuming you understood.',
+    reflection_prompt: 'What assumption did you examine? How did forming the clarifying question change your perspective?'
+  },
+  {
+    day_number: 88, title: 'Difficult Conversations with Safety-Based Alternatives',
+    phase: 'Communication Skills', phase_number: 8, week: 18, estimated_time: '5–10 minutes',
+    lesson_content: 'Difficult conversations are ones where the stakes feel high — where you fear conflict, rejection, or consequences. Preparing for a difficult conversation does not mean scripting it perfectly; it means knowing your goal, your bottom line, and your exit if needed. Not every difficult conversation needs to happen immediately, in person, or at all. Written communication, delay, or choosing not to engage are all valid options — especially when safety is a concern.\n\nObjective: Prepare for one difficult conversation — or identify a safer alternative.\n\nSafety note: If a conversation carries risk to your physical safety, housing, or wellbeing, please do not feel obligated to have it. Choosing written communication, seeking support from a trusted person or professional, or deciding not to engage are all legitimate choices.',
+    drill_instructions: 'Identify one difficult conversation you have been avoiding or need to have.\nWrite down: What is my goal for this conversation? What is the minimum outcome I need? What will I do if the conversation becomes unsafe or unproductive?\nWrite an opening sentence that is honest and non-accusatory.\nAlternative options to consider: Could this be communicated in writing? Could I delay until I feel safer? Is there a support person I could involve?\nNote: You do not need to have this conversation today.',
+    challenge: 'Choose one of these: have the conversation, write a draft message, or identify one support resource for this situation.',
+    reflection_prompt: 'What conversation did you prepare for? What felt most difficult about it? What alternative felt most realistic?'
+  },
+  {
+    day_number: 89, title: 'Feedback, Empathy, and Perspective-Taking',
+    phase: 'Communication Skills', phase_number: 8, week: 18, estimated_time: '5–10 minutes',
+    lesson_content: 'Empathy does not mean agreeing. You can understand someone\'s perspective without endorsing it. Giving feedback means sharing your honest observation in a way the other person can hear — not to change them, but to communicate clearly. Receiving feedback means listening without immediately defending. Both skills require tolerating discomfort. Neither requires you to abandon your own perspective.\n\nObjective: Practice giving or receiving feedback with empathy and without forced agreement.',
+    drill_instructions: 'Think of a situation where you want to give feedback to someone, or where you recently received feedback.\nFor giving feedback: write it using this structure: "I noticed [specific observation]. The impact on me was [honest effect]. I am sharing this because [genuine reason]."\nFor receiving feedback: write down the feedback you received. Then write: "What might be true about this, even if I disagree with how it was delivered?"\nAlternative: If neither applies, write feedback you would give yourself about your communication this week.\nNote: You do not need to share this with anyone.',
+    challenge: 'In one interaction today, try to understand the other person\'s perspective before responding — even if you disagree.',
+    reflection_prompt: 'What feedback did you work with? What was it like to look for what might be true without having to agree?'
+  },
+  {
+    day_number: 90, title: '90-Day Integration: Your Communication Plan and Journey Reflection',
+    phase: 'Communication Skills', phase_number: 8, week: 18, estimated_time: '10–15 minutes',
+    lesson_content: 'You have completed 90 days of deliberate practice across eight areas of emotional and interpersonal skill. Today is not an ending — it is a transition. The skills you have built are not fixed; they require ongoing practice, and they will sometimes break down. That is normal. A maintenance plan is not about perfection; it is about knowing which practices to return to when things get hard.\n\nToday you will write your personal communication plan and reflect on your 90-day journey.\n\nObjective: Define your communication strengths, your growth areas, and your maintenance plan.',
+    drill_instructions: 'Take 10 minutes and write responses to these prompts:\n1. Communication strength: "One communication skill I have genuinely improved is ___. I know this because ___.\n2. Growth area: "One area I want to keep working on is ___.\n3. Maintenance: "When communication gets hard, I will return to ___. My first step will be ___.\n4. 90-day reflection: "The most important thing I learned about myself in these 90 days is ___.\nNote: There are no right answers. This is your honest reflection.',
+    challenge: 'Share one thing you learned about yourself in these 90 days with someone you trust — or write it somewhere you will see it.',
+    reflection_prompt: 'What is the most important thing you learned about yourself in these 90 days? What will you carry forward?'
+  },
 ];
+
+// Build PROGRAM_DAYS with normalized phase strings and phase_number from the registry
+const PROGRAM_DAYS: DayContent[] = PROGRAM_DAYS_RAW.map(d => ({
+  ...d,
+  phase: dayToPhaseKey(d.day_number),
+  phase_number: dayToPhaseNumber(d.day_number),
+}));
 
 // Build a lookup map for O(1) access
 const DAY_MAP = new Map<number, DayContent>(PROGRAM_DAYS.map(d => [d.day_number, d]));
 
 export function registerProgramRoutes(app: App) {
   const requireAuth = app.requireAuth();
+
+  // GET /api/program/phases — public, returns 8-phase registry
+  app.fastify.get('/api/program/phases', {
+    schema: {
+      description: 'Get the 8-phase program registry',
+      tags: ['program'],
+    },
+  }, async (_request: FastifyRequest, reply: FastifyReply) => {
+    app.logger.info({}, 'GET /api/program/phases');
+    return reply.send({ phases: PHASE_REGISTRY });
+  });
 
   // GET /api/program/content — public, all days
   app.fastify.get('/api/program/content', {
