@@ -344,6 +344,9 @@ function TodayDashboard() {
         return '5–10 min';
       })()
     : '5–10 min';
+  const lessonObjective = todayTechnique?.description
+    ? todayTechnique.description.slice(0, 80).replace(/\s\S*$/, '') + '…'
+    : 'Build your emotional control and confidence today.';
   const isDayCompleted = totalDaysCompleted >= currentDay;
   const drillButtonLabel = isDayCompleted ? 'Continue Today\'s Drill' : 'Start Today\'s Drill';
   const drillA11yLabel = isDayCompleted
@@ -515,12 +518,14 @@ function TodayDashboard() {
             </View>
 
             {/* Overall progress bar */}
-            <View style={styles.overallProgressContainer}>
-              <Text style={styles.overallProgressLabel}>Overall Progress</Text>
+            <View
+              style={styles.overallProgressContainer}
+              accessibilityLabel={`Overall progress: ${Math.round(progressPercent * 100)} percent`}
+              accessibilityRole="progressbar"
+            >
               <View style={styles.overallProgressTrack}>
                 <View style={[styles.overallProgressFill, { width: progressBarWidth }]} />
               </View>
-              <Text style={styles.overallProgressPercent}>{Math.round(progressPercent * 100)}% complete</Text>
             </View>
           </LinearGradient>
         </Animated.View>
@@ -593,6 +598,7 @@ function TodayDashboard() {
             </View>
           </View>
           <Text style={styles.dailyCardTitle}>{lessonTitle}</Text>
+          <Text style={styles.dailyCardObjective}>{lessonObjective}</Text>
           <TouchableOpacity
             style={styles.dailyCardButton}
             onPress={handleContinueTraining}
@@ -668,7 +674,7 @@ function TodayDashboard() {
               <Text style={styles.cardTitle}>Quick Emotion Check-in</Text>
               <IconSymbol ios_icon_name="chevron.right" android_material_icon_name="arrow-forward" size={18} color={colors.textSecondary} />
             </View>
-            <Text style={styles.cardSubtitle}>How are you feeling right now? Tap to log your emotion.</Text>
+            <Text style={styles.cardSubtitle}>Log your emotion and chosen response.</Text>
           </TouchableOpacity>
         </Animated.View>
 
@@ -722,7 +728,7 @@ function TodayDashboard() {
             >
               <Text style={styles.actionCardEmoji}>🤖</Text>
               <Text style={styles.actionCardTitle}>AI Coach</Text>
-              <Text style={styles.actionCardSubtitle}>Get personalized guidance</Text>
+              <Text style={styles.actionCardSubtitle}>Ask questions, get coached</Text>
               {(!isSubscribed && !canAccess('ecct_full_program')) && (
                 <View style={styles.lockBadge}>
                   <Text style={styles.lockBadgeText}>PRO</Text>
@@ -746,7 +752,7 @@ function TodayDashboard() {
             >
               <Text style={styles.actionCardEmoji}>📊</Text>
               <Text style={styles.actionCardTitle}>Analytics</Text>
-              <Text style={styles.actionCardSubtitle}>View your progress trends</Text>
+              <Text style={styles.actionCardSubtitle}>ECRS trends & milestones</Text>
               {(!isSubscribed && !canAccess('ecct_full_program')) && (
                 <View style={styles.lockBadge}>
                   <Text style={styles.lockBadgeText}>PRO</Text>
@@ -1329,6 +1335,13 @@ const styles = StyleSheet.create({
     lineHeight: 26,
     flexShrink: 1,
     flexWrap: 'wrap',
+  },
+  dailyCardObjective: {
+    fontSize: 13,
+    color: colors.textSecondary,
+    lineHeight: 18,
+    marginTop: 2,
+    marginBottom: 4,
   },
   dailyCardButton: {
     borderRadius: 14,
