@@ -28,9 +28,9 @@ export function registerAssessmentRoutes(app: App) {
             "confidence_composure",
           ],
           properties: {
-            emotional_identification: { type: "integer", minimum: 0, maximum: 100 },
-            response_control: { type: "integer", minimum: 0, maximum: 100 },
-            confidence_composure: { type: "integer", minimum: 0, maximum: 100 },
+            emotional_identification: { type: "integer", minimum: 0, maximum: 10 },
+            response_control: { type: "integer", minimum: 0, maximum: 10 },
+            confidence_composure: { type: "integer", minimum: 0, maximum: 10 },
             assessment_type: { type: "string" },
           },
         },
@@ -69,6 +69,14 @@ export function registerAssessmentRoutes(app: App) {
         confidence_composure,
         assessment_type = "baseline",
       } = request.body;
+
+      const fields = ['emotional_identification', 'response_control', 'confidence_composure'] as const;
+      for (const field of fields) {
+        const val = request.body[field as keyof typeof request.body];
+        if (typeof val !== 'number' || val < 0 || val > 10) {
+          return reply.status(400).send({ error: `${field} must be between 0 and 10` });
+        }
+      }
 
       app.logger.info(
         {

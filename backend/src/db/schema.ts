@@ -200,7 +200,9 @@ export const emotionalCheckins = pgTable('emotional_checkins', {
   chosenResponse: text('chosen_response'),
   notes: text('notes'),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
-});
+}, (t) => ({
+  userCheckinUnique: uniqueIndex('emotional_checkins_user_id_id_idx').on(t.userId, t.id),
+}));
 
 export const journalEntries = pgTable('journal_entries', {
   id: uuid('id').primaryKey().defaultRandom(),
@@ -214,4 +216,6 @@ export const journalEntries = pgTable('journal_entries', {
   isPrivate: boolean('is_private').notNull().default(true),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
-});
+}, (t) => ({
+  userEntryUnique: uniqueIndex('journal_entries_user_id_id_idx').on(t.userId, t.id),
+}));

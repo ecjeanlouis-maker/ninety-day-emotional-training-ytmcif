@@ -1,0 +1,2 @@
+CREATE UNIQUE INDEX "emotional_checkins_user_id_id_idx" ON "emotional_checkins" USING btree ("user_id","id");--> statement-breakpoint
+CREATE UNIQUE INDEX "journal_entries_user_id_id_idx" ON "journal_entries" USING btree ("user_id","id");
