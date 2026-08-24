@@ -328,53 +328,152 @@ export default function ProgramScreen() {
         {/* Phase Overview Cards */}
         <Animated.View entering={FadeInDown.delay(175).duration(500)}>
           <Text style={styles.sectionLabel}>8 Phases</Text>
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.phaseCardsContent}
-            style={styles.phaseCardsScroll}
-            accessibilityLabel="Phase overview — scroll to see all 8 phases"
-          >
-            {PHASES.map((phase) => {
+          <View style={{ paddingHorizontal: 16, gap: 12 }}>
+            {PHASES.map((phase, phaseIdx) => {
               const phaseDays = days.filter(d => d.phase === phase.key);
               const phaseCompleted = phaseDays.filter(d => getDayStatus(d.day_number) === 'completed').length;
               const phaseTotal = phaseDays.length || (phase.daysEnd - phase.daysStart + 1);
               const phaseProgress = phaseTotal > 0 ? phaseCompleted / phaseTotal : 0;
               const isPhaseCompleted = phaseCompleted === phaseTotal && phaseTotal > 0;
               const isCurrentPhase = !isPhaseCompleted && phaseDays.some(d => getDayStatus(d.day_number) === 'current');
-              const isLocked = phaseDays.length > 0 && phaseDays.every(d => getDayStatus(d.day_number) === 'locked' || getDayStatus(d.day_number) === 'progression_locked');
+              const isPremiumLocked = !hasDays8to90Access && phase.daysStart > 7;
+              const isProgressionLocked = !isPremiumLocked && phaseDays.length > 0 && phaseDays.every(d => {
+                const s = getDayStatus(d.day_number);
+                return s === 'progression_locked';
+              });
               const progressBarWidth = `${Math.round(phaseProgress * 100)}%` as `${number}%`;
-              const phaseCardBorderStyle = isCurrentPhase ? { borderColor: phase.color, borderWidth: 2 } : {};
-              const phaseCardBgStyle = isPhaseCompleted ? styles.phaseCardCompleted : {};
-              const completedLabel = isPhaseCompleted ? ', completed' : isCurrentPhase ? ', current phase' : isLocked ? ', locked' : '';
-              const accessLabel = `${phase.label}, Days ${phase.daysStart} to ${phase.daysEnd}, ${phaseCompleted} of ${phaseTotal} days completed${completedLabel}`;
+              const phaseNumber = phaseIdx + 1;
+
+              const firstAvailableDay = phaseDays.find(d => {
+                const s = getDayStatus(d.day_number);
+                return s === 'current' || s === 'available';
+              })?.day_number ?? phaseDays[0]?.day_number ?? phase.daysStart;
+
+              const ctaLabel = isPhaseCompleted
+                ? 'Review'
+                : isCurrentPhase
+                  ? 'Continue'
+                  : (isPremiumLocked || isProgressionLocked)
+                    ? 'Locked'
+                    : 'Start';
+
+              const statusText = isPhaseCompleted
+                ? 'Completed ✓'
+                : isCurrentPhase
+                  ? 'Current →'
+                  : (isPremiumLocked || isProgressionLocked)
+                    ? 'Locked 🔒'
+                    : '';
+
+              const statusColor = isPhaseCompleted
+                ? '#27AE60'
+                : isCurrentPhase
+                  ? colors.primary
+                  : '#8E8E93';
+
+              const isLocked = isPremiumLocked || isProgressionLocked;
+              const progressLabel = `${phaseCompleted}/${phaseTotal} · ${Math.round(phaseProgress * 100)}%`;
+              const dayRangeText = `Days ${phase.daysStart}–${phase.daysEnd}`;
+              const accessLabel = `${phase.label}, ${dayRangeText}, ${progressLabel}, ${statusText || 'Not started'}`;
+              const ctaAccessLabel = `${ctaLabel} ${phase.label}`;
+
+              const handleCardPress = () => {
+                console.log('[Program] Phase card tapped:', phase.key, '— isPremiumLocked:', isPremiumLocked, 'isProgressionLocked:', isProgressionLocked);
+                if (isPremiumLocked) {
+                  Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+                  router.push('/paywall');
+                  return;
+                }
+                if (isProgressionLocked) {
+                  Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+                  return;
+                }
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                handlePhaseSelect(phase.key);
+                router.push(`/day/${firstAvailableDay}`);
+              };
 
               return (
                 <TouchableOpacity
                   key={phase.key}
-                  style={[styles.phaseCard, phaseCardBorderStyle, phaseCardBgStyle]}
-                  onPress={() => handlePhaseSelect(selectedPhase === phase.key ? null : phase.key)}
+                  style={[
+                    styles.programCard,
+                    isCurrentPhase && { borderColor: phase.color, borderWidth: 2 },
+                  ]}
+                  onPress={handleCardPress}
                   activeOpacity={0.85}
-                  accessibilityLabel={accessLabel}
                   accessibilityRole="button"
+                  accessibilityLabel={accessLabel}
                 >
-                  <Text style={styles.phaseCardEmoji}>{phase.emoji}</Text>
-                  <Text style={styles.phaseCardLabel} numberOfLines={2}>{phase.label}</Text>
-                  <Text style={styles.phaseCardRange}>
-                    Days {phase.daysStart}
-                    {'–'}
-                    {phase.daysEnd}
-                  </Text>
-                  <View style={styles.phaseCardProgressTrack}>
-                    <View style={[styles.phaseCardProgressFill, { width: progressBarWidth, backgroundColor: phase.color }]} />
+                  {/* Header row: phase badge + PRO badge */}
+                  <View style={styles.programCardHeader}>
+                    <View style={[styles.programCardPhaseBadge, { backgroundColor: phase.color + '20' }]}>
+                      <Text style={[styles.programCardPhaseBadgeText, { color: phase.color }]}>
+                        Phase {phaseNumber}
+                      </Text>
+                    </View>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                      {statusText ? (
+                        <Text style={[styles.programCardStatusBadge, { color: statusColor }]}>
+                          {statusText}
+                        </Text>
+                      ) : null}
+                      {isPremiumLocked ? (
+                        <View style={styles.programCardProBadge}>
+                          <Text style={styles.programCardProBadgeText}>PRO</Text>
+                        </View>
+                      ) : null}
+                    </View>
                   </View>
-                  <Text style={styles.phaseCardCount}>{phaseCompleted}/{phaseTotal}</Text>
-                  {isPhaseCompleted && <Text style={styles.phaseCardDone}>✓</Text>}
-                  {isCurrentPhase && <View style={[styles.phaseCardCurrentDot, { backgroundColor: phase.color }]} />}
+
+                  {/* Emoji + Title */}
+                  <View style={styles.programCardTitleRow}>
+                    <Text style={styles.programCardEmoji}>{phase.emoji}</Text>
+                    <Text style={styles.programCardTitle}>{phase.label}</Text>
+                  </View>
+
+                  {/* Purpose */}
+                  <Text style={styles.programCardPurpose} numberOfLines={2}>
+                    {phase.description}
+                  </Text>
+
+                  {/* Meta: day range */}
+                  <View style={styles.programCardMeta}>
+                    <Text style={styles.programCardDayRange}>{dayRangeText}</Text>
+                  </View>
+
+                  {/* Progress bar */}
+                  <View style={styles.programCardProgressRow}>
+                    <View style={styles.programCardProgressTrack}>
+                      <View
+                        style={[
+                          styles.programCardProgressFill,
+                          { width: progressBarWidth, backgroundColor: phase.color },
+                        ]}
+                      />
+                    </View>
+                    <Text style={styles.programCardProgressLabel}>{progressLabel}</Text>
+                  </View>
+
+                  {/* CTA button */}
+                  <TouchableOpacity
+                    style={[
+                      styles.programCardCTA,
+                      isLocked ? styles.programCardCTALocked : { backgroundColor: phase.color },
+                    ]}
+                    onPress={handleCardPress}
+                    activeOpacity={0.85}
+                    accessibilityRole="button"
+                    accessibilityLabel={ctaAccessLabel}
+                  >
+                    <Text style={[styles.programCardCTAText, isLocked && styles.programCardCTATextLocked]}>
+                      {ctaLabel}
+                    </Text>
+                  </TouchableOpacity>
                 </TouchableOpacity>
               );
             })}
-          </ScrollView>
+          </View>
         </Animated.View>
 
         {/* Week accordions */}
@@ -780,71 +879,115 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
     letterSpacing: 0.5,
   },
-  phaseCardsScroll: {
-    marginTop: 4,
-  },
-  phaseCardsContent: {
-    paddingHorizontal: 16,
-    gap: 10,
-    paddingVertical: 4,
-    paddingBottom: 8,
-  },
-  phaseCard: {
-    width: 110,
+  programCard: {
     backgroundColor: colors.card,
-    borderRadius: 14,
-    padding: 12,
+    borderRadius: 16,
+    padding: 16,
     borderWidth: 1,
     borderColor: colors.border,
-    gap: 4,
+    gap: 10,
+    boxShadow: '0 2px 8px rgba(0,0,0,0.06)',
+  },
+  programCardHeader: {
+    flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-between',
   },
-  phaseCardCompleted: {
-    backgroundColor: '#F0FFF4',
-    borderColor: '#27AE60',
+  programCardPhaseBadge: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 20,
   },
-  phaseCardEmoji: {
-    fontSize: 24,
-    marginBottom: 2,
-  },
-  phaseCardLabel: {
+  programCardPhaseBadgeText: {
     fontSize: 11,
     fontWeight: '700',
+    letterSpacing: 0.3,
+  },
+  programCardStatusBadge: {
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  programCardStatusText: {
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  programCardTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  programCardEmoji: {
+    fontSize: 26,
+  },
+  programCardTitle: {
+    fontSize: 18,
+    fontWeight: '800',
     color: colors.text,
-    textAlign: 'center',
-    lineHeight: 14,
+    flex: 1,
   },
-  phaseCardRange: {
-    fontSize: 10,
+  programCardPurpose: {
+    fontSize: 13,
     color: colors.textSecondary,
-    fontWeight: '500',
+    lineHeight: 18,
+    fontWeight: '400',
   },
-  phaseCardProgressTrack: {
+  programCardMeta: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  programCardDayRange: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: colors.textSecondary,
+  },
+  programCardProgressRow: {
+    gap: 6,
+  },
+  programCardProgressTrack: {
     width: '100%',
-    height: 4,
+    height: 6,
     backgroundColor: colors.highlight,
-    borderRadius: 2,
+    borderRadius: 3,
     overflow: 'hidden',
-    marginTop: 4,
   },
-  phaseCardProgressFill: {
+  programCardProgressFill: {
     height: '100%',
-    borderRadius: 2,
+    borderRadius: 3,
   },
-  phaseCardCount: {
-    fontSize: 10,
+  programCardProgressLabel: {
+    fontSize: 11,
     color: colors.textSecondary,
     fontWeight: '600',
   },
-  phaseCardDone: {
-    fontSize: 12,
-    color: '#27AE60',
-    fontWeight: '800',
+  programCardCTA: {
+    borderRadius: 12,
+    paddingVertical: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: 44,
   },
-  phaseCardCurrentDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    marginTop: 2,
+  programCardCTAText: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+  programCardCTALocked: {
+    backgroundColor: colors.border,
+  },
+  programCardCTATextLocked: {
+    color: colors.textSecondary,
+  },
+  programCardProBadge: {
+    backgroundColor: '#FFB84D',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+  },
+  programCardProBadgeText: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: '#FFFFFF',
+    letterSpacing: 0.5,
   },
 });
