@@ -24,6 +24,7 @@ import { useRouter } from 'expo-router';
 import { authenticatedGet } from '@/utils/api';
 import Survey from './survey';
 import { ProgramType } from '@/types/program';
+import { techniques } from '@/data/techniques';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -331,6 +332,24 @@ function TodayDashboard() {
 
   const onboardingComplete = !!onboarding?.completed_at;
 
+  // Derive today's lesson from the techniques list (day 1 = index 0, clamped to array bounds)
+  const todayTechniqueIndex = Math.min(Math.max((currentDay ?? 1) - 1, 0), techniques.length - 1);
+  const todayTechnique = techniques[todayTechniqueIndex];
+  const lessonTitle = todayTechnique?.title ?? 'Today\'s Drill';
+  const lessonDuration = todayTechnique?.practiceFrequency
+    ? (() => {
+        const freq = todayTechnique.practiceFrequency.toLowerCase();
+        if (freq.includes('10')) return '10 min';
+        if (freq.includes('5')) return '5 min';
+        return '5–10 min';
+      })()
+    : '5–10 min';
+  const isDayCompleted = totalDaysCompleted >= currentDay;
+  const drillButtonLabel = isDayCompleted ? 'Continue Today\'s Drill' : 'Start Today\'s Drill';
+  const drillA11yLabel = isDayCompleted
+    ? `Continue Today's Drill — Day ${currentDay}, ${lessonTitle}`
+    : `Start Today's Drill — Day ${currentDay}, ${lessonTitle}`;
+
   const handleContinueTraining = () => {
     console.log('[Today] Continue Training tapped — navigating to day:', currentDay);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
@@ -548,24 +567,33 @@ function TodayDashboard() {
           </Animated.View>
         )}
 
-        {/* Continue Training CTA */}
-        <Animated.View entering={FadeInDown.delay(150).duration(600)}>
+        {/* Daily Training Card */}
+        <Animated.View entering={FadeInDown.delay(150).duration(600)} style={styles.dailyCard}>
+          <View style={styles.dailyCardMeta}>
+            <View style={styles.dailyCardBadge}>
+              <Text style={styles.dailyCardBadgeText}>DAY {currentDay} OF 90</Text>
+            </View>
+            <View style={styles.dailyCardDurationBadge}>
+              <IconSymbol ios_icon_name="clock" android_material_icon_name="schedule" size={13} color={colors.textSecondary} />
+              <Text style={styles.dailyCardDurationText}>{lessonDuration}</Text>
+            </View>
+          </View>
+          <Text style={styles.dailyCardTitle}>{lessonTitle}</Text>
           <TouchableOpacity
-            style={styles.ctaButton}
+            style={styles.dailyCardButton}
             onPress={handleContinueTraining}
             activeOpacity={0.9}
-            accessibilityLabel={continueTrainingA11yLabel}
+            accessibilityLabel={drillA11yLabel}
             accessibilityRole="button"
           >
             <LinearGradient
               colors={[colors.primary, colors.secondary]}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 0 }}
-              style={styles.ctaButtonGradient}
+              style={styles.dailyCardButtonGradient}
             >
-              <IconSymbol ios_icon_name="play.fill" android_material_icon_name="play-arrow" size={22} color="#FFFFFF" />
-              <Text style={styles.ctaButtonText}>Continue Training</Text>
-              <IconSymbol ios_icon_name="arrow.right" android_material_icon_name="arrow-forward" size={20} color="#FFFFFF" />
+              <IconSymbol ios_icon_name="play.fill" android_material_icon_name="play-arrow" size={20} color="#FFFFFF" />
+              <Text style={styles.dailyCardButtonText}>{drillButtonLabel}</Text>
             </LinearGradient>
           </TouchableOpacity>
         </Animated.View>
@@ -1196,5 +1224,67 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     lineHeight: 18,
     textAlign: 'center',
+  },
+
+  // Daily Training Card
+  dailyCard: {
+    backgroundColor: colors.card,
+    borderRadius: 18,
+    padding: 20,
+    marginHorizontal: 16,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: colors.border,
+    gap: 10,
+  },
+  dailyCardMeta: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  dailyCardBadge: {
+    backgroundColor: colors.highlight,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 8,
+  },
+  dailyCardBadgeText: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: colors.primary,
+    letterSpacing: 0.5,
+  },
+  dailyCardDurationBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  dailyCardDurationText: {
+    fontSize: 12,
+    color: colors.textSecondary,
+    fontWeight: '600',
+  },
+  dailyCardTitle: {
+    fontSize: 20,
+    fontWeight: '800',
+    color: colors.text,
+    lineHeight: 26,
+  },
+  dailyCardButton: {
+    borderRadius: 14,
+    overflow: 'hidden',
+    marginTop: 4,
+  },
+  dailyCardButtonGradient: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 16,
+    gap: 10,
+  },
+  dailyCardButtonText: {
+    fontSize: 17,
+    fontWeight: '700',
+    color: '#FFFFFF',
   },
 });
