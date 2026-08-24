@@ -231,3 +231,20 @@ export const userEntitlementGrants = pgTable('user_entitlement_grants', {
 }, (t) => ({
   userIdx: index('user_entitlement_grants_user_id_idx').on(t.userId),
 }));
+
+export const rcWebhookEvents = pgTable('rc_webhook_events', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  providerEventId: text('provider_event_id').notNull(),
+  eventType: text('event_type').notNull(),
+  appUserId: text('app_user_id'),
+  originalAppUserId: text('original_app_user_id'),
+  normalizedStatus: text('normalized_status'),
+  eventAt: timestamp('event_at', { withTimezone: true }),
+  processed: boolean('processed').notNull().default(false),
+  processingError: text('processing_error'),
+  receivedAt: timestamp('received_at', { withTimezone: true }).notNull().defaultNow(),
+  processedAt: timestamp('processed_at', { withTimezone: true }),
+}, (t) => ({
+  providerEventIdUnique: uniqueIndex('rc_webhook_events_provider_event_id_idx').on(t.providerEventId),
+  appUserIdx: index('rc_webhook_events_app_user_id_idx').on(t.appUserId),
+}));

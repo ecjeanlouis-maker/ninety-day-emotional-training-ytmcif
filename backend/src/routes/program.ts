@@ -2,85 +2,13 @@ import type { FastifyRequest, FastifyReply } from 'fastify';
 import { eq, and } from 'drizzle-orm';
 import * as schema from '../db/schema.js';
 import type { App } from '../index.js';
-import { computeEntitlement } from '../lib/entitlement.js';
-
-function isPremiumProfile(p: { role: string; accountType: string; subscriptionStatus: string; trialStatus: string; subscriptionEndDate: Date | null }): boolean {
-  const now = new Date();
-  const end = p.subscriptionEndDate ? new Date(p.subscriptionEndDate) : null;
-  if (p.role === 'admin') return true;
-  if (p.subscriptionStatus === 'active' && p.accountType === 'premium') return !end || end > now;
-  if (p.subscriptionStatus === 'trialing' && p.trialStatus === 'active') return !end || end > now;
-  if (p.subscriptionStatus === 'cancelled' && end && end > now) return true;
-  if (p.subscriptionStatus === 'past_due') return true;
-  return false;
-}
-
-async function getUserIsPremium(app: App, userId: string): Promise<boolean> {
-  const rows = await app.db.select().from(schema.userProfiles).where(eq(schema.userProfiles.userId, userId)).limit(1);
-  return rows.length > 0 && isPremiumProfile(rows[0]);
-}
+import { computeEntitlement, userIsPremium } from '../lib/entitlement.js';
 
 async function getPrevDayCompleted(app: App, userId: string, dayNum: number): Promise<boolean> {
   if (dayNum <= 1) return true;
   const rows = await app.db.select().from(schema.userDayProgress)
     .where(and(eq(schema.userDayProgress.userId, userId), eq(schema.userDayProgress.dayNumber, dayNum - 1))).limit(1);
   return rows.length > 0 && rows[0].completed === true;
-}
-
-// ─── Entitlement helpers (inline) ─────────────────────────────────────────────
-
-function computeEntitlementLocal(profile: {
-  role: string;
-  accountType: string;
-  subscriptionStatus: string;
-  trialStatus: string;
-  subscriptionEndDate: Date | null;
-  paymentStatus: string;
-}): { isPremium: boolean; status: string; validUntil: string | null; reason: string } {
-  const now = new Date();
-  const endDate = profile.subscriptionEndDate ? new Date(profile.subscriptionEndDate) : null;
-
-  if (profile.role === 'admin') {
-    return { isPremium: true, status: 'active', validUntil: null, reason: 'admin_role' };
-  }
-  if (profile.subscriptionStatus === 'active' && profile.accountType === 'premium') {
-    if (!endDate || endDate > now) {
-      return { isPremium: true, status: 'active', validUntil: endDate?.toISOString() ?? null, reason: 'subscription_active' };
-    }
-    return { isPremium: false, status: 'expired', validUntil: endDate.toISOString(), reason: 'subscription_expired' };
-  }
-  if (profile.subscriptionStatus === 'trialing' && profile.trialStatus === 'active') {
-    if (!endDate || endDate > now) {
-      return { isPremium: true, status: 'trialing', validUntil: endDate?.toISOString() ?? null, reason: 'trial_active' };
-    }
-    return { isPremium: false, status: 'expired', validUntil: endDate?.toISOString() ?? null, reason: 'trial_expired' };
-  }
-  if (profile.subscriptionStatus === 'cancelled' && endDate && endDate > now) {
-    return { isPremium: true, status: 'grace', validUntil: endDate.toISOString(), reason: 'canceled_period_end' };
-  }
-  if (profile.subscriptionStatus === 'past_due') {
-    return { isPremium: true, status: 'past_due', validUntil: endDate?.toISOString() ?? null, reason: 'payment_past_due' };
-  }
-  if (profile.subscriptionStatus === 'refunded' || profile.paymentStatus === 'refunded') {
-    return { isPremium: false, status: 'refunded_or_revoked', validUntil: null, reason: 'payment_refunded' };
-  }
-  if (profile.subscriptionStatus === 'paused') {
-    return { isPremium: false, status: 'paused', validUntil: endDate?.toISOString() ?? null, reason: 'subscription_paused' };
-  }
-  if (profile.subscriptionStatus === 'expired') {
-    return { isPremium: false, status: 'expired', validUntil: endDate?.toISOString() ?? null, reason: 'subscription_expired' };
-  }
-  return { isPremium: false, status: 'free', validUntil: null, reason: 'no_subscription' };
-}
-
-async function checkPremiumEntitlementLocal(app: App, userId: string): Promise<boolean> {
-  const profileRows = await app.db
-    .select()
-    .from(schema.userProfiles)
-    .where(eq(schema.userProfiles.userId, userId))
-    .limit(1);
-  if (profileRows.length === 0) return false;
-  return computeEntitlementLocal(profileRows[0]).isPremium;
 }
 
 async function checkProgressionLockLocal(app: App, userId: string, dayNumber: number): Promise<{ locked: boolean; requiredDay: number }> {
@@ -743,7 +671,7 @@ export function registerProgramRoutes(app: App) {
       const session = await requireAuth(request, reply);
       if (!session) return; // requireAuth already sent 401
 
-      const isPremium = await getUserIsPremium(app, session.user.id);
+      const isPremium = await userIsPremium(app, session.user.id);
       if (!isPremium) {
         app.logger.warn({ userId: session.user.id, dayNumber: num }, 'Premium required for day');
         return reply.status(403).send({
@@ -829,7 +757,7 @@ export function registerProgramRoutes(app: App) {
 
     // Premium gate for days 8-90
     if (num > 7) {
-      const isPremium = await checkPremiumEntitlementLocal(app, userId);
+      const isPremium = await userIsPremium(app, userId);
       if (!isPremium) {
         app.logger.warn({ userId, dayNumber: num }, 'Premium required');
         return reply.status(403).send({
@@ -924,7 +852,7 @@ export function registerProgramRoutes(app: App) {
 
     // Premium gate for days 8-90
     if (num > 7) {
-      const isPremium = await getUserIsPremium(app, userId);
+      const isPremium = await userIsPremium(app, userId);
       if (!isPremium) {
         app.logger.warn({ userId, dayNumber: num }, 'Premium required for PATCH');
         return reply.status(403).send({
@@ -1089,7 +1017,7 @@ export function registerProgramRoutes(app: App) {
 
     // Premium gate for days 8-90
     if (num > 7) {
-      const isPremium = await getUserIsPremium(app, userId);
+      const isPremium = await userIsPremium(app, userId);
       if (!isPremium) {
         app.logger.warn({ userId, dayNumber: num }, 'Premium required for complete');
         return reply.status(403).send({
