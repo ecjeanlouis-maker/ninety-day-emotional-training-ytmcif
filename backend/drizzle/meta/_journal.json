@@ -57,6 +57,13 @@
       "when": 1787591157161,
       "tag": "20260824170557_slow_lady_bullseye",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1787592191757,
+      "tag": "20260824172311_free_surge",
+      "breakpoints": true
     }
   ]
 }

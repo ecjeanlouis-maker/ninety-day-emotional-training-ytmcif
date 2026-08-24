@@ -248,3 +248,60 @@ export const rcWebhookEvents = pgTable('rc_webhook_events', {
   providerEventIdUnique: uniqueIndex('rc_webhook_events_provider_event_id_idx').on(t.providerEventId),
   appUserIdx: index('rc_webhook_events_app_user_id_idx').on(t.appUserId),
 }));
+
+export const userReminderPrefs = pgTable('user_reminder_prefs', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  userId: text('user_id')
+    .notNull()
+    .references(() => user.id, { onDelete: 'cascade' }),
+  enabled: boolean('enabled').notNull().default(false),
+  reminderTime: text('reminder_time').notNull().default('08:00'),
+  timezone: text('timezone').notNull().default('UTC'),
+  activeDays: jsonb('active_days').notNull().default([1, 2, 3, 4, 5, 6, 7]),
+  quietHoursStart: text('quiet_hours_start'),
+  quietHoursEnd: text('quiet_hours_end'),
+  missedDayReminder: boolean('missed_day_reminder').notNull().default(false),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+}, (t) => ({
+  userIdUnique: uniqueIndex('user_reminder_prefs_user_id_idx').on(t.userId),
+}));
+
+export const analyticsEvents = pgTable('analytics_events', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  userId: text('user_id').notNull(),
+  eventName: text('event_name').notNull(),
+  properties: jsonb('properties').notNull().default({}),
+  sessionId: text('session_id'),
+  platform: text('platform'),
+  appVersion: text('app_version'),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+}, (t) => ({
+  userIdIdx: index('analytics_events_user_id_idx').on(t.userId),
+  eventNameIdx: index('analytics_events_event_name_idx').on(t.eventName),
+  createdAtIdx: index('analytics_events_created_at_idx').on(t.createdAt),
+}));
+
+export const analyticsConsent = pgTable('analytics_consent', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  userId: text('user_id')
+    .notNull()
+    .references(() => user.id, { onDelete: 'cascade' }),
+  usageAnalyticsEnabled: boolean('usage_analytics_enabled').notNull().default(true),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+}, (t) => ({
+  userIdUnique: uniqueIndex('analytics_consent_user_id_idx').on(t.userId),
+}));
+
+export const accountDeletionRequests = pgTable('account_deletion_requests', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  userId: text('user_id')
+    .notNull()
+    .references(() => user.id, { onDelete: 'cascade' }),
+  requestedAt: timestamp('requested_at', { withTimezone: true }).notNull().defaultNow(),
+  scheduledDeletionAt: timestamp('scheduled_deletion_at', { withTimezone: true }).notNull(),
+  status: text('status').notNull().default('pending'),
+  completedAt: timestamp('completed_at', { withTimezone: true }),
+  billingNote: text('billing_note'),
+}, (t) => ({
+  userIdIdx: index('account_deletion_requests_user_id_idx').on(t.userId),
+}));
