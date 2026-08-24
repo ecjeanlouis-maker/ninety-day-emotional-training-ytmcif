@@ -1,4 +1,4 @@
-import { pgTable, uuid, text, timestamp, boolean, decimal, integer, jsonb, uniqueIndex } from 'drizzle-orm/pg-core';
+import { pgTable, uuid, text, timestamp, boolean, decimal, integer, jsonb, uniqueIndex, index } from 'drizzle-orm/pg-core';
 import { user } from './auth-schema.js';
 
 export const paymentMethods = pgTable('payment_methods', {
@@ -218,4 +218,16 @@ export const journalEntries = pgTable('journal_entries', {
   updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
 }, (t) => ({
   userEntryUnique: uniqueIndex('journal_entries_user_id_id_idx').on(t.userId, t.id),
+}));
+
+export const userEntitlementGrants = pgTable('user_entitlement_grants', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  userId: text('user_id').notNull().references(() => userProfiles.userId),
+  grantedBy: text('granted_by').notNull(),
+  reason: text('reason').notNull(),
+  expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+  revokedAt: timestamp('revoked_at', { withTimezone: true }),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+}, (t) => ({
+  userIdx: index('user_entitlement_grants_user_id_idx').on(t.userId),
 }));

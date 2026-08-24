@@ -2,6 +2,7 @@ import type { FastifyRequest, FastifyReply } from 'fastify';
 import { eq, and } from 'drizzle-orm';
 import * as schema from '../db/schema.js';
 import type { App } from '../index.js';
+import { computeEntitlement } from '../lib/entitlement.js';
 
 interface DayContent {
   day_number: number;
@@ -562,9 +563,9 @@ const PROGRAM_DAYS: DayContent[] = [
   // Days 73-90: Template days (Integration phase)
   ...Array.from({ length: 18 }, (_, i) => {
     const dayNum = 73 + i;
-    const weekInPhase = Math.floor(i / 2) + 1;
     const phases = ['Resilience', 'Resilience', 'Integration', 'Integration', 'Resilience', 'Integration', 'Resilience', 'Integration', 'Integration'];
     const phase = phases[Math.floor(i / 2)] || 'Integration';
+    const weekInPhase = Math.floor(i / 2) + 1;
     return {
       day_number: dayNum,
       title: `Day ${dayNum} Practice`,
@@ -591,10 +592,11 @@ export function registerProgramRoutes(app: App) {
       tags: ['program'],
     },
   }, async (_request: FastifyRequest, reply: FastifyReply) => {
+    app.logger.info({}, 'GET /api/program/content');
     return reply.send({ days: PROGRAM_DAYS });
   });
 
-  // GET /api/program/content/:dayNumber — public, single day
+  // GET /api/program/content/:dayNumber — public for days 1-7, auth+premium for days 8-90
   app.fastify.get('/api/program/content/:dayNumber', {
     schema: {
       description: 'Get content for a specific day',
@@ -607,10 +609,40 @@ export function registerProgramRoutes(app: App) {
   }, async (request: FastifyRequest, reply: FastifyReply) => {
     const { dayNumber } = request.params as { dayNumber: string };
     const num = parseInt(dayNumber, 10);
+
+    app.logger.info({ dayNumber: num }, 'GET /api/program/content/:dayNumber');
+
     const day = DAY_MAP.get(num);
     if (!day) {
+      app.logger.warn({ dayNumber: num }, 'Day not found');
       return reply.status(404).send({ error: 'day_not_found' });
     }
+
+    // Days 8-90 require auth and premium
+    if (num > 7) {
+      const session = await requireAuth(request, reply);
+      if (!session) return; // requireAuth already sent 401
+
+      const profileRows = await app.db
+        .select()
+        .from(schema.userProfiles)
+        .where(eq(schema.userProfiles.userId, session.user.id));
+
+      const entitlement = profileRows.length > 0
+        ? computeEntitlement(profileRows[0])
+        : { isPremium: false };
+
+      if (!entitlement.isPremium) {
+        app.logger.warn({ userId: session.user.id, dayNumber: num }, 'Premium required for day');
+        return reply.status(403).send({
+          error: 'premium_required',
+          reason: 'days_8_90_require_premium',
+          days_1_7_access: true,
+        });
+      }
+    }
+
+    app.logger.info({ dayNumber: num }, 'Day content retrieved');
     return reply.send(day);
   });
 
@@ -623,6 +655,8 @@ export function registerProgramRoutes(app: App) {
   }, async (request: FastifyRequest, reply: FastifyReply) => {
     const session = await requireAuth(request, reply);
     if (!session) return;
+
+    app.logger.info({ userId: session.user.id }, 'GET /api/program/days');
 
     const userId = session.user.id;
     const records = await app.db
@@ -639,10 +673,12 @@ export function registerProgramRoutes(app: App) {
       completed_at: r.completedAt?.toISOString() ?? undefined,
     }));
 
+    app.logger.info({ userId, count: records.length }, 'Day progress retrieved');
     return reply.send({ days });
   });
 
   // GET /api/program/days/:dayNumber — auth required, single day progress
+  // Days 8-90: also check premium entitlement
   app.fastify.get('/api/program/days/:dayNumber', {
     schema: {
       description: 'Get progress for a specific day',
@@ -660,6 +696,28 @@ export function registerProgramRoutes(app: App) {
     const { dayNumber } = request.params as { dayNumber: string };
     const num = parseInt(dayNumber, 10);
 
+    app.logger.info({ userId, dayNumber: num }, 'GET /api/program/days/:dayNumber');
+
+    // Premium gate for days 8-90
+    if (num > 7) {
+      const profileRows = await app.db
+        .select()
+        .from(schema.userProfiles)
+        .where(eq(schema.userProfiles.userId, userId));
+
+      const entitlement = profileRows.length > 0
+        ? computeEntitlement(profileRows[0])
+        : { isPremium: false };
+
+      if (!entitlement.isPremium) {
+        app.logger.warn({ userId, dayNumber: num }, 'Premium required');
+        return reply.status(403).send({
+          error: 'premium_required',
+          reason: 'days_8_90_require_premium',
+        });
+      }
+    }
+
     const records = await app.db
       .select()
       .from(schema.userDayProgress)
@@ -670,10 +728,12 @@ export function registerProgramRoutes(app: App) {
       .limit(1);
 
     if (!records.length) {
+      app.logger.warn({ userId, dayNumber: num }, 'Day progress not found');
       return reply.status(404).send({ error: 'not_found' });
     }
 
     const r = records[0];
+    app.logger.info({ userId, dayNumber: num }, 'Day progress retrieved');
     return reply.send({
       day_number: r.dayNumber,
       completed: r.completed,
@@ -685,6 +745,7 @@ export function registerProgramRoutes(app: App) {
   });
 
   // PATCH /api/program/days/:dayNumber — auth required, upsert lesson_read / drill_completed
+  // Days 8-90: premium gate. All days: sequential progression gate.
   app.fastify.patch('/api/program/days/:dayNumber', {
     schema: {
       description: 'Update lesson_read and/or drill_completed for a day',
@@ -709,12 +770,56 @@ export function registerProgramRoutes(app: App) {
     const { dayNumber } = request.params as { dayNumber: string };
     const num = parseInt(dayNumber, 10);
 
+    app.logger.info({ userId, dayNumber: num, body: request.body }, 'PATCH /api/program/days/:dayNumber');
+
     if (!Number.isInteger(num) || num < 1 || num > 90) {
+      app.logger.warn({ dayNumber: num }, 'Invalid day number');
       return reply.status(400).send({ error: 'day_number must be between 1 and 90' });
     }
 
-    const body = request.body as { lesson_read?: boolean; drill_completed?: boolean };
+    // Premium gate for days 8-90
+    if (num > 7) {
+      const profileRows = await app.db
+        .select()
+        .from(schema.userProfiles)
+        .where(eq(schema.userProfiles.userId, userId));
 
+      const entitlement = profileRows.length > 0
+        ? computeEntitlement(profileRows[0])
+        : { isPremium: false };
+
+      if (!entitlement.isPremium) {
+        app.logger.warn({ userId, dayNumber: num }, 'Premium required for PATCH');
+        return reply.status(403).send({
+          error: 'premium_required',
+          reason: 'days_8_90_require_premium',
+        });
+      }
+    }
+
+    // Sequential progression gate: day N requires day N-1 to be completed
+    if (num > 1) {
+      const prevDayRecords = await app.db
+        .select()
+        .from(schema.userDayProgress)
+        .where(and(
+          eq(schema.userDayProgress.userId, userId),
+          eq(schema.userDayProgress.dayNumber, num - 1)
+        ))
+        .limit(1);
+
+      const prevCompleted = prevDayRecords.length > 0 && prevDayRecords[0].completed === true;
+      if (!prevCompleted) {
+        app.logger.warn({ userId, dayNumber: num, requiredDay: num - 1 }, 'Progression required');
+        return reply.status(403).send({
+          error: 'progression_required',
+          reason: 'complete_previous_day_first',
+          required_day: num - 1,
+        });
+      }
+    }
+
+    const body = request.body as { lesson_read?: boolean; drill_completed?: boolean };
     const now = new Date();
 
     // Try to find existing record
@@ -729,7 +834,6 @@ export function registerProgramRoutes(app: App) {
 
     let record;
     if (existing.length === 0) {
-      // Insert
       const inserted = await app.db
         .insert(schema.userDayProgress)
         .values({
@@ -742,8 +846,8 @@ export function registerProgramRoutes(app: App) {
         })
         .returning();
       record = inserted[0];
+      app.logger.info({ userId, dayNumber: num, record }, 'Day progress created');
     } else {
-      // Update
       const updateData: Record<string, any> = { updatedAt: now };
       if (body.lesson_read !== undefined) updateData.lessonRead = body.lesson_read;
       if (body.drill_completed !== undefined) updateData.drillCompleted = body.drill_completed;
@@ -757,6 +861,7 @@ export function registerProgramRoutes(app: App) {
         ))
         .returning();
       record = updated[0];
+      app.logger.info({ userId, dayNumber: num, record }, 'Day progress updated');
     }
 
     return reply.send({
@@ -770,6 +875,7 @@ export function registerProgramRoutes(app: App) {
   });
 
   // POST /api/program/days/:dayNumber/complete — auth required, mark day complete
+  // Days 8-90: premium gate. All days: sequential progression gate.
   app.fastify.post('/api/program/days/:dayNumber/complete', {
     schema: {
       description: 'Mark a day as complete',
@@ -796,7 +902,10 @@ export function registerProgramRoutes(app: App) {
     const { dayNumber } = request.params as { dayNumber: string };
     const num = parseInt(dayNumber, 10);
 
+    app.logger.info({ userId, dayNumber: num, body: request.body }, 'POST /api/program/days/:dayNumber/complete');
+
     if (!Number.isInteger(num) || num < 1 || num > 90) {
+      app.logger.warn({ dayNumber: num }, 'Invalid day number for complete');
       return reply.status(400).send({ error: 'day_number must be between 1 and 90' });
     }
 
@@ -808,13 +917,58 @@ export function registerProgramRoutes(app: App) {
     };
 
     if (body.emotional_identification !== undefined && (body.emotional_identification < 0 || body.emotional_identification > 10)) {
+      app.logger.warn({ emotional_identification: body.emotional_identification }, 'Invalid emotional_identification');
       return reply.status(400).send({ error: 'emotional_identification must be between 0 and 10' });
     }
     if (body.response_control !== undefined && (body.response_control < 0 || body.response_control > 10)) {
+      app.logger.warn({ response_control: body.response_control }, 'Invalid response_control');
       return reply.status(400).send({ error: 'response_control must be between 0 and 10' });
     }
     if (body.confidence_composure !== undefined && (body.confidence_composure < 0 || body.confidence_composure > 10)) {
+      app.logger.warn({ confidence_composure: body.confidence_composure }, 'Invalid confidence_composure');
       return reply.status(400).send({ error: 'confidence_composure must be between 0 and 10' });
+    }
+
+    // Premium gate for days 8-90
+    if (num > 7) {
+      const profileRows = await app.db
+        .select()
+        .from(schema.userProfiles)
+        .where(eq(schema.userProfiles.userId, userId));
+
+      const entitlement = profileRows.length > 0
+        ? computeEntitlement(profileRows[0])
+        : { isPremium: false };
+
+      if (!entitlement.isPremium) {
+        app.logger.warn({ userId, dayNumber: num }, 'Premium required for complete');
+        return reply.status(403).send({
+          error: 'premium_required',
+          reason: 'days_8_90_require_premium',
+        });
+      }
+    }
+
+    // Sequential progression gate: day N requires day N-1 to be completed
+    if (num > 1) {
+      const prevDayRecords = await app.db
+        .select()
+        .from(schema.userDayProgress)
+        .where(and(
+          eq(schema.userDayProgress.userId, userId),
+          eq(schema.userDayProgress.dayNumber, num - 1)
+        ))
+        .limit(1);
+
+      const prevCompleted = prevDayRecords.length > 0 && prevDayRecords[0].completed === true;
+      if (!prevCompleted) {
+        app.logger.warn({ userId, dayNumber: num, requiredDay: num - 1 }, 'Progression required for complete');
+        return reply.status(403).send({
+          error: 'progression_required',
+          reason: 'complete_previous_day_first',
+          required_day: num - 1,
+        });
+      }
     }
 
     const now = new Date();
@@ -847,6 +1001,7 @@ export function registerProgramRoutes(app: App) {
         })
         .returning();
       dayRecord = inserted[0];
+      app.logger.info({ userId, dayNumber: num }, 'Day progress completed (new)');
     } else {
       const updated = await app.db
         .update(schema.userDayProgress)
@@ -862,6 +1017,7 @@ export function registerProgramRoutes(app: App) {
         ))
         .returning();
       dayRecord = updated[0];
+      app.logger.info({ userId, dayNumber: num }, `Day progress completed (${wasAlreadyCompleted ? 'already completed' : 'updated'})`);
     }
 
     // Insert assessment if scores provided
@@ -881,6 +1037,7 @@ export function registerProgramRoutes(app: App) {
         overallScore: overall,
         assessmentType: 'progress',
       });
+      app.logger.info({ userId, dayNumber: num, overallScore: overall }, 'Assessment recorded');
     }
 
     // Get or create user_progress
@@ -914,20 +1071,16 @@ export function registerProgramRoutes(app: App) {
         const lastDate = new Date(lastCompleted);
         lastDate.setHours(0, 0, 0, 0);
         if (lastDate.getTime() === today.getTime()) {
-          // Already completed today — keep streak
           newStreak = prog.currentStreak;
         } else if (lastDate.getTime() === yesterday.getTime()) {
-          // Completed yesterday — increment
           newStreak = prog.currentStreak + 1;
         } else {
-          // Gap — reset
           newStreak = 1;
         }
       }
 
       newLongestStreak = Math.max(prog.longestStreak, newStreak);
 
-      // Guard idempotency: only increment if not already completed
       if (wasAlreadyCompleted) {
         newTotalDays = prog.totalDaysCompleted;
         newTotalXp = prog.totalXp;
@@ -940,7 +1093,6 @@ export function registerProgramRoutes(app: App) {
 
       newCurrentDay = Math.min(Math.max(prog.currentDay, num + 1), 90);
 
-      // Weekly completion: shift left, push true
       const prevWeekly = (prog.weeklyCompletion as boolean[]) || [];
       const padded = [...prevWeekly, ...Array(7).fill(false)].slice(-7);
       padded.shift();
@@ -960,8 +1112,8 @@ export function registerProgramRoutes(app: App) {
           updatedAt: now,
         })
         .where(eq(schema.userProgress.userId, userId));
+      app.logger.info({ userId, streak: newStreak, totalXp: newTotalXp }, 'Progress updated');
     } else {
-      // Create new progress record
       await app.db.insert(schema.userProgress).values({
         userId,
         currentDay: newCurrentDay,
@@ -972,8 +1124,10 @@ export function registerProgramRoutes(app: App) {
         weeklyCompletion: newWeeklyCompletion,
         lastCompletedAt: now,
       });
+      app.logger.info({ userId, streak: newStreak, totalXp: newTotalXp }, 'Progress created');
     }
 
+    app.logger.info({ userId, dayNumber: num, xpEarned }, 'Day completion processed');
     return reply.send({
       day_progress: {
         day_number: dayRecord.dayNumber,
