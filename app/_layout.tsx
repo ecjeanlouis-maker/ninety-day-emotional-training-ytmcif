@@ -19,7 +19,12 @@ import { AuthProvider } from "@/contexts/AuthContext";
 import { SubscriptionProvider } from "@/contexts/SubscriptionContext";
 import { UserProvider } from "@/contexts/UserContext";
 import { AuthGate } from "@/components/AuthGate";
+import { validateBuildConfig, assertNoServerSecrets } from "@/utils/buildConfig";
 // Note: Error logging is auto-initialized via index.ts import
+
+// Validate build config at module load — fails loudly in dev if misconfigured
+validateBuildConfig();
+assertNoServerSecrets();
 
 // Prevent the splash screen from auto-hiding before asset loading is complete.
 SplashScreen.preventAutoHideAsync();
