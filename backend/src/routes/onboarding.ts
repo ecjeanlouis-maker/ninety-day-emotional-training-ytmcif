@@ -23,10 +23,10 @@ export function registerOnboardingRoutes(app: App) {
         body: {
           type: "object",
           properties: {
-            preferred_name: { type: "string" },
-            primary_goal: { type: "string" },
-            biggest_challenge: { type: "string" },
-            reminder_time: { type: "string" },
+            preferred_name: { type: "string", maxLength: 100 },
+            primary_goal: { type: "string", maxLength: 200 },
+            biggest_challenge: { type: "string", maxLength: 500 },
+            reminder_time: { type: "string", maxLength: 10 },
           },
         },
         response: {

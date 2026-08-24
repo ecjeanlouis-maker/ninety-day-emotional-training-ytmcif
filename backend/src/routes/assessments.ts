@@ -28,9 +28,9 @@ export function registerAssessmentRoutes(app: App) {
             "confidence_composure",
           ],
           properties: {
-            emotional_identification: { type: "number" },
-            response_control: { type: "number" },
-            confidence_composure: { type: "number" },
+            emotional_identification: { type: "integer", minimum: 0, maximum: 100 },
+            response_control: { type: "integer", minimum: 0, maximum: 100 },
+            confidence_composure: { type: "integer", minimum: 0, maximum: 100 },
             assessment_type: { type: "string" },
           },
         },

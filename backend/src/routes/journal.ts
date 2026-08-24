@@ -15,7 +15,7 @@ export function registerJournalRoutes(app: App) {
         querystring: {
           type: 'object',
           properties: {
-            search: { type: 'string', description: 'Search entries by title or content' },
+            search: { type: 'string', maxLength: 200, description: 'Search entries by title or content' },
           },
         },
         response: {
@@ -101,10 +101,10 @@ export function registerJournalRoutes(app: App) {
           type: 'object',
           required: ['content'],
           properties: {
-            content: { type: 'string' },
-            title: { type: 'string' },
-            mood: { type: 'string' },
-            tags: { type: 'array', items: { type: 'string' } },
+            content: { type: 'string', minLength: 1, maxLength: 10000 },
+            title: { type: 'string', maxLength: 200 },
+            mood: { type: 'string', maxLength: 50 },
+            tags: { type: 'array', maxItems: 20, items: { type: 'string', maxLength: 50 } },
           },
         },
         response: {
@@ -246,22 +246,16 @@ export function registerJournalRoutes(app: App) {
       const entry = await app.db
         .select()
         .from(schema.journalEntries)
-        .where(eq(schema.journalEntries.id, id))
+        .where(and(
+          eq(schema.journalEntries.id, id),
+          eq(schema.journalEntries.userId, session.user.id)
+        ))
         .limit(1);
 
       if (!entry.length) {
         app.logger.warn(
           { userId: session.user.id, entryId: id },
           'Journal entry not found'
-        );
-        reply.status(404).send({ error: 'Journal entry not found' });
-        return;
-      }
-
-      if (entry[0].userId !== session.user.id) {
-        app.logger.warn(
-          { userId: session.user.id, entryId: id, ownerId: entry[0].userId },
-          'Unauthorized access attempt'
         );
         reply.status(404).send({ error: 'Journal entry not found' });
         return;
@@ -292,10 +286,10 @@ export function registerJournalRoutes(app: App) {
         body: {
           type: 'object',
           properties: {
-            title: { type: 'string' },
-            content: { type: 'string' },
-            mood: { type: 'string', nullable: true },
-            tags: { type: 'array', items: { type: 'string' } },
+            title: { type: 'string', maxLength: 200 },
+            content: { type: 'string', maxLength: 10000 },
+            mood: { type: 'string', nullable: true, maxLength: 50 },
+            tags: { type: 'array', maxItems: 20, items: { type: 'string', maxLength: 50 } },
           },
         },
         response: {
@@ -353,22 +347,16 @@ export function registerJournalRoutes(app: App) {
       const entry = await app.db
         .select()
         .from(schema.journalEntries)
-        .where(eq(schema.journalEntries.id, id))
+        .where(and(
+          eq(schema.journalEntries.id, id),
+          eq(schema.journalEntries.userId, session.user.id)
+        ))
         .limit(1);
 
       if (!entry.length) {
         app.logger.warn(
           { userId: session.user.id, entryId: id },
           'Journal entry not found'
-        );
-        reply.status(404).send({ error: 'Journal entry not found' });
-        return;
-      }
-
-      if (entry[0].userId !== session.user.id) {
-        app.logger.warn(
-          { userId: session.user.id, entryId: id, ownerId: entry[0].userId },
-          'Unauthorized access attempt'
         );
         reply.status(404).send({ error: 'Journal entry not found' });
         return;
@@ -384,7 +372,10 @@ export function registerJournalRoutes(app: App) {
       const [updated] = await app.db
         .update(schema.journalEntries)
         .set(updates)
-        .where(eq(schema.journalEntries.id, id))
+        .where(and(
+          eq(schema.journalEntries.id, id),
+          eq(schema.journalEntries.userId, session.user.id)
+        ))
         .returning();
 
       app.logger.info(
@@ -448,7 +439,10 @@ export function registerJournalRoutes(app: App) {
       const entry = await app.db
         .select()
         .from(schema.journalEntries)
-        .where(eq(schema.journalEntries.id, id))
+        .where(and(
+          eq(schema.journalEntries.id, id),
+          eq(schema.journalEntries.userId, session.user.id)
+        ))
         .limit(1);
 
       if (!entry.length) {
@@ -460,18 +454,12 @@ export function registerJournalRoutes(app: App) {
         return;
       }
 
-      if (entry[0].userId !== session.user.id) {
-        app.logger.warn(
-          { userId: session.user.id, entryId: id, ownerId: entry[0].userId },
-          'Unauthorized access attempt'
-        );
-        reply.status(404).send({ error: 'Journal entry not found' });
-        return;
-      }
-
       await app.db
         .delete(schema.journalEntries)
-        .where(eq(schema.journalEntries.id, id));
+        .where(and(
+          eq(schema.journalEntries.id, id),
+          eq(schema.journalEntries.userId, session.user.id)
+        ));
 
       app.logger.info(
         { userId: session.user.id, entryId: id },

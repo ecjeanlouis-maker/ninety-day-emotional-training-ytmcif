@@ -47,16 +47,7 @@ export function registerProgressRoutes(app: App) {
       reply: FastifyReply
     ): Promise<ProgressResponse> => {
       const session = await requireAuth(request, reply);
-      if (!session) {
-        return {
-          current_streak: 0,
-          longest_streak: 0,
-          total_days_completed: 0,
-          total_xp: 0,
-          weekly_completion: [],
-          current_day: 1,
-        };
-      }
+      if (!session) return;
 
       const userId = session.user.id;
       app.logger.info({ userId }, "Fetching progress");

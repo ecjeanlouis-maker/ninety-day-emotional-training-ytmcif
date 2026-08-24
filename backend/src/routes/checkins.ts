@@ -1,5 +1,5 @@
 import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
-import { eq, desc } from 'drizzle-orm';
+import { eq, desc, and } from 'drizzle-orm';
 import * as schema from '../db/schema.js';
 import type { App } from '../index.js';
 
@@ -74,11 +74,11 @@ export function registerCheckinRoutes(app: App) {
           type: 'object',
           required: ['emotion'],
           properties: {
-            emotion: { type: 'string' },
-            intensity: { type: 'integer' },
-            trigger_note: { type: 'string' },
-            chosen_response: { type: 'string' },
-            notes: { type: 'string' },
+            emotion: { type: 'string', minLength: 1, maxLength: 100 },
+            intensity: { type: 'integer', minimum: 1, maximum: 10 },
+            trigger_note: { type: 'string', maxLength: 500 },
+            chosen_response: { type: 'string', maxLength: 500 },
+            notes: { type: 'string', maxLength: 1000 },
           },
         },
         response: {
@@ -213,7 +213,10 @@ export function registerCheckinRoutes(app: App) {
       const checkin = await app.db
         .select()
         .from(schema.emotionalCheckins)
-        .where(eq(schema.emotionalCheckins.id, id))
+        .where(and(
+          eq(schema.emotionalCheckins.id, id),
+          eq(schema.emotionalCheckins.userId, session.user.id)
+        ))
         .limit(1);
 
       if (!checkin.length) {
@@ -225,18 +228,12 @@ export function registerCheckinRoutes(app: App) {
         return;
       }
 
-      if (checkin[0].userId !== session.user.id) {
-        app.logger.warn(
-          { userId: session.user.id, checkinId: id, ownerId: checkin[0].userId },
-          'Unauthorized access attempt'
-        );
-        reply.status(404).send({ error: 'Check-in not found' });
-        return;
-      }
-
       await app.db
         .delete(schema.emotionalCheckins)
-        .where(eq(schema.emotionalCheckins.id, id));
+        .where(and(
+          eq(schema.emotionalCheckins.id, id),
+          eq(schema.emotionalCheckins.userId, session.user.id)
+        ));
 
       app.logger.info(
         { userId: session.user.id, checkinId: id },

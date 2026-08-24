@@ -708,6 +708,11 @@ export function registerProgramRoutes(app: App) {
     const userId = session.user.id;
     const { dayNumber } = request.params as { dayNumber: string };
     const num = parseInt(dayNumber, 10);
+
+    if (!Number.isInteger(num) || num < 1 || num > 90) {
+      return reply.status(400).send({ error: 'day_number must be between 1 and 90' });
+    }
+
     const body = request.body as { lesson_read?: boolean; drill_completed?: boolean };
 
     const now = new Date();
@@ -776,10 +781,10 @@ export function registerProgramRoutes(app: App) {
       body: {
         type: 'object',
         properties: {
-          reflection_text: { type: 'string' },
-          emotional_identification: { type: 'number' },
-          response_control: { type: 'number' },
-          confidence_composure: { type: 'number' },
+          reflection_text: { type: 'string', maxLength: 2000 },
+          emotional_identification: { type: 'integer', minimum: 0, maximum: 100 },
+          response_control: { type: 'integer', minimum: 0, maximum: 100 },
+          confidence_composure: { type: 'integer', minimum: 0, maximum: 100 },
         },
       },
     },
@@ -790,6 +795,11 @@ export function registerProgramRoutes(app: App) {
     const userId = session.user.id;
     const { dayNumber } = request.params as { dayNumber: string };
     const num = parseInt(dayNumber, 10);
+
+    if (!Number.isInteger(num) || num < 1 || num > 90) {
+      return reply.status(400).send({ error: 'day_number must be between 1 and 90' });
+    }
+
     const body = request.body as {
       reflection_text?: string;
       emotional_identification?: number;
@@ -808,6 +818,8 @@ export function registerProgramRoutes(app: App) {
         eq(schema.userDayProgress.dayNumber, num)
       ))
       .limit(1);
+
+    const wasAlreadyCompleted = existing.length > 0 && existing[0].completed === true;
 
     let dayRecord;
     if (existing.length === 0) {
@@ -873,6 +885,7 @@ export function registerProgramRoutes(app: App) {
     let newLongestStreak = 1;
     let newTotalDays = 1;
     let newTotalXp = XP_PER_DAY;
+    let xpEarned = XP_PER_DAY;
     let newCurrentDay = Math.min(num + 1, 90);
     let newWeeklyCompletion: boolean[] = [false, false, false, false, false, false, true];
 
@@ -903,8 +916,18 @@ export function registerProgramRoutes(app: App) {
       }
 
       newLongestStreak = Math.max(prog.longestStreak, newStreak);
-      newTotalDays = prog.totalDaysCompleted + 1;
-      newTotalXp = prog.totalXp + XP_PER_DAY;
+
+      // Guard idempotency: only increment if not already completed
+      if (wasAlreadyCompleted) {
+        newTotalDays = prog.totalDaysCompleted;
+        newTotalXp = prog.totalXp;
+        xpEarned = 0;
+      } else {
+        newTotalDays = prog.totalDaysCompleted + 1;
+        newTotalXp = prog.totalXp + XP_PER_DAY;
+        xpEarned = XP_PER_DAY;
+      }
+
       newCurrentDay = Math.min(Math.max(prog.currentDay, num + 1), 90);
 
       // Weekly completion: shift left, push true
@@ -951,7 +974,7 @@ export function registerProgramRoutes(app: App) {
         completed_at: dayRecord.completedAt?.toISOString() ?? undefined,
       } as DayProgressResponse,
       streak: newStreak,
-      xp_earned: XP_PER_DAY,
+      xp_earned: xpEarned,
       achievements_unlocked: [] as string[],
     });
   });
