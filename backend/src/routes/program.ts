@@ -782,9 +782,9 @@ export function registerProgramRoutes(app: App) {
         type: 'object',
         properties: {
           reflection_text: { type: 'string', maxLength: 2000 },
-          emotional_identification: { type: 'integer', minimum: 0, maximum: 100 },
-          response_control: { type: 'integer', minimum: 0, maximum: 100 },
-          confidence_composure: { type: 'integer', minimum: 0, maximum: 100 },
+          emotional_identification: { type: 'integer', minimum: 0, maximum: 10 },
+          response_control: { type: 'integer', minimum: 0, maximum: 10 },
+          confidence_composure: { type: 'integer', minimum: 0, maximum: 10 },
         },
       },
     },
@@ -806,6 +806,16 @@ export function registerProgramRoutes(app: App) {
       response_control?: number;
       confidence_composure?: number;
     };
+
+    if (body.emotional_identification !== undefined && (body.emotional_identification < 0 || body.emotional_identification > 10)) {
+      return reply.status(400).send({ error: 'emotional_identification must be between 0 and 10' });
+    }
+    if (body.response_control !== undefined && (body.response_control < 0 || body.response_control > 10)) {
+      return reply.status(400).send({ error: 'response_control must be between 0 and 10' });
+    }
+    if (body.confidence_composure !== undefined && (body.confidence_composure < 0 || body.confidence_composure > 10)) {
+      return reply.status(400).send({ error: 'confidence_composure must be between 0 and 10' });
+    }
 
     const now = new Date();
 

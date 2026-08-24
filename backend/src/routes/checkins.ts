@@ -12,6 +12,13 @@ export function registerCheckinRoutes(app: App) {
       schema: {
         description: 'Get the last 20 emotional check-ins for the authenticated user',
         tags: ['checkins'],
+        querystring: {
+          type: 'object',
+          properties: {
+            limit: { type: 'integer', minimum: 1, maximum: 100, default: 20 },
+            offset: { type: 'integer', minimum: 0, maximum: 10000, default: 0 },
+          },
+        },
         response: {
           200: {
             type: 'object',
@@ -42,9 +49,17 @@ export function registerCheckinRoutes(app: App) {
         },
       },
     },
-    async (request: FastifyRequest, reply: FastifyReply): Promise<void> => {
+    async (request: FastifyRequest<{ Querystring: { limit?: number; offset?: number } }>, reply: FastifyReply): Promise<void> => {
       const session = await requireAuth(request, reply);
       if (!session) return;
+
+      const rawLimit = request.query.limit ?? 20;
+      const rawOffset = request.query.offset ?? 0;
+      if (rawLimit > 100) {
+        return reply.status(400).send({ error: 'limit must not exceed 100' });
+      }
+      const limit = Math.min(rawLimit, 100);
+      const offset = Math.min(rawOffset, 10000);
 
       app.logger.info({ userId: session.user.id }, 'Fetching check-ins');
 
@@ -53,7 +68,8 @@ export function registerCheckinRoutes(app: App) {
         .from(schema.emotionalCheckins)
         .where(eq(schema.emotionalCheckins.userId, session.user.id))
         .orderBy(desc(schema.emotionalCheckins.createdAt))
-        .limit(20);
+        .limit(limit)
+        .offset(offset);
 
       app.logger.info(
         { userId: session.user.id, count: checkins.length },
@@ -124,20 +140,27 @@ export function registerCheckinRoutes(app: App) {
       const session = await requireAuth(request, reply);
       if (!session) return;
 
-      const { emotion, intensity = 3, trigger_note, chosen_response, notes } = request.body;
+      const { emotion, intensity, trigger_note, chosen_response, notes } = request.body;
 
       app.logger.info(
         { userId: session.user.id, emotion, intensity },
         'Creating check-in'
       );
 
-      if (!emotion || typeof emotion !== 'string') {
-        app.logger.warn(
-          { userId: session.user.id, emotion },
-          'Invalid emotion provided'
-        );
-        reply.status(400).send({ error: 'emotion is required and must be a string' });
-        return;
+      if (!emotion || typeof emotion !== 'string' || emotion.length > 100) {
+        return reply.status(400).send({ error: 'emotion is invalid' });
+      }
+      if (trigger_note !== undefined && (typeof trigger_note !== 'string' || trigger_note.length > 500)) {
+        return reply.status(400).send({ error: 'trigger_note is invalid' });
+      }
+      if (notes !== undefined && (typeof notes !== 'string' || notes.length > 1000)) {
+        return reply.status(400).send({ error: 'notes is invalid' });
+      }
+      if (chosen_response !== undefined && (typeof chosen_response !== 'string' || chosen_response.length > 500)) {
+        return reply.status(400).send({ error: 'chosen_response is invalid' });
+      }
+      if (intensity !== undefined && (typeof intensity !== 'number' || intensity < 1 || intensity > 10)) {
+        return reply.status(400).send({ error: 'intensity is invalid' });
       }
 
       const [created] = await app.db
@@ -145,7 +168,7 @@ export function registerCheckinRoutes(app: App) {
         .values({
           userId: session.user.id,
           emotion,
-          intensity,
+          intensity: intensity ?? 3,
           triggerNote: trigger_note,
           chosenResponse: chosen_response,
           notes,

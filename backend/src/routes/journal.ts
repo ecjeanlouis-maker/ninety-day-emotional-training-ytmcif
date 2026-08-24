@@ -15,7 +15,9 @@ export function registerJournalRoutes(app: App) {
         querystring: {
           type: 'object',
           properties: {
-            search: { type: 'string', maxLength: 200, description: 'Search entries by title or content' },
+            search: { type: 'string', maxLength: 200 },
+            limit: { type: 'integer', minimum: 1, maximum: 100, default: 20 },
+            offset: { type: 'integer', minimum: 0, maximum: 10000, default: 0 },
           },
         },
         response: {
@@ -50,27 +52,34 @@ export function registerJournalRoutes(app: App) {
       },
     },
     async (
-      request: FastifyRequest<{ Querystring: { search?: string } }>,
+      request: FastifyRequest<{ Querystring: { search?: string; limit?: number; offset?: number } }>,
       reply: FastifyReply
     ): Promise<void> => {
       const session = await requireAuth(request, reply);
       if (!session) return;
 
-      const { search } = request.query as { search?: string };
+      const { search, limit: rawLimit, offset: rawOffset } = request.query;
+      if ((rawLimit ?? 20) > 100) {
+        return reply.status(400).send({ error: 'limit must not exceed 100' });
+      }
+      const limit = Math.min(rawLimit ?? 20, 100);
+      const offset = Math.min(rawOffset ?? 0, 10000);
+      // Cap search to 200 chars
+      const safeSearch = search ? search.slice(0, 200) : undefined;
 
       app.logger.info(
-        { userId: session.user.id, search },
+        { userId: session.user.id, search: safeSearch },
         'Fetching journal entries'
       );
 
       let whereCondition = eq(schema.journalEntries.userId, session.user.id);
 
-      if (search) {
+      if (safeSearch) {
         whereCondition = and(
           eq(schema.journalEntries.userId, session.user.id),
           or(
-            ilike(schema.journalEntries.title, `%${search}%`),
-            ilike(schema.journalEntries.content, `%${search}%`)
+            ilike(schema.journalEntries.title, `%${safeSearch}%`),
+            ilike(schema.journalEntries.content, `%${safeSearch}%`)
           )
         );
       }
@@ -80,7 +89,8 @@ export function registerJournalRoutes(app: App) {
         .from(schema.journalEntries)
         .where(whereCondition)
         .orderBy(desc(schema.journalEntries.createdAt))
-        .limit(50);
+        .limit(limit)
+        .offset(offset);
 
       app.logger.info(
         { userId: session.user.id, count: entries.length },
@@ -157,13 +167,11 @@ export function registerJournalRoutes(app: App) {
         'Creating journal entry'
       );
 
-      if (!content || typeof content !== 'string') {
-        app.logger.warn(
-          { userId: session.user.id, contentType: typeof content },
-          'Invalid content provided'
-        );
-        reply.status(400).send({ error: 'content is required and must be a string' });
-        return;
+      if (!content || typeof content !== 'string' || content.length < 1 || content.length > 10000) {
+        return reply.status(400).send({ error: 'content is invalid' });
+      }
+      if (title !== undefined && (typeof title !== 'string' || title.length > 200)) {
+        return reply.status(400).send({ error: 'title is invalid' });
       }
 
       const [created] = await app.db
@@ -360,6 +368,13 @@ export function registerJournalRoutes(app: App) {
         );
         reply.status(404).send({ error: 'Journal entry not found' });
         return;
+      }
+
+      if (content !== undefined && (typeof content !== 'string' || content.length < 1 || content.length > 10000)) {
+        return reply.status(400).send({ error: 'content is invalid' });
+      }
+      if (title !== undefined && (typeof title !== 'string' || title.length > 200)) {
+        return reply.status(400).send({ error: 'title is invalid' });
       }
 
       const updates: any = {};

@@ -60,6 +60,19 @@ export function registerOnboardingRoutes(app: App) {
       const { preferred_name, primary_goal, biggest_challenge, reminder_time } =
         request.body;
 
+      if (preferred_name !== undefined && (typeof preferred_name !== 'string' || preferred_name.length > 100)) {
+        return reply.status(400).send({ error: 'preferred_name is invalid' });
+      }
+      if (primary_goal !== undefined && (typeof primary_goal !== 'string' || primary_goal.length > 500)) {
+        return reply.status(400).send({ error: 'primary_goal is invalid' });
+      }
+      if (biggest_challenge !== undefined && (typeof biggest_challenge !== 'string' || biggest_challenge.length > 500)) {
+        return reply.status(400).send({ error: 'biggest_challenge is invalid' });
+      }
+      if (reminder_time !== undefined && (typeof reminder_time !== 'string' || reminder_time.length > 10)) {
+        return reply.status(400).send({ error: 'reminder_time is invalid' });
+      }
+
       app.logger.info(
         { userId, preferred_name, primary_goal },
         "Upserting onboarding record"

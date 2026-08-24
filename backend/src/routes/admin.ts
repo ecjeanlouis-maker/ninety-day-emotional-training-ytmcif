@@ -4,6 +4,7 @@ import { eq, desc, and, count } from 'drizzle-orm';
 import * as schema from '../db/schema.js';
 
 async function requireAdminRole(
+  app: App,
   request: FastifyRequest,
   reply: FastifyReply,
   requireAuth: (req: FastifyRequest, rep: FastifyReply) => Promise<any>
@@ -11,7 +12,7 @@ async function requireAdminRole(
   const session = await requireAuth(request, reply);
   if (!session) return null;
 
-  const profile = await (request as any).app.db
+  const profile = await app.db
     .select()
     .from(schema.userProfiles)
     .where(eq(schema.userProfiles.userId, session.user.id))
@@ -86,7 +87,7 @@ export function registerAdminRoutes(app: App) {
       }>,
       reply: FastifyReply
     ) => {
-      const session = await requireAdminRole(request, reply, requireAuth);
+      const session = await requireAdminRole(app, request, reply, requireAuth);
       if (!session) return;
 
       app.logger.info({ adminId: session.user.id, page: request.query.page }, 'Fetching users');
@@ -202,7 +203,7 @@ export function registerAdminRoutes(app: App) {
       }>,
       reply: FastifyReply
     ) => {
-      const session = await requireAdminRole(request, reply, requireAuth);
+      const session = await requireAdminRole(app, request, reply, requireAuth);
       if (!session) return;
 
       const { userId } = request.params;
@@ -313,7 +314,7 @@ export function registerAdminRoutes(app: App) {
       }>,
       reply: FastifyReply
     ) => {
-      const session = await requireAdminRole(request, reply, requireAuth);
+      const session = await requireAdminRole(app, request, reply, requireAuth);
       if (!session) return;
 
       app.logger.info({ adminId: session.user.id }, 'Fetching subscriptions');
@@ -419,7 +420,7 @@ export function registerAdminRoutes(app: App) {
       }>,
       reply: FastifyReply
     ) => {
-      const session = await requireAdminRole(request, reply, requireAuth);
+      const session = await requireAdminRole(app, request, reply, requireAuth);
       if (!session) return;
 
       app.logger.info({ adminId: session.user.id }, 'Fetching payments');
@@ -489,7 +490,7 @@ export function registerAdminRoutes(app: App) {
       },
     },
     async (request: FastifyRequest, reply: FastifyReply) => {
-      const session = await requireAdminRole(request, reply, requireAuth);
+      const session = await requireAdminRole(app, request, reply, requireAuth);
       if (!session) return;
 
       app.logger.info({ adminId: session.user.id }, 'Fetching analytics');
@@ -595,7 +596,7 @@ export function registerAdminRoutes(app: App) {
       }>,
       reply: FastifyReply
     ) => {
-      const session = await requireAdminRole(request, reply, requireAuth);
+      const session = await requireAdminRole(app, request, reply, requireAuth);
       if (!session) return;
 
       const { key } = request.params;
@@ -686,7 +687,7 @@ export function registerAdminRoutes(app: App) {
       }>,
       reply: FastifyReply
     ) => {
-      const session = await requireAdminRole(request, reply, requireAuth);
+      const session = await requireAdminRole(app, request, reply, requireAuth);
       if (!session) return;
 
       const { key } = request.params;
