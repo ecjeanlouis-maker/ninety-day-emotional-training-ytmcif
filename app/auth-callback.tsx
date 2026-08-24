@@ -2,7 +2,6 @@ import React, { useEffect, useRef, useState } from "react";
 import { View, Text, ActivityIndicator, TouchableOpacity, StyleSheet, Platform } from "react-native";
 import { useRouter } from "expo-router";
 import { useAuth } from "@/contexts/AuthContext";
-import { apiUrl, getAuthHeaders } from "@/utils/api";
 import { colors } from "@/styles/commonStyles";
 
 type State = "loading" | "timeout" | "error";
@@ -63,13 +62,19 @@ export default function AuthCallbackScreen() {
   const routePostLogin = async () => {
     console.log("[Auth Callback] routing post-login user");
     try {
-      const headers = await getAuthHeaders();
-      const res = await fetch(apiUrl("/api/profile"), { headers });
-      console.log("[Auth Callback] profile fetch status:", res.status);
-      router.replace("/(tabs)");
-    } catch (err) {
-      console.warn("[Auth Callback] profile fetch error, defaulting to /(tabs)", err);
-      router.replace("/(tabs)");
+      const { authenticatedGet } = await import("@/utils/api");
+      await authenticatedGet("/api/profile");
+      console.log("[Auth Callback] profile found — routing to /(tabs)/(home)");
+      router.replace("/(tabs)/(home)");
+    } catch (err: any) {
+      const msg = err?.message ?? "";
+      if (msg.includes("404") || msg.includes("profile_not_found")) {
+        console.log("[Auth Callback] no profile found — routing to /onboarding");
+        router.replace("/onboarding");
+      } else {
+        console.warn("[Auth Callback] profile fetch error, defaulting to /(tabs)/(home):", msg);
+        router.replace("/(tabs)/(home)");
+      }
     }
   };
 

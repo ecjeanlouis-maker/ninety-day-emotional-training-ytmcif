@@ -205,9 +205,9 @@ export default function SignUpScreen() {
         console.log('[SignUp] Profile saved successfully');
         showFeedback(
           'Account Created!',
-          'Check your email for a verification link to activate your account.',
+          "Your account is ready. Let's personalise your experience.",
           'success',
-          () => router.replace('/email-verification-pending')
+          () => router.replace('/onboarding')
         );
       } catch (profileError: any) {
         console.warn('[SignUp] Profile save failed (non-blocking):', profileError?.message);
@@ -215,7 +215,7 @@ export default function SignUpScreen() {
           'Account Created!',
           "Account created — couldn't save preferences. You can update them later.",
           'success',
-          () => router.replace('/email-verification-pending')
+          () => router.replace('/onboarding')
         );
       }
     } catch (error: any) {

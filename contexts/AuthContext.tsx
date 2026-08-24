@@ -144,12 +144,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const signUpWithEmail = async (email: string, password: string, name?: string) => {
     try {
       console.log("[Auth] Signing up with email:", email);
-      const result = await authClient.signUp.email({ email, password, name });
+      const result = await authClient.signUp.email({ email, password, name: name ?? email });
       if (result?.error) {
         console.error("[Auth] ✗ Email sign-up returned error:", result.error);
         throw new Error(result.error.message ?? "Sign-up failed");
       }
       console.log("[Auth] ✓ Email sign-up successful");
+      // Store token immediately so authenticatedPost works right away
+      if (result?.data?.token) {
+        console.log("[Auth] ✓ Storing bearer token from sign-up response");
+        await setBearerToken(result.data.token);
+      }
       await fetchUser();
     } catch (error) {
       console.error("[Auth] Email sign up failed:", error);

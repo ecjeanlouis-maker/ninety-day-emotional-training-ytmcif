@@ -16,7 +16,6 @@ const PUBLIC_ROUTES = new Set([
 
 const POST_AUTH_REDIRECT_FROM = new Set([
   "auth",
-  "signup",
   "forgot-password",
   "reset-password",
   "email-verification-pending",
