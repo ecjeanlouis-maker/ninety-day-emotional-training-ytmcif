@@ -32,8 +32,10 @@ app.fastify.setErrorHandler((error: any, request, reply) => {
 // Enable authentication with email verification and password reset
 app.withAuth({
   trustedOrigins: [
+    'controlconfidence://',
     'control-confidence://',
     'https://yt8rvpzc3a4km4e9x2umpgmuhs7cvhdm.app.specular.dev',
+    'https://1fa93668-238b-4d6d-8fa0-fc80cddef055.newly.dev',
     'http://localhost:8081',
     'http://localhost:19006',
     'exp://',
