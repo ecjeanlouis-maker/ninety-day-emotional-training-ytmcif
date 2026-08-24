@@ -128,3 +128,48 @@ export const appContent = pgTable('app_content', {
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
 });
+
+export const userOnboarding = pgTable('user_onboarding', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  userId: text('user_id')
+    .notNull()
+    .unique()
+    .references(() => user.id, { onDelete: 'cascade' }),
+  preferredName: text('preferred_name'),
+  primaryGoal: text('primary_goal'),
+  biggestChallenge: text('biggest_challenge'),
+  reminderTime: text('reminder_time'),
+  completedAt: timestamp('completed_at', { withTimezone: true }),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+});
+
+export const userAssessments = pgTable('user_assessments', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  userId: text('user_id')
+    .notNull()
+    .references(() => user.id, { onDelete: 'cascade' }),
+  emotionalIdentification: integer('emotional_identification').notNull(),
+  responseControl: integer('response_control').notNull(),
+  confidenceComposure: integer('confidence_composure').notNull(),
+  overallScore: integer('overall_score').notNull(),
+  assessmentType: text('assessment_type').notNull().default('baseline'),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+});
+
+export const userProgress = pgTable('user_progress', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  userId: text('user_id')
+    .notNull()
+    .unique()
+    .references(() => user.id, { onDelete: 'cascade' }),
+  currentDay: integer('current_day').notNull().default(1),
+  totalDaysCompleted: integer('total_days_completed').notNull().default(0),
+  currentStreak: integer('current_streak').notNull().default(0),
+  longestStreak: integer('longest_streak').notNull().default(0),
+  totalXp: integer('total_xp').notNull().default(0),
+  weeklyCompletion: jsonb('weekly_completion').notNull().default([]),
+  lastCompletedAt: timestamp('last_completed_at', { withTimezone: true }),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+});
