@@ -1,4 +1,4 @@
-import { pgTable, uuid, text, timestamp, boolean, decimal, integer, jsonb } from 'drizzle-orm/pg-core';
+import { pgTable, uuid, text, timestamp, boolean, decimal, integer, jsonb, uniqueIndex } from 'drizzle-orm/pg-core';
 import { user } from './auth-schema.js';
 
 export const paymentMethods = pgTable('payment_methods', {
@@ -173,3 +173,18 @@ export const userProgress = pgTable('user_progress', {
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
 });
+
+export const userDayProgress = pgTable('user_day_progress', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  userId: text('user_id').notNull().references(() => user.id, { onDelete: 'cascade' }),
+  dayNumber: integer('day_number').notNull(),
+  lessonRead: boolean('lesson_read').notNull().default(false),
+  drillCompleted: boolean('drill_completed').notNull().default(false),
+  completed: boolean('completed').notNull().default(false),
+  reflectionText: text('reflection_text'),
+  completedAt: timestamp('completed_at', { withTimezone: true }),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+}, (t) => ({
+  userDayUnique: uniqueIndex('user_day_unique').on(t.userId, t.dayNumber),
+}));
