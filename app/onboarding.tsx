@@ -61,6 +61,7 @@ export default function OnboardingScreen() {
   const [reminderTime, setReminderTime] = useState('08:00');
   const [ecrsScores, setEcrsScores] = useState({ emotional_identification: 3, response_control: 3, confidence_composure: 3 });
   const [submitting, setSubmitting] = useState(false);
+  const [skipping, setSkipping] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
 
   const progressPercent = `${(step / TOTAL_STEPS) * 100}%` as `${number}%`;
@@ -111,6 +112,7 @@ export default function OnboardingScreen() {
         primary_goal: primaryGoal || undefined,
         biggest_challenge: biggestChallenge || undefined,
         reminder_time: reminderTime || undefined,
+        assessment_status: 'completed',
       };
       console.log('[Onboarding] POST /api/onboarding payload:', onboardingPayload);
       await authenticatedPost('/api/onboarding', onboardingPayload);
@@ -134,6 +136,34 @@ export default function OnboardingScreen() {
       setSubmitError(message);
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  const handleSkipAssessment = async () => {
+    if (skipping || submitting) return;
+    console.log('[Onboarding] Skip assessment tapped');
+    setSubmitError(null);
+    setSkipping(true);
+    try {
+      const onboardingPayload = {
+        preferred_name: preferredName || undefined,
+        primary_goal: primaryGoal || undefined,
+        biggest_challenge: biggestChallenge || undefined,
+        reminder_time: reminderTime || undefined,
+        assessment_status: 'skipped',
+      };
+      console.log('[Onboarding] POST /api/onboarding (skip) payload:', onboardingPayload);
+      await authenticatedPost('/api/onboarding', onboardingPayload);
+      console.log('[Onboarding] POST /api/assessments/skip');
+      await authenticatedPost('/api/assessments/skip', {});
+      trackEvent('assessment_skipped', { source: 'onboarding' });
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      router.replace('/(tabs)/(home)');
+    } catch (err) {
+      console.error('[Onboarding] Error skipping assessment:', err);
+      setSubmitError('Unable to skip. Please try again.');
+    } finally {
+      setSkipping(false);
     }
   };
 
@@ -317,6 +347,23 @@ export default function OnboardingScreen() {
               </View>
             </View>
           )}
+
+          {step === 5 && (
+            <TouchableOpacity
+              style={styles.skipButton}
+              onPress={handleSkipAssessment}
+              disabled={skipping || submitting}
+              activeOpacity={0.7}
+              accessibilityLabel="Skip assessment for now"
+              accessibilityRole="button"
+            >
+              {skipping ? (
+                <ActivityIndicator size="small" color={colors.textSecondary} />
+              ) : (
+                <Text style={styles.skipButtonText}>Skip for now</Text>
+              )}
+            </TouchableOpacity>
+          )}
         </Animated.View>
       </ScrollView>
 
@@ -353,9 +400,9 @@ export default function OnboardingScreen() {
           </TouchableOpacity>
         ) : (
           <TouchableOpacity
-            style={[styles.nextButton, submitting && styles.nextButtonDisabled]}
+            style={[styles.nextButton, (submitting || skipping) && styles.nextButtonDisabled]}
             onPress={handleSubmit}
-            disabled={submitting}
+            disabled={submitting || skipping}
             activeOpacity={0.85}
           >
             <LinearGradient
@@ -656,5 +703,17 @@ const styles = StyleSheet.create({
   },
   nextButtonEmoji: {
     fontSize: 18,
+  },
+  skipButton: {
+    alignSelf: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    marginTop: 8,
+  },
+  skipButtonText: {
+    fontSize: 14,
+    color: colors.textSecondary,
+    fontWeight: '500',
+    textDecorationLine: 'underline',
   },
 });
