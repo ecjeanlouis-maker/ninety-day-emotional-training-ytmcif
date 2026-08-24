@@ -8,8 +8,6 @@ import {
   TouchableOpacity,
   TextInput,
   ActivityIndicator,
-  Alert,
-  Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { colors } from '@/styles/commonStyles';
@@ -57,8 +55,9 @@ export default function OnboardingScreen() {
   const [reminderTime, setReminderTime] = useState('08:00');
   const [ecrsScores, setEcrsScores] = useState({ emotional_identification: 3, response_control: 3, confidence_composure: 3 });
   const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
-  const progressPercent = `${(step / TOTAL_STEPS) * 100}%`;
+  const progressPercent = `${(step / TOTAL_STEPS) * 100}%` as `${number}%`;
 
   const handleNext = () => {
     console.log('[Onboarding] Next tapped on step:', step);
@@ -98,6 +97,7 @@ export default function OnboardingScreen() {
 
   const handleSubmit = async () => {
     console.log('[Onboarding] Submit tapped — posting onboarding + baseline assessment');
+    setSubmitError(null);
     setSubmitting(true);
     try {
       const onboardingPayload = {
@@ -120,10 +120,11 @@ export default function OnboardingScreen() {
 
       console.log('[Onboarding] Onboarding complete — navigating to Today dashboard');
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      router.replace('/(tabs)/(home)/');
+      router.replace('/(tabs)/(home)');
     } catch (err) {
       console.error('[Onboarding] Error submitting onboarding:', err);
-      Alert.alert('Error', 'Unable to save your preferences. Please try again.');
+      const message = err instanceof Error ? err.message : 'Unable to save your preferences. Please try again.';
+      setSubmitError(message);
     } finally {
       setSubmitting(false);
     }
@@ -276,7 +277,7 @@ export default function OnboardingScreen() {
                   { key: 'confidence_composure' as const, label: 'Confidence & Composure', desc: 'How confident and composed do you feel in challenging situations?' },
                 ].map(dimension => {
                   const val = ecrsScores[dimension.key];
-                  const barWidth = `${(val / 5) * 100}%`;
+                  const barWidth = `${(val / 5) * 100}%` as `${number}%`;
                   return (
                     <View key={dimension.key} style={styles.ecrsItem}>
                       <Text style={styles.ecrsLabel}>{dimension.label}</Text>
@@ -311,6 +312,13 @@ export default function OnboardingScreen() {
           )}
         </Animated.View>
       </ScrollView>
+
+      {/* Inline submit error */}
+      {submitError !== null && (
+        <View style={styles.errorContainer}>
+          <Text style={styles.errorText}>{submitError}</Text>
+        </View>
+      )}
 
       {/* Navigation buttons */}
       <View style={styles.navButtons}>
@@ -576,6 +584,21 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: colors.textSecondary,
     fontWeight: '500',
+  },
+  errorContainer: {
+    marginHorizontal: 20,
+    marginBottom: 8,
+    backgroundColor: '#FEE2E2',
+    borderRadius: 10,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: '#FECACA',
+  },
+  errorText: {
+    fontSize: 14,
+    color: '#DC2626',
+    fontWeight: '500',
+    textAlign: 'center',
   },
   navButtons: {
     flexDirection: 'row',
