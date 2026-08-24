@@ -23,7 +23,9 @@ export default function AuthScreen() {
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const passwordRef = useRef<TextInput>(null);
+  const submittingRef = useRef(false);
   const [loading, setLoading] = useState(false);
   const [feedbackModal, setFeedbackModal] = useState<{
     visible: boolean;
@@ -56,27 +58,40 @@ export default function AuthScreen() {
   const handleSignIn = async () => {
     console.log("[Auth] Sign In button pressed — email:", email);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    if (!email || !password) {
-      showFeedback("Missing Fields", "Please enter your email and password.", "error");
+    const trimmedEmail = email.trim().toLowerCase();
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!trimmedEmail) {
+      showFeedback("Email Required", "Please enter your email address.", "error");
       return;
     }
+    if (!emailRegex.test(trimmedEmail)) {
+      showFeedback("Invalid Email", "Please enter a valid email address (e.g. name@example.com).", "error");
+      return;
+    }
+    if (!password) {
+      showFeedback("Password Required", "Please enter your password.", "error");
+      return;
+    }
+    if (submittingRef.current) return;
+    submittingRef.current = true;
     setLoading(true);
     try {
       console.log("[Auth] Calling signInWithEmail...");
-      await signInWithEmail(email, password);
+      await signInWithEmail(trimmedEmail, password);
       console.log("[Auth] Sign in successful, navigating to /auth-callback");
       router.replace("/auth-callback");
     } catch (error: any) {
       const msg = error?.message ?? "";
-      const isNetwork = msg.includes("fetch") || msg.includes("network") || msg.includes("Network") || msg.toLowerCase().includes("failed to fetch") || msg.includes("timeout");
+      const isNetwork = /fetch|network|failed to fetch|timeout/i.test(msg);
       console.log("[Auth] Sign in failed — isNetwork:", isNetwork, "msg:", msg);
       showFeedback(
         isNetwork ? "No Connection" : "Sign In Failed",
-        isNetwork ? "Check your internet connection and try again." : (msg || "Please check your credentials and try again."),
+        isNetwork ? "Check your internet connection and try again." : "Incorrect email or password. Please try again.",
         "error"
       );
     } finally {
       setLoading(false);
+      submittingRef.current = false;
     }
   };
 
@@ -95,6 +110,8 @@ export default function AuthScreen() {
   const handleSocialAuth = async (provider: "google" | "apple") => {
     console.log("[Auth] Social auth tapped — provider:", provider);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    if (submittingRef.current) return;
+    submittingRef.current = true;
     setLoading(true);
     try {
       if (provider === "google") {
@@ -123,6 +140,7 @@ export default function AuthScreen() {
       }
     } finally {
       setLoading(false);
+      submittingRef.current = false;
     }
   };
 
@@ -149,6 +167,7 @@ export default function AuthScreen() {
             placeholderTextColor="#999"
             value={email}
             onChangeText={setEmail}
+            onBlur={() => setEmail((v) => v.trim())}
             keyboardType="email-address"
             autoCapitalize="none"
             autoCorrect={false}
@@ -158,20 +177,31 @@ export default function AuthScreen() {
             onSubmitEditing={() => passwordRef.current?.focus()}
           />
 
-          <TextInput
-            ref={passwordRef}
-            style={styles.input}
-            placeholder="Password"
-            placeholderTextColor="#999"
-            value={password}
-            onChangeText={setPassword}
-            secureTextEntry
-            autoCapitalize="none"
-            accessibilityLabel="Password"
-            accessibilityHint="Enter your password"
-            returnKeyType="go"
-            onSubmitEditing={handleSignIn}
-          />
+          <View style={styles.inputRow}>
+            <TextInput
+              ref={passwordRef}
+              style={[styles.input, styles.inputFlex]}
+              placeholder="Password"
+              placeholderTextColor="#999"
+              value={password}
+              onChangeText={setPassword}
+              secureTextEntry={!showPassword}
+              autoCapitalize="none"
+              accessibilityLabel="Password"
+              accessibilityHint="Enter your password"
+              returnKeyType="go"
+              onSubmitEditing={handleSignIn}
+            />
+            <TouchableOpacity
+              style={styles.eyeButton}
+              onPress={() => setShowPassword((v) => !v)}
+              accessibilityLabel={showPassword ? "Hide password" : "Show password"}
+              accessibilityRole="button"
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            >
+              <Text style={styles.eyeButtonText}>{showPassword ? "🙈" : "👁"}</Text>
+            </TouchableOpacity>
+          </View>
 
           <TouchableOpacity
             style={styles.forgotPasswordButton}
@@ -427,6 +457,24 @@ const styles = StyleSheet.create({
   },
   appleButtonText: {
     color: "#fff",
+  },
+  inputRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 16,
+  },
+  inputFlex: {
+    flex: 1,
+    marginBottom: 0,
+  },
+  eyeButton: {
+    paddingHorizontal: 12,
+    paddingVertical: 14,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  eyeButtonText: {
+    fontSize: 18,
   },
   modalOverlay: {
     flex: 1,

@@ -84,6 +84,11 @@ export default function SignUpScreen() {
   const [confidenceLevel, setConfidenceLevel] = useState<number | null>(null);
   const [emotionalControlLevel, setEmotionalControlLevel] = useState<number | null>(null);
 
+  // ─── Password visibility ─────────────────────────────────────────────────
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const submittingRef = useRef(false);
+
   // ─── UI state ────────────────────────────────────────────────────────────
   const [loading, setLoading] = useState(false);
   const [feedbackModal, setFeedbackModal] = useState<{
@@ -118,10 +123,17 @@ export default function SignUpScreen() {
       showFeedback('Name Required', 'Please enter your full name (at least 2 characters).', 'error');
       return;
     }
-    if (!email || !email.includes('@')) {
-      showFeedback('Invalid Email', 'Please enter a valid email address.', 'error');
+    const trimmedEmail = email.trim().toLowerCase();
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!trimmedEmail) {
+      showFeedback('Email Required', 'Please enter your email address.', 'error');
       return;
     }
+    if (!emailRegex.test(trimmedEmail)) {
+      showFeedback('Invalid Email', 'Please enter a valid email address (e.g. name@example.com).', 'error');
+      return;
+    }
+    setEmail(trimmedEmail);
     if (!password || password.length < 8) {
       showFeedback('Weak Password', 'Password must be at least 8 characters.', 'error');
       return;
@@ -164,6 +176,8 @@ export default function SignUpScreen() {
       return;
     }
 
+    if (submittingRef.current) return;
+    submittingRef.current = true;
     setLoading(true);
     try {
       console.log('[SignUp] Calling signUpWithEmail — email:', email);
@@ -206,13 +220,21 @@ export default function SignUpScreen() {
       }
     } catch (error: any) {
       console.log('[SignUp] Sign up failed:', error?.message);
+      const errMsg = error?.message ?? '';
+      const accountExists = /already|exists|taken/i.test(errMsg);
+      const isNetwork = /fetch|network|failed to fetch/i.test(errMsg);
       showFeedback(
-        'Sign Up Failed',
-        error?.message || 'Could not create account. Please try again.',
+        isNetwork ? 'No Connection' : 'Sign Up Failed',
+        isNetwork
+          ? 'Check your internet connection and try again.'
+          : accountExists
+          ? 'Could not create account. Please check your details and try again.'
+          : (errMsg || 'Could not create account. Please try again.'),
         'error'
       );
     } finally {
       setLoading(false);
+      submittingRef.current = false;
     }
   };
 
@@ -279,25 +301,47 @@ export default function SignUpScreen() {
                 autoCorrect={false}
               />
 
-              <TextInput
-                style={styles.input}
-                placeholder="Password (min. 8 characters)"
-                placeholderTextColor="#999"
-                value={password}
-                onChangeText={setPassword}
-                secureTextEntry
-                autoCapitalize="none"
-              />
+              <View style={styles.inputRow}>
+                <TextInput
+                  style={[styles.input, styles.inputFlex]}
+                  placeholder="Password (min. 8 characters)"
+                  placeholderTextColor="#999"
+                  value={password}
+                  onChangeText={setPassword}
+                  secureTextEntry={!showPassword}
+                  autoCapitalize="none"
+                />
+                <TouchableOpacity
+                  style={styles.eyeButton}
+                  onPress={() => setShowPassword((v) => !v)}
+                  accessibilityLabel={showPassword ? "Hide password" : "Show password"}
+                  accessibilityRole="button"
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                >
+                  <Text style={styles.eyeButtonText}>{showPassword ? "🙈" : "👁"}</Text>
+                </TouchableOpacity>
+              </View>
 
-              <TextInput
-                style={styles.input}
-                placeholder="Confirm Password"
-                placeholderTextColor="#999"
-                value={confirmPassword}
-                onChangeText={setConfirmPassword}
-                secureTextEntry
-                autoCapitalize="none"
-              />
+              <View style={styles.inputRow}>
+                <TextInput
+                  style={[styles.input, styles.inputFlex]}
+                  placeholder="Confirm Password"
+                  placeholderTextColor="#999"
+                  value={confirmPassword}
+                  onChangeText={setConfirmPassword}
+                  secureTextEntry={!showConfirmPassword}
+                  autoCapitalize="none"
+                />
+                <TouchableOpacity
+                  style={styles.eyeButton}
+                  onPress={() => setShowConfirmPassword((v) => !v)}
+                  accessibilityLabel={showConfirmPassword ? "Hide confirm password" : "Show confirm password"}
+                  accessibilityRole="button"
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                >
+                  <Text style={styles.eyeButtonText}>{showConfirmPassword ? "🙈" : "👁"}</Text>
+                </TouchableOpacity>
+              </View>
 
               <TouchableOpacity style={styles.primaryButton} onPress={handleContinue} activeOpacity={0.85}>
                 <Text style={styles.primaryButtonText}>Continue</Text>
@@ -735,6 +779,24 @@ const styles = StyleSheet.create({
     color: colors.primary,
     fontSize: 14,
     fontWeight: '600',
+  },
+  inputRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  inputFlex: {
+    flex: 1,
+    marginBottom: 0,
+  },
+  eyeButton: {
+    paddingHorizontal: 12,
+    paddingVertical: 14,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  eyeButtonText: {
+    fontSize: 18,
   },
   // ── Feedback modal ───────────────────────────────────────────────────────
   modalOverlay: {
