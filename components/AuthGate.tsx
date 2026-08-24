@@ -19,6 +19,7 @@ const POST_AUTH_REDIRECT_FROM = new Set([
   "signup",
   "forgot-password",
   "reset-password",
+  "email-verification-pending",
 ]);
 
 export function AuthGate({ children }: { children: React.ReactNode }) {

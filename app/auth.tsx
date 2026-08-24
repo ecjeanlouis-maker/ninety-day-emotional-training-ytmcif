@@ -134,7 +134,7 @@ export default function AuthScreen() {
         console.log("[Auth] Social auth failed — isNetwork:", isNetwork, "msg:", msg);
         showFeedback(
           isNetwork ? "No Connection" : "Sign In Failed",
-          isNetwork ? "Check your internet connection and try again." : (msg || "Social authentication failed. Please try again."),
+          isNetwork ? "Check your internet connection and try again." : "Social authentication failed. Please try again.",
           "error"
         );
       }
