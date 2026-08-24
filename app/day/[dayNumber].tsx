@@ -831,6 +831,7 @@ const styles = StyleSheet.create({
   },
   sessionHeaderLeft: {
     gap: 2,
+    flexShrink: 1,
   },
   sessionDayBadge: {
     fontSize: 13,
@@ -848,6 +849,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 5,
     borderRadius: 20,
+    flexShrink: 0,
   },
   sessionDuration: {
     fontSize: 12,
@@ -857,7 +859,7 @@ const styles = StyleSheet.create({
 
   // Section
   section: {
-    backgroundColor: colors.card,
+    backgroundColor: colors.background,
     borderRadius: 16,
     padding: 16,
     marginHorizontal: 16,

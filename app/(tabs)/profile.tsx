@@ -158,7 +158,7 @@ export default function ProfileScreen() {
               <IconSymbol ios_icon_name="person.circle.fill" android_material_icon_name="person" size={80} color={theme.colors.primary} />
               <Text style={[styles.name, { color: theme.colors.text }]}>{displayName}</Text>
               <View style={styles.emailRow}>
-                <Text style={[styles.email, { color: theme.dark ? '#98989D' : '#666' }]}>{displayEmail}</Text>
+                <Text style={[styles.email, { color: theme.dark ? '#98989D' : '#666', flexShrink: 1 }]} numberOfLines={1}>{displayEmail}</Text>
                 <View style={[styles.rolePill, { backgroundColor: rolePillColor }]}>
                   <Text style={styles.rolePillText}>{rolePillLabel}</Text>
                 </View>
@@ -518,7 +518,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingVertical: 4,
+    paddingVertical: 12,
   },
   menuItemLeft: {
     flexDirection: 'row',
