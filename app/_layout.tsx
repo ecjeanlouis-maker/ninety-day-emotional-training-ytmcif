@@ -105,6 +105,11 @@ export default function RootLayout() {
                     <Stack.Screen name="auth-callback" options={{ headerShown: false }} />
                     <Stack.Screen name="paywall" options={{ headerShown: false, presentation: 'modal' }} />
                     <Stack.Screen name="admin" options={{ headerShown: false }} />
+                    <Stack.Screen name="onboarding" options={{ headerShown: false }} />
+                    <Stack.Screen name="day/[dayNumber]" options={{ headerShown: false }} />
+                    <Stack.Screen name="coach" options={{ headerShown: false }} />
+                    <Stack.Screen name="analytics" options={{ headerShown: false }} />
+                    <Stack.Screen name="journal/[id]" options={{ headerShown: false }} />
                   </Stack>
                   <SystemBars style={"auto"} />
                 </GestureHandlerRootView>
