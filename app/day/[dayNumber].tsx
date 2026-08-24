@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   View,
   Text,
@@ -8,17 +8,17 @@ import {
   TouchableOpacity,
   TextInput,
   ActivityIndicator,
-  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { colors } from '@/styles/commonStyles';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
-import Animated, { FadeInDown } from 'react-native-reanimated';
+import Animated, { FadeInDown, FadeIn } from 'react-native-reanimated';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { authenticatedGet, authenticatedPost, authenticatedPatch } from '@/utils/api';
 import { IconSymbol } from '@/components/IconSymbol';
 import CongratulationsModal from '@/components/CongratulationsModal';
+import { techniques } from '@/data/techniques';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -49,7 +49,7 @@ interface CompleteResponse {
   achievements_unlocked: string[];
 }
 
-// ─── Phase colors ─────────────────────────────────────────────────────────────
+// ─── Constants ────────────────────────────────────────────────────────────────
 
 const PHASE_COLORS: Record<string, string> = {
   Awareness: '#6B4CE6',
@@ -61,6 +61,60 @@ const PHASE_COLORS: Record<string, string> = {
   Integration: '#1ABC9C',
 };
 
+const STEP_LABELS = ['Lesson', 'Drill', 'Reflect', 'Complete'];
+
+// ─── Step Indicator ───────────────────────────────────────────────────────────
+
+function StepIndicator({ currentStep }: { currentStep: number }) {
+  return (
+    <View style={styles.stepIndicator}>
+      {STEP_LABELS.map((label, index) => {
+        const isCompleted = index < currentStep;
+        const isCurrent = index === currentStep;
+        return (
+          <View key={label} style={styles.stepItem}>
+            <View
+              style={[
+                styles.stepDot,
+                isCompleted && styles.stepDotCompleted,
+                isCurrent && styles.stepDotCurrent,
+              ]}
+            >
+              {isCompleted && <Text style={styles.stepDotCheck}>✓</Text>}
+              {isCurrent && <View style={styles.stepDotInner} />}
+            </View>
+            <Text
+              style={[
+                styles.stepLabel,
+                isCurrent && styles.stepLabelCurrent,
+                isCompleted && styles.stepLabelCompleted,
+              ]}
+            >
+              {label}
+            </Text>
+          </View>
+        );
+      })}
+    </View>
+  );
+}
+
+// ─── Session Header ───────────────────────────────────────────────────────────
+
+function SessionHeader({ dayNum, phase }: { dayNum: number; phase: string }) {
+  return (
+    <View style={styles.sessionHeader}>
+      <View style={styles.sessionHeaderLeft}>
+        <Text style={styles.sessionDayBadge}>DAY {dayNum} OF 90</Text>
+        <Text style={styles.sessionPhase}>{phase}</Text>
+      </View>
+      <View style={styles.sessionDurationChip}>
+        <Text style={styles.sessionDuration}>~5–10 min</Text>
+      </View>
+    </View>
+  );
+}
+
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export default function DayDetailScreen() {
@@ -70,21 +124,41 @@ export default function DayDetailScreen() {
 
   console.log('[DayDetail] Screen rendered for day:', dayNum);
 
+  // ── Data state ──
   const [content, setContent] = useState<DayContent | null>(null);
   const [progress, setProgress] = useState<DayProgress | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const [lessonRead, setLessonRead] = useState(false);
-  const [drillCompleted, setDrillCompleted] = useState(false);
+  // ── Step state ──
+  const [currentStep, setCurrentStep] = useState(0);
+  const [stepError, setStepError] = useState<string | null>(null);
+
+  // ── Step 0: Lesson ──
+  const [markingRead, setMarkingRead] = useState(false);
+
+  // ── Step 1: Drill ──
+  const [drillSubStep, setDrillSubStep] = useState(0);
+  const [markingDrill, setMarkingDrill] = useState(false);
+
+  // ── Step 2: Reflection ──
   const [reflectionText, setReflectionText] = useState('');
-  const [ecrsScores, setEcrsScores] = useState({ emotional_identification: 3, response_control: 3, confidence_composure: 3 });
+  const [ecrsScores, setEcrsScores] = useState({
+    emotional_identification: 3,
+    response_control: 3,
+    confidence_composure: 3,
+  });
 
+  // ── Step 3: Complete ──
   const [completing, setCompleting] = useState(false);
-  const [showCongrats, setShowCongrats] = useState(false);
+  const [completedSuccess, setCompletedSuccess] = useState(false);
   const [xpEarned, setXpEarned] = useState(0);
+  const [streakCount, setStreakCount] = useState(0);
   const [achievementsUnlocked, setAchievementsUnlocked] = useState<string[]>([]);
+  const [showCongrats, setShowCongrats] = useState(false);
+  const submittingRef = useRef(false);
 
+  // ── Fetch ──
   const fetchData = useCallback(async () => {
     console.log('[DayDetail] Fetching content for day:', dayNum);
     try {
@@ -97,9 +171,9 @@ export default function DayDetailScreen() {
       setContent(contentRes);
       if (progressRes) {
         setProgress(progressRes);
-        setLessonRead(progressRes.lesson_read || false);
-        setDrillCompleted(progressRes.drill_completed || false);
-        setReflectionText(progressRes.reflection_text || '');
+        if (progressRes.reflection_text) {
+          setReflectionText(progressRes.reflection_text);
+        }
       }
       setError(null);
     } catch (err) {
@@ -114,43 +188,82 @@ export default function DayDetailScreen() {
     fetchData();
   }, [fetchData]);
 
-  const handleLessonRead = async () => {
-    console.log('[DayDetail] Lesson read toggled:', !lessonRead);
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    const newVal = !lessonRead;
-    setLessonRead(newVal);
-    try {
-      await authenticatedPatch(`/api/program/days/${dayNum}`, { lesson_read: newVal });
-    } catch (err) {
-      console.error('[DayDetail] Error patching lesson_read:', err);
+  // ── Handlers ──
+
+  const handleBack = () => {
+    console.log('[DayDetail] Back button tapped, currentStep:', currentStep);
+    if (currentStep > 0) {
+      setCurrentStep(s => s - 1);
+      setStepError(null);
+    } else {
+      router.back();
     }
   };
 
-  const handleDrillCompleted = async () => {
-    console.log('[DayDetail] Drill completed toggled:', !drillCompleted);
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    const newVal = !drillCompleted;
-    setDrillCompleted(newVal);
+  const handleMarkRead = async () => {
+    console.log('[DayDetail] Mark as Read tapped for day:', dayNum);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    setMarkingRead(true);
+    setStepError(null);
     try {
-      await authenticatedPatch(`/api/program/days/${dayNum}`, { drill_completed: newVal });
+      console.log('[DayDetail] PATCH /api/program/days/:dayNum lesson_read=true');
+      await authenticatedPatch(`/api/program/days/${dayNum}`, { lesson_read: true });
+      console.log('[DayDetail] Lesson marked as read — advancing to Step 1');
+      setCurrentStep(1);
     } catch (err) {
-      console.error('[DayDetail] Error patching drill_completed:', err);
+      console.error('[DayDetail] Error marking lesson read:', err);
+      setStepError('Failed to save progress. Please try again.');
+    } finally {
+      setMarkingRead(false);
     }
+  };
+
+  const handleDrillComplete = async () => {
+    console.log('[DayDetail] Drill Complete tapped for day:', dayNum);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    setMarkingDrill(true);
+    setStepError(null);
+    try {
+      console.log('[DayDetail] PATCH /api/program/days/:dayNum drill_completed=true');
+      await authenticatedPatch(`/api/program/days/${dayNum}`, { drill_completed: true });
+      console.log('[DayDetail] Drill marked complete — advancing to Step 2');
+      setCurrentStep(2);
+    } catch (err) {
+      console.error('[DayDetail] Error marking drill complete:', err);
+      setStepError('Failed to save progress. Please try again.');
+    } finally {
+      setMarkingDrill(false);
+    }
+  };
+
+  const handleNextDrillStep = () => {
+    console.log('[DayDetail] Next drill sub-step tapped, current:', drillSubStep);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setDrillSubStep(s => s + 1);
   };
 
   const handleEcrsChange = (key: keyof typeof ecrsScores, val: number) => {
-    console.log('[DayDetail] ECRS score changed:', key, val);
+    console.log('[DayDetail] ECRS score changed:', key, '=', val);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     setEcrsScores(prev => ({ ...prev, [key]: val }));
   };
 
+  const handleContinueToComplete = () => {
+    console.log('[DayDetail] Continue to Complete tapped');
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    setCurrentStep(3);
+    setStepError(null);
+  };
+
   const handleCompleteDay = async () => {
-    console.log('[DayDetail] Complete Day tapped for day:', dayNum);
-    if (!lessonRead || !drillCompleted) {
-      Alert.alert('Not Ready', 'Please mark the lesson as read and complete the drill before finishing the day.');
+    if (submittingRef.current) {
+      console.log('[DayDetail] Complete Day — already submitting, ignoring tap');
       return;
     }
+    console.log('[DayDetail] Complete Day tapped for day:', dayNum);
+    submittingRef.current = true;
     setCompleting(true);
+    setStepError(null);
     try {
       const payload = {
         reflection_text: reflectionText || undefined,
@@ -160,30 +273,40 @@ export default function DayDetailScreen() {
       };
       console.log('[DayDetail] POST /api/program/days/:dayNum/complete payload:', payload);
       const res = await authenticatedPost<CompleteResponse>(`/api/program/days/${dayNum}/complete`, payload);
-      console.log('[DayDetail] Day completed! XP earned:', res.xp_earned, 'Achievements:', res.achievements_unlocked);
+      console.log('[DayDetail] Day completed! XP:', res.xp_earned, 'Streak:', res.streak, 'Achievements:', res.achievements_unlocked);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       setXpEarned(res.xp_earned || 0);
+      setStreakCount(res.streak || 0);
       setAchievementsUnlocked(res.achievements_unlocked || []);
+      setCompletedSuccess(true);
       setShowCongrats(true);
     } catch (err) {
       console.error('[DayDetail] Error completing day:', err);
-      Alert.alert('Error', 'Unable to complete the day. Please try again.');
+      setStepError('Unable to complete the day. Please try again.');
     } finally {
       setCompleting(false);
+      submittingRef.current = false;
     }
   };
 
   const handleCongratsClose = () => {
-    console.log('[DayDetail] Congratulations modal closed — navigating back');
+    console.log('[DayDetail] Congratulations modal closed — navigating home');
     setShowCongrats(false);
-    router.back();
+    setTimeout(() => {
+      router.replace('/(tabs)/(home)');
+    }, 100);
   };
 
-  const canComplete = lessonRead && drillCompleted;
+  // ── Derived ──
   const phaseColor = content ? (PHASE_COLORS[content.phase] || colors.primary) : colors.primary;
-  const weekText = content ? `Week ${content.week}` : '';
   const dayTitle = content?.title || `Day ${dayNum}`;
+  const isAlreadyCompleted = progress?.completed || false;
+  const techniqueData = techniques[dayNum - 1];
+  const practiceSteps = techniqueData?.practiceSteps ?? [];
+  const hasPracticeSteps = practiceSteps.length > 0;
+  const isLastDrillStep = hasPracticeSteps ? drillSubStep >= practiceSteps.length - 1 : true;
 
+  // ── Loading / Error ──
   if (loading) {
     return (
       <SafeAreaView style={styles.container} edges={['top']}>
@@ -199,11 +322,17 @@ export default function DayDetailScreen() {
     return (
       <SafeAreaView style={styles.container} edges={['top']}>
         <View style={styles.errorContainer}>
-          <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
+          <TouchableOpacity style={styles.backButtonSmall} onPress={() => router.back()}>
             <IconSymbol ios_icon_name="chevron.left" android_material_icon_name="arrow-back" size={24} color={colors.primary} />
           </TouchableOpacity>
           <Text style={styles.errorText}>{error || 'Content not found.'}</Text>
-          <TouchableOpacity onPress={() => { console.log('[DayDetail] Retry tapped'); fetchData(); }} style={styles.retryButton}>
+          <TouchableOpacity
+            onPress={() => {
+              console.log('[DayDetail] Retry tapped');
+              fetchData();
+            }}
+            style={styles.retryButton}
+          >
             <Text style={styles.retryButtonText}>Retry</Text>
           </TouchableOpacity>
         </View>
@@ -211,224 +340,326 @@ export default function DayDetailScreen() {
     );
   }
 
-  const isAlreadyCompleted = progress?.completed || false;
-
+  // ── Render ──
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
-      <ScrollView
-        style={styles.scrollView}
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
-        keyboardShouldPersistTaps="handled"
-      >
-        {/* Header */}
-        <Animated.View entering={FadeInDown.duration(400)}>
-          <LinearGradient
-            colors={[phaseColor, phaseColor + 'CC']}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={styles.header}
+      {/* Top nav row */}
+      <View style={styles.topNav}>
+        <TouchableOpacity
+          style={styles.backButtonSmall}
+          onPress={handleBack}
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+        >
+          <IconSymbol ios_icon_name="chevron.left" android_material_icon_name="arrow-back" size={24} color={colors.primary} />
+        </TouchableOpacity>
+        <Text style={styles.topNavTitle}>{dayTitle}</Text>
+        <View style={styles.topNavSpacer} />
+      </View>
+
+      {/* Step indicator */}
+      <StepIndicator currentStep={currentStep} />
+
+      {/* Step content */}
+      {currentStep === 0 && (
+        <Animated.View entering={FadeIn.duration(300)} style={styles.stepWrapper}>
+          <ScrollView
+            style={styles.scrollView}
+            contentContainerStyle={styles.scrollContent}
+            showsVerticalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
           >
-            <TouchableOpacity
-              style={styles.backButton}
-              onPress={() => {
-                console.log('[DayDetail] Back button tapped');
-                router.back();
-              }}
-              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-            >
-              <IconSymbol ios_icon_name="chevron.left" android_material_icon_name="arrow-back" size={24} color="#FFFFFF" />
-            </TouchableOpacity>
-            <View style={styles.headerMeta}>
-              <View style={styles.phaseBadge}>
-                <Text style={styles.phaseBadgeText}>{content.phase}</Text>
-              </View>
-              <Text style={styles.weekText}>{weekText}</Text>
-            </View>
-            <Text style={styles.dayNumber}>Day {dayNum}</Text>
-            <Text style={styles.dayTitle}>{dayTitle}</Text>
-            {isAlreadyCompleted && (
-              <View style={styles.completedBadge}>
-                <Text style={styles.completedBadgeText}>✓ Completed</Text>
-              </View>
-            )}
-          </LinearGradient>
-        </Animated.View>
+            <SessionHeader dayNum={dayNum} phase={content.phase} />
 
-        {/* Lesson Content */}
-        <Animated.View entering={FadeInDown.delay(100).duration(400)} style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <View style={[styles.sectionIcon, { backgroundColor: phaseColor + '20' }]}>
-              <IconSymbol ios_icon_name="book.fill" android_material_icon_name="book" size={20} color={phaseColor} />
-            </View>
-            <Text style={styles.sectionTitle}>Today's Lesson</Text>
-          </View>
-          <Text style={styles.lessonContent}>{content.lesson_content}</Text>
-
-          {/* Audio placeholder */}
-          <View style={styles.audioCard}>
-            <View style={styles.audioLeft}>
-              <View style={styles.audioIconBg}>
-                <IconSymbol ios_icon_name="headphones" android_material_icon_name="headset" size={22} color="#8E8E93" />
-              </View>
-              <View>
-                <Text style={styles.audioTitle}>Audio Coming Soon</Text>
-                <Text style={styles.audioSubtitle}>Guided audio for this lesson</Text>
-              </View>
-            </View>
-            <View style={styles.audioPlayButton}>
-              <IconSymbol ios_icon_name="play.fill" android_material_icon_name="play-arrow" size={18} color="#8E8E93" />
-            </View>
-          </View>
-
-          <TouchableOpacity
-            style={[styles.checkRow, lessonRead && styles.checkRowChecked]}
-            onPress={handleLessonRead}
-            activeOpacity={0.8}
-          >
-            <View style={[styles.checkbox, lessonRead && { backgroundColor: '#27AE60', borderColor: '#27AE60' }]}>
-              {lessonRead && <Text style={styles.checkmark}>✓</Text>}
-            </View>
-            <Text style={[styles.checkLabel, lessonRead && styles.checkLabelChecked]}>
-              I've read and understood this lesson
-            </Text>
-          </TouchableOpacity>
-        </Animated.View>
-
-        {/* Guided Drill */}
-        <Animated.View entering={FadeInDown.delay(150).duration(400)} style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <View style={[styles.sectionIcon, { backgroundColor: '#3B82F620' }]}>
-              <IconSymbol ios_icon_name="figure.walk" android_material_icon_name="directions-walk" size={20} color="#3B82F6" />
-            </View>
-            <Text style={styles.sectionTitle}>Guided Drill</Text>
-          </View>
-          <Text style={styles.drillContent}>{content.drill_instructions}</Text>
-
-          <TouchableOpacity
-            style={[styles.checkRow, drillCompleted && styles.checkRowChecked]}
-            onPress={handleDrillCompleted}
-            activeOpacity={0.8}
-          >
-            <View style={[styles.checkbox, drillCompleted && { backgroundColor: '#27AE60', borderColor: '#27AE60' }]}>
-              {drillCompleted && <Text style={styles.checkmark}>✓</Text>}
-            </View>
-            <Text style={[styles.checkLabel, drillCompleted && styles.checkLabelChecked]}>
-              I've completed the drill
-            </Text>
-          </TouchableOpacity>
-        </Animated.View>
-
-        {/* Real-World Challenge */}
-        {content.challenge ? (
-          <Animated.View entering={FadeInDown.delay(200).duration(400)} style={[styles.section, styles.challengeSection]}>
-            <View style={styles.sectionHeader}>
-              <View style={[styles.sectionIcon, { backgroundColor: '#FFB84D20' }]}>
-                <IconSymbol ios_icon_name="bolt.fill" android_material_icon_name="flash-on" size={20} color="#FFB84D" />
-              </View>
-              <Text style={styles.sectionTitle}>Real-World Challenge</Text>
-            </View>
-            <Text style={styles.challengeContent}>{content.challenge}</Text>
-          </Animated.View>
-        ) : null}
-
-        {/* Reflection */}
-        <Animated.View entering={FadeInDown.delay(250).duration(400)} style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <View style={[styles.sectionIcon, { backgroundColor: '#9B59B620' }]}>
-              <IconSymbol ios_icon_name="pencil" android_material_icon_name="edit" size={20} color="#9B59B6" />
-            </View>
-            <Text style={styles.sectionTitle}>Reflection</Text>
-          </View>
-          {content.reflection_prompt ? (
-            <Text style={styles.reflectionPrompt}>{content.reflection_prompt}</Text>
-          ) : null}
-          <TextInput
-            style={styles.reflectionInput}
-            placeholder="Write your reflection here..."
-            placeholderTextColor={colors.textSecondary}
-            value={reflectionText}
-            onChangeText={setReflectionText}
-            multiline
-            numberOfLines={5}
-            textAlignVertical="top"
-            onFocus={() => console.log('[DayDetail] Reflection input focused')}
-          />
-        </Animated.View>
-
-        {/* ECRS Check-in */}
-        <Animated.View entering={FadeInDown.delay(300).duration(400)} style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <View style={[styles.sectionIcon, { backgroundColor: '#27AE6020' }]}>
-              <IconSymbol ios_icon_name="chart.bar.fill" android_material_icon_name="bar-chart" size={20} color="#27AE60" />
-            </View>
-            <Text style={styles.sectionTitle}>ECRS Check-in</Text>
-          </View>
-          <Text style={styles.ecrsIntro}>Rate yourself after today's practice:</Text>
-
-          {[
-            { key: 'emotional_identification' as const, label: 'Emotional Identification' },
-            { key: 'response_control' as const, label: 'Response Control' },
-            { key: 'confidence_composure' as const, label: 'Confidence & Composure' },
-          ].map(dim => {
-            const val = ecrsScores[dim.key];
-            return (
-              <View key={dim.key} style={styles.ecrsItem}>
-                <Text style={styles.ecrsLabel}>{dim.label}</Text>
-                <View style={styles.ecrsButtons}>
-                  {[1, 2, 3, 4, 5].map(v => {
-                    const isActive = val === v;
-                    return (
-                      <TouchableOpacity
-                        key={v}
-                        style={[styles.ecrsButton, isActive && styles.ecrsButtonActive]}
-                        onPress={() => handleEcrsChange(dim.key, v)}
-                        activeOpacity={0.8}
-                      >
-                        <Text style={[styles.ecrsButtonText, isActive && styles.ecrsButtonTextActive]}>{v}</Text>
-                      </TouchableOpacity>
-                    );
-                  })}
+            <View style={styles.section}>
+              <View style={styles.sectionHeader}>
+                <View style={[styles.sectionIcon, { backgroundColor: phaseColor + '20' }]}>
+                  <IconSymbol ios_icon_name="book.fill" android_material_icon_name="book" size={20} color={phaseColor} />
                 </View>
+                <Text style={styles.sectionTitle}>{content.title}</Text>
               </View>
-            );
-          })}
-        </Animated.View>
+              <Text style={styles.lessonContent}>{content.lesson_content}</Text>
+            </View>
 
-        {/* Complete Day Button */}
-        <Animated.View entering={FadeInDown.delay(350).duration(400)}>
-          <TouchableOpacity
-            style={[styles.completeButton, (!canComplete || completing || isAlreadyCompleted) && styles.completeButtonDisabled]}
-            onPress={handleCompleteDay}
-            disabled={!canComplete || completing || isAlreadyCompleted}
-            activeOpacity={0.85}
+            {stepError && <Text style={styles.inlineError}>{stepError}</Text>}
+          </ScrollView>
+
+          <View style={styles.actionBar}>
+            <TouchableOpacity
+              style={[styles.primaryButton, markingRead && styles.primaryButtonDisabled]}
+              onPress={handleMarkRead}
+              disabled={markingRead}
+              activeOpacity={0.85}
+            >
+              <LinearGradient
+                colors={[colors.primary, '#8B6FE8']}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+                style={styles.primaryButtonGradient}
+              >
+                {markingRead ? (
+                  <ActivityIndicator color="#FFFFFF" />
+                ) : (
+                  <Text style={styles.primaryButtonText}>Mark as Read</Text>
+                )}
+              </LinearGradient>
+            </TouchableOpacity>
+          </View>
+        </Animated.View>
+      )}
+
+      {currentStep === 1 && (
+        <Animated.View entering={FadeIn.duration(300)} style={styles.stepWrapper}>
+          <ScrollView
+            style={styles.scrollView}
+            contentContainerStyle={styles.scrollContent}
+            showsVerticalScrollIndicator={false}
           >
-            {completing ? (
-              <ActivityIndicator color="#FFFFFF" />
-            ) : isAlreadyCompleted ? (
-              <>
-                <Text style={styles.completeButtonEmoji}>✓</Text>
-                <Text style={styles.completeButtonText}>Day Completed</Text>
-              </>
-            ) : (
-              <>
+            <SessionHeader dayNum={dayNum} phase={content.phase} />
+
+            <View style={styles.section}>
+              <View style={styles.sectionHeader}>
+                <View style={[styles.sectionIcon, { backgroundColor: '#3B82F620' }]}>
+                  <IconSymbol ios_icon_name="figure.walk" android_material_icon_name="directions-walk" size={20} color="#3B82F6" />
+                </View>
+                <Text style={styles.sectionTitle}>Today's Drill</Text>
+              </View>
+
+              {hasPracticeSteps ? (
+                <Animated.View key={drillSubStep} entering={FadeInDown.duration(300)} style={styles.drillStepCard}>
+                  <View style={styles.drillStepBadge}>
+                    <Text style={styles.drillStepBadgeText}>Step {drillSubStep + 1} of {practiceSteps.length}</Text>
+                  </View>
+                  <Text style={styles.drillStepText}>{practiceSteps[drillSubStep]}</Text>
+                </Animated.View>
+              ) : (
+                <Text style={styles.drillContent}>{content.drill_instructions}</Text>
+              )}
+            </View>
+
+            {stepError && <Text style={styles.inlineError}>{stepError}</Text>}
+          </ScrollView>
+
+          <View style={styles.actionBar}>
+            {hasPracticeSteps && !isLastDrillStep ? (
+              <TouchableOpacity
+                style={styles.primaryButton}
+                onPress={handleNextDrillStep}
+                activeOpacity={0.85}
+              >
                 <LinearGradient
-                  colors={canComplete ? ['#27AE60', '#1ABC9C'] : [colors.border, colors.border]}
+                  colors={['#3B82F6', '#6366F1']}
                   start={{ x: 0, y: 0 }}
                   end={{ x: 1, y: 0 }}
-                  style={styles.completeButtonGradient}
+                  style={styles.primaryButtonGradient}
                 >
-                  <Text style={styles.completeButtonEmoji}>🏆</Text>
-                  <Text style={styles.completeButtonText}>Complete Day {dayNum}</Text>
+                  <Text style={styles.primaryButtonText}>Next Step →</Text>
                 </LinearGradient>
-              </>
+              </TouchableOpacity>
+            ) : (
+              <TouchableOpacity
+                style={[styles.primaryButton, markingDrill && styles.primaryButtonDisabled]}
+                onPress={handleDrillComplete}
+                disabled={markingDrill}
+                activeOpacity={0.85}
+              >
+                <LinearGradient
+                  colors={['#27AE60', '#1ABC9C']}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 0 }}
+                  style={styles.primaryButtonGradient}
+                >
+                  {markingDrill ? (
+                    <ActivityIndicator color="#FFFFFF" />
+                  ) : (
+                    <Text style={styles.primaryButtonText}>
+                      {hasPracticeSteps ? 'Drill Complete ✓' : 'Mark Drill Complete'}
+                    </Text>
+                  )}
+                </LinearGradient>
+              </TouchableOpacity>
             )}
-          </TouchableOpacity>
-          {!canComplete && !isAlreadyCompleted && (
-            <Text style={styles.completeHint}>Complete the lesson and drill to unlock this button</Text>
-          )}
+          </View>
         </Animated.View>
-      </ScrollView>
+      )}
+
+      {currentStep === 2 && (
+        <Animated.View entering={FadeIn.duration(300)} style={styles.stepWrapper}>
+          <ScrollView
+            style={styles.scrollView}
+            contentContainerStyle={styles.scrollContent}
+            showsVerticalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
+          >
+            <View style={styles.reflectHeaderRow}>
+              <Text style={styles.reflectHeading}>Reflect & Rate</Text>
+            </View>
+
+            {content.reflection_prompt ? (
+              <View style={styles.section}>
+                <Text style={styles.reflectionPrompt}>{content.reflection_prompt}</Text>
+                <TextInput
+                  style={styles.reflectionInput}
+                  placeholder="Write your reflection here..."
+                  placeholderTextColor={colors.textSecondary}
+                  value={reflectionText}
+                  onChangeText={text => {
+                    console.log('[DayDetail] Reflection text changed, length:', text.length);
+                    setReflectionText(text);
+                  }}
+                  multiline
+                  textAlignVertical="top"
+                  onFocus={() => console.log('[DayDetail] Reflection input focused')}
+                />
+              </View>
+            ) : (
+              <View style={styles.section}>
+                <TextInput
+                  style={styles.reflectionInput}
+                  placeholder="Write your reflection here..."
+                  placeholderTextColor={colors.textSecondary}
+                  value={reflectionText}
+                  onChangeText={text => {
+                    console.log('[DayDetail] Reflection text changed, length:', text.length);
+                    setReflectionText(text);
+                  }}
+                  multiline
+                  textAlignVertical="top"
+                  onFocus={() => console.log('[DayDetail] Reflection input focused')}
+                />
+              </View>
+            )}
+
+            {/* ECRS */}
+            <View style={styles.section}>
+              <View style={styles.sectionHeader}>
+                <View style={[styles.sectionIcon, { backgroundColor: '#27AE6020' }]}>
+                  <IconSymbol ios_icon_name="chart.bar.fill" android_material_icon_name="bar-chart" size={20} color="#27AE60" />
+                </View>
+                <Text style={styles.sectionTitle}>ECRS Check-in</Text>
+              </View>
+              <Text style={styles.ecrsIntro}>Rate yourself after today's practice:</Text>
+
+              {[
+                { key: 'emotional_identification' as const, label: 'Emotional Identification' },
+                { key: 'response_control' as const, label: 'Response Control' },
+                { key: 'confidence_composure' as const, label: 'Confidence & Composure' },
+              ].map(dim => {
+                const val = ecrsScores[dim.key];
+                return (
+                  <View key={dim.key} style={styles.ecrsItem}>
+                    <Text style={styles.ecrsLabel}>{dim.label}</Text>
+                    <View style={styles.ecrsButtons}>
+                      {[1, 2, 3, 4, 5].map(v => {
+                        const isActive = val === v;
+                        return (
+                          <TouchableOpacity
+                            key={v}
+                            style={[styles.ecrsButton, isActive && styles.ecrsButtonActive]}
+                            onPress={() => handleEcrsChange(dim.key, v)}
+                            activeOpacity={0.8}
+                          >
+                            <Text style={[styles.ecrsButtonText, isActive && styles.ecrsButtonTextActive]}>{v}</Text>
+                          </TouchableOpacity>
+                        );
+                      })}
+                    </View>
+                  </View>
+                );
+              })}
+            </View>
+
+            {stepError && <Text style={styles.inlineError}>{stepError}</Text>}
+          </ScrollView>
+
+          <View style={styles.actionBar}>
+            <TouchableOpacity
+              style={styles.primaryButton}
+              onPress={handleContinueToComplete}
+              activeOpacity={0.85}
+            >
+              <LinearGradient
+                colors={[colors.primary, '#8B6FE8']}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+                style={styles.primaryButtonGradient}
+              >
+                <Text style={styles.primaryButtonText}>Continue →</Text>
+              </LinearGradient>
+            </TouchableOpacity>
+          </View>
+        </Animated.View>
+      )}
+
+      {currentStep === 3 && (
+        <Animated.View entering={FadeIn.duration(300)} style={[styles.stepWrapper, styles.completeStepWrapper]}>
+          <View style={styles.completeCenter}>
+            <Text style={styles.trophyEmoji}>🏆</Text>
+            <Text style={styles.completeHeading}>Day {dayNum} Complete!</Text>
+
+            {completedSuccess && (
+              <Animated.View entering={FadeInDown.duration(400)} style={styles.xpRow}>
+                <Text style={styles.xpText}>+{xpEarned} XP</Text>
+                {streakCount > 0 && (
+                  <Text style={styles.streakText}>🔥 {streakCount} day streak</Text>
+                )}
+              </Animated.View>
+            )}
+
+            {isAlreadyCompleted && !completedSuccess && (
+              <View style={styles.alreadyCompletedBadge}>
+                <Text style={styles.alreadyCompletedText}>✓ Already Completed</Text>
+              </View>
+            )}
+          </View>
+
+          <View style={styles.actionBar}>
+            {stepError && <Text style={styles.inlineError}>{stepError}</Text>}
+
+            {isAlreadyCompleted && !completedSuccess ? (
+              <>
+                <View style={[styles.primaryButton, styles.primaryButtonDisabled]}>
+                  <View style={[styles.primaryButtonGradient, styles.alreadyCompletedButton]}>
+                    <Text style={styles.primaryButtonText}>✓ Already Completed</Text>
+                  </View>
+                </View>
+                <TouchableOpacity
+                  style={styles.returnLink}
+                  onPress={() => {
+                    console.log('[DayDetail] Return to Today tapped');
+                    router.replace('/(tabs)/(home)');
+                  }}
+                >
+                  <Text style={styles.returnLinkText}>Return to Today</Text>
+                </TouchableOpacity>
+              </>
+            ) : completedSuccess ? (
+              <View style={styles.savedRow}>
+                <Text style={styles.savedText}>✓ Saved!</Text>
+              </View>
+            ) : (
+              <TouchableOpacity
+                style={[styles.primaryButton, completing && styles.primaryButtonDisabled]}
+                onPress={handleCompleteDay}
+                disabled={completing}
+                activeOpacity={0.85}
+              >
+                <LinearGradient
+                  colors={['#27AE60', '#1ABC9C']}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 0 }}
+                  style={styles.primaryButtonGradient}
+                >
+                  {completing ? (
+                    <ActivityIndicator color="#FFFFFF" />
+                  ) : (
+                    <Text style={styles.primaryButtonText}>Complete Day {dayNum}</Text>
+                  )}
+                </LinearGradient>
+              </TouchableOpacity>
+            )}
+          </View>
+        </Animated.View>
+      )}
 
       {/* Congratulations Modal */}
       <CongratulationsModal
@@ -442,18 +673,15 @@ export default function DayDetailScreen() {
   );
 }
 
+// ─── Styles ───────────────────────────────────────────────────────────────────
+
 const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.background,
   },
-  scrollView: {
-    flex: 1,
-  },
-  scrollContent: {
-    paddingBottom: 40,
-    gap: 16,
-  },
+
+  // Loading / Error
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
@@ -487,65 +715,147 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     fontSize: 15,
   },
-  header: {
-    padding: 20,
-    paddingTop: 16,
-    gap: 6,
+
+  // Top nav
+  topNav: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    gap: 8,
   },
-  backButton: {
+  backButtonSmall: {
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: 'rgba(255,255,255,0.2)',
+    backgroundColor: colors.highlight,
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 8,
   },
-  headerMeta: {
+  topNavTitle: {
+    flex: 1,
+    fontSize: 16,
+    fontWeight: '700',
+    color: colors.text,
+    textAlign: 'center',
+  },
+  topNavSpacer: {
+    width: 40,
+  },
+
+  // Step indicator
+  stepIndicator: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'flex-start',
+    paddingHorizontal: 16,
+    paddingBottom: 12,
+    gap: 0,
+  },
+  stepItem: {
+    flex: 1,
+    alignItems: 'center',
+    gap: 6,
+  },
+  stepDot: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    borderWidth: 2,
+    borderColor: colors.border,
+    backgroundColor: colors.background,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  stepDotCompleted: {
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
+  },
+  stepDotCurrent: {
+    borderColor: colors.primary,
+    backgroundColor: colors.highlight,
+  },
+  stepDotInner: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: colors.primary,
+  },
+  stepDotCheck: {
+    fontSize: 12,
+    color: '#FFFFFF',
+    fontWeight: '700',
+  },
+  stepLabel: {
+    fontSize: 11,
+    color: colors.textSecondary,
+    fontWeight: '500',
+  },
+  stepLabelCurrent: {
+    color: colors.primary,
+    fontWeight: '700',
+  },
+  stepLabelCompleted: {
+    color: colors.primary,
+  },
+
+  // Step wrapper
+  stepWrapper: {
+    flex: 1,
+  },
+  completeStepWrapper: {
+    justifyContent: 'space-between',
+  },
+
+  // Scroll
+  scrollView: {
+    flex: 1,
+  },
+  scrollContent: {
+    paddingBottom: 24,
+    gap: 16,
+  },
+
+  // Session header
+  sessionHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-  },
-  phaseBadge: {
-    backgroundColor: 'rgba(255,255,255,0.25)',
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 10,
-  },
-  phaseBadgeText: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: '#FFFFFF',
-  },
-  weekText: {
-    fontSize: 13,
-    color: 'rgba(255,255,255,0.8)',
-    fontWeight: '600',
-  },
-  dayNumber: {
-    fontSize: 14,
-    color: 'rgba(255,255,255,0.75)',
-    fontWeight: '600',
-  },
-  dayTitle: {
-    fontSize: 24,
-    fontWeight: '900',
-    color: '#FFFFFF',
-    lineHeight: 30,
-  },
-  completedBadge: {
-    alignSelf: 'flex-start',
-    backgroundColor: 'rgba(255,255,255,0.25)',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 12,
+    justifyContent: 'space-between',
+    marginHorizontal: 16,
     marginTop: 4,
+    backgroundColor: colors.card,
+    borderRadius: 14,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: colors.border,
   },
-  completedBadgeText: {
+  sessionHeaderLeft: {
+    gap: 2,
+  },
+  sessionDayBadge: {
     fontSize: 13,
-    fontWeight: '700',
-    color: '#FFFFFF',
+    fontWeight: '800',
+    color: colors.primary,
+    letterSpacing: 0.5,
   },
+  sessionPhase: {
+    fontSize: 12,
+    color: colors.textSecondary,
+    fontWeight: '500',
+  },
+  sessionDurationChip: {
+    backgroundColor: colors.highlight,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 20,
+  },
+  sessionDuration: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: colors.primary,
+  },
+
+  // Section
   section: {
     backgroundColor: colors.card,
     borderRadius: 16,
@@ -554,11 +864,6 @@ const styles = StyleSheet.create({
     gap: 12,
     borderWidth: 1,
     borderColor: colors.border,
-    boxShadow: '0 2px 8px rgba(107, 76, 230, 0.06)',
-  },
-  challengeSection: {
-    backgroundColor: '#FFFBEA',
-    borderColor: '#FFB84D',
   },
   sectionHeader: {
     flexDirection: 'row',
@@ -576,110 +881,60 @@ const styles = StyleSheet.create({
     fontSize: 17,
     fontWeight: '800',
     color: colors.text,
+    flex: 1,
   },
   lessonContent: {
     fontSize: 15,
     color: colors.text,
     lineHeight: 24,
   },
-  audioCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: colors.background,
-    borderRadius: 12,
-    padding: 14,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  audioLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    flex: 1,
-  },
-  audioIconBg: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: '#F5F5F5',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  audioTitle: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#8E8E93',
-  },
-  audioSubtitle: {
-    fontSize: 12,
-    color: '#8E8E93',
-  },
-  audioPlayButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: '#F5F5F5',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  checkRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    backgroundColor: colors.background,
-    borderRadius: 12,
-    padding: 14,
-    borderWidth: 1.5,
-    borderColor: colors.border,
-    minHeight: 52,
-  },
-  checkRowChecked: {
-    backgroundColor: '#F0FFF4',
-    borderColor: '#27AE60',
-  },
-  checkbox: {
-    width: 24,
-    height: 24,
-    borderRadius: 6,
-    borderWidth: 2,
-    borderColor: colors.border,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  checkmark: {
-    fontSize: 14,
-    color: '#FFFFFF',
-    fontWeight: '700',
-  },
-  checkLabel: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: colors.text,
-    flex: 1,
-  },
-  checkLabelChecked: {
-    color: '#27AE60',
-  },
   drillContent: {
     fontSize: 15,
     color: colors.text,
     lineHeight: 24,
   },
-  challengeContent: {
-    fontSize: 15,
-    color: '#B7791F',
-    lineHeight: 24,
+
+  // Drill sub-steps
+  drillStepCard: {
+    backgroundColor: colors.highlight,
+    borderRadius: 14,
+    padding: 18,
+    gap: 10,
+  },
+  drillStepBadge: {
+    alignSelf: 'flex-start',
+    backgroundColor: colors.primary,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 20,
+  },
+  drillStepBadgeText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+  drillStepText: {
+    fontSize: 16,
+    color: colors.text,
+    lineHeight: 26,
     fontWeight: '500',
+  },
+
+  // Reflection
+  reflectHeaderRow: {
+    marginHorizontal: 16,
+    marginTop: 4,
+  },
+  reflectHeading: {
+    fontSize: 22,
+    fontWeight: '900',
+    color: colors.text,
   },
   reflectionPrompt: {
     fontSize: 14,
     color: colors.textSecondary,
     lineHeight: 20,
     fontStyle: 'italic',
-    backgroundColor: colors.highlight,
-    borderRadius: 10,
-    padding: 12,
   },
   reflectionInput: {
     backgroundColor: colors.background,
@@ -689,9 +944,11 @@ const styles = StyleSheet.create({
     padding: 14,
     fontSize: 15,
     color: colors.text,
-    minHeight: 120,
+    minHeight: 80,
     lineHeight: 22,
   },
+
+  // ECRS
   ecrsIntro: {
     fontSize: 13,
     color: colors.textSecondary,
@@ -731,35 +988,115 @@ const styles = StyleSheet.create({
   ecrsButtonTextActive: {
     color: '#FFFFFF',
   },
-  completeButton: {
-    marginHorizontal: 16,
+
+  // Complete step
+  completeCenter: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 16,
+    paddingHorizontal: 32,
+  },
+  trophyEmoji: {
+    fontSize: 72,
+  },
+  completeHeading: {
+    fontSize: 28,
+    fontWeight: '900',
+    color: colors.text,
+    textAlign: 'center',
+  },
+  xpRow: {
+    alignItems: 'center',
+    gap: 8,
+  },
+  xpText: {
+    fontSize: 24,
+    fontWeight: '800',
+    color: '#27AE60',
+  },
+  streakText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: colors.textSecondary,
+  },
+  alreadyCompletedBadge: {
+    backgroundColor: '#F0FFF4',
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderWidth: 1,
+    borderColor: '#27AE60',
+  },
+  alreadyCompletedText: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#27AE60',
+  },
+  savedRow: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: 52,
+  },
+  savedText: {
+    fontSize: 20,
+    fontWeight: '800',
+    color: '#27AE60',
+  },
+  alreadyCompletedButton: {
+    backgroundColor: colors.border,
+  },
+  returnLink: {
+    alignItems: 'center',
+    paddingVertical: 12,
+  },
+  returnLinkText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: colors.primary,
+    textDecorationLine: 'underline',
+  },
+
+  // Action bar
+  actionBar: {
+    paddingHorizontal: 16,
+    paddingBottom: 24,
+    paddingTop: 12,
+    gap: 8,
+    backgroundColor: colors.background,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+  },
+
+  // Primary button
+  primaryButton: {
     borderRadius: 16,
     overflow: 'hidden',
-    minHeight: 56,
+    minHeight: 52,
   },
-  completeButtonDisabled: {
+  primaryButtonDisabled: {
     opacity: 0.5,
   },
-  completeButtonGradient: {
+  primaryButtonGradient: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 18,
-    gap: 10,
+    paddingVertical: 16,
+    gap: 8,
+    minHeight: 52,
   },
-  completeButtonEmoji: {
-    fontSize: 22,
-  },
-  completeButtonText: {
-    fontSize: 18,
+  primaryButtonText: {
+    fontSize: 17,
     fontWeight: '800',
     color: '#FFFFFF',
   },
-  completeHint: {
-    fontSize: 12,
-    color: colors.textSecondary,
+
+  // Inline error
+  inlineError: {
+    fontSize: 13,
+    color: '#FF3B30',
     textAlign: 'center',
-    marginTop: 8,
     marginHorizontal: 16,
+    fontWeight: '500',
   },
 });
