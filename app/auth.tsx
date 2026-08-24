@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useRef } from "react";
 import {
   View,
   Text,
@@ -23,6 +23,7 @@ export default function AuthScreen() {
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const passwordRef = useRef<TextInput>(null);
   const [loading, setLoading] = useState(false);
   const [feedbackModal, setFeedbackModal] = useState<{
     visible: boolean;
@@ -41,7 +42,12 @@ export default function AuthScreen() {
 
   if (authLoading) {
     return (
-      <View style={styles.loadingContainer}>
+      <View
+        style={styles.loadingContainer}
+        accessible={true}
+        accessibilityLabel="Loading, please wait"
+        accessibilityLiveRegion="polite"
+      >
         <ActivityIndicator size="large" color={colors.primary} />
       </View>
     );
@@ -146,9 +152,14 @@ export default function AuthScreen() {
             keyboardType="email-address"
             autoCapitalize="none"
             autoCorrect={false}
+            accessibilityLabel="Email address"
+            accessibilityHint="Enter your email address"
+            returnKeyType="next"
+            onSubmitEditing={() => passwordRef.current?.focus()}
           />
 
           <TextInput
+            ref={passwordRef}
             style={styles.input}
             placeholder="Password"
             placeholderTextColor="#999"
@@ -156,9 +167,18 @@ export default function AuthScreen() {
             onChangeText={setPassword}
             secureTextEntry
             autoCapitalize="none"
+            accessibilityLabel="Password"
+            accessibilityHint="Enter your password"
+            returnKeyType="go"
+            onSubmitEditing={handleSignIn}
           />
 
-          <TouchableOpacity style={styles.forgotPasswordButton} onPress={handleForgotPassword}>
+          <TouchableOpacity
+            style={styles.forgotPasswordButton}
+            onPress={handleForgotPassword}
+            accessibilityLabel="Forgot password"
+            accessibilityRole="link"
+          >
             <Text style={styles.forgotPasswordText}>Forgot Password?</Text>
           </TouchableOpacity>
 
@@ -166,6 +186,9 @@ export default function AuthScreen() {
             style={[styles.primaryButton, loading && styles.buttonDisabled]}
             onPress={handleSignIn}
             disabled={loading}
+            accessibilityLabel={loading ? "Signing in, please wait" : "Sign In"}
+            accessibilityRole="button"
+            accessibilityState={{ disabled: loading, busy: loading }}
           >
             {loading ? (
               <ActivityIndicator color="#fff" />
@@ -174,7 +197,12 @@ export default function AuthScreen() {
             )}
           </TouchableOpacity>
 
-          <TouchableOpacity style={styles.switchModeButton} onPress={handleGoToSignUp}>
+          <TouchableOpacity
+            style={styles.switchModeButton}
+            onPress={handleGoToSignUp}
+            accessibilityLabel="Don't have an account? Sign Up"
+            accessibilityRole="link"
+          >
             <Text style={styles.switchModeText}>Don't have an account? Sign Up</Text>
           </TouchableOpacity>
 
@@ -188,6 +216,9 @@ export default function AuthScreen() {
             style={styles.socialButton}
             onPress={() => handleSocialAuth("google")}
             disabled={loading}
+            accessibilityLabel="Continue with Google"
+            accessibilityRole="button"
+            accessibilityState={{ disabled: loading }}
           >
             <Text style={styles.socialButtonText}>🌐  Continue with Google</Text>
           </TouchableOpacity>
@@ -197,6 +228,9 @@ export default function AuthScreen() {
               style={[styles.socialButton, styles.appleButton]}
               onPress={() => handleSocialAuth("apple")}
               disabled={loading}
+              accessibilityLabel="Continue with Apple"
+              accessibilityRole="button"
+              accessibilityState={{ disabled: loading }}
             >
               <Text style={[styles.socialButtonText, styles.appleButtonText]}>
                 🍎  Continue with Apple
@@ -217,6 +251,8 @@ export default function AuthScreen() {
             entering={FadeIn.duration(300)}
             exiting={FadeOut.duration(200)}
             style={styles.feedbackModal}
+            accessibilityViewIsModal={true}
+            accessibilityLiveRegion="assertive"
           >
             <View
               style={[
@@ -228,7 +264,7 @@ export default function AuthScreen() {
                 {feedbackModal.type === "error" ? "❌" : "✅"}
               </Text>
             </View>
-            <Text style={styles.feedbackTitle}>{feedbackModal.title}</Text>
+            <Text style={styles.feedbackTitle} accessibilityRole="header">{feedbackModal.title}</Text>
             <Text style={styles.feedbackMessage}>{feedbackModal.message}</Text>
             <TouchableOpacity
               style={[
@@ -237,6 +273,8 @@ export default function AuthScreen() {
               ]}
               onPress={hideFeedback}
               activeOpacity={0.8}
+              accessibilityLabel="Dismiss error"
+              accessibilityRole="button"
             >
               <Text style={styles.feedbackButtonText}>OK</Text>
             </TouchableOpacity>

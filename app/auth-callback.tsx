@@ -75,9 +75,11 @@ export default function AuthCallbackScreen() {
 
   if (state === "timeout" || state === "error") {
     return (
-      <View style={styles.container}>
+      <View style={styles.container} accessibilityLiveRegion="assertive">
         <Text style={styles.icon}>⏱</Text>
-        <Text style={styles.title}>{state === "timeout" ? "Still loading…" : "Something went wrong"}</Text>
+        <Text style={styles.title} accessibilityRole="header">
+          {state === "timeout" ? "Still loading…" : "Something went wrong"}
+        </Text>
         <Text style={styles.subtitle}>{message}</Text>
         <TouchableOpacity
           style={styles.button}
@@ -86,6 +88,8 @@ export default function AuthCallbackScreen() {
             routedRef.current = true;
             router.replace("/auth");
           }}
+          accessibilityLabel="Go to Sign In"
+          accessibilityRole="button"
         >
           <Text style={styles.buttonText}>Go to Sign In</Text>
         </TouchableOpacity>
@@ -94,9 +98,14 @@ export default function AuthCallbackScreen() {
   }
 
   return (
-    <View style={styles.container}>
-      <ActivityIndicator size="large" color={colors.primary} />
-      <Text style={styles.subtitle}>{message}</Text>
+    <View
+      style={styles.container}
+      accessible={true}
+      accessibilityLabel="Loading your dashboard, please wait"
+      accessibilityLiveRegion="polite"
+    >
+      <ActivityIndicator size="large" color={colors.primary} accessibilityLabel="Loading" />
+      <Text style={styles.subtitle} accessibilityLiveRegion="polite">{message}</Text>
     </View>
   );
 }

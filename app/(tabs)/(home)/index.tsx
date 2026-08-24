@@ -145,6 +145,8 @@ function GuestWelcomeScreen() {
               router.push('/auth');
             }}
             activeOpacity={0.9}
+            accessibilityLabel="Sign In"
+            accessibilityRole="button"
           >
             <LinearGradient
               colors={[colors.primary, colors.secondary]}
@@ -167,6 +169,8 @@ function GuestWelcomeScreen() {
               router.push('/signup');
             }}
             activeOpacity={0.9}
+            accessibilityLabel="Create Account"
+            accessibilityRole="button"
           >
             <Text style={styles.createAccountButtonText}>Create Account</Text>
           </TouchableOpacity>
@@ -181,6 +185,8 @@ function GuestWelcomeScreen() {
               Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
               handleBeginAssessment();
             }}
+            accessibilityLabel="Continue as Guest — take the assessment"
+            accessibilityRole="button"
           >
             <Text style={styles.guestButtonText}>Continue as Guest</Text>
             <IconSymbol ios_icon_name="person.fill" android_material_icon_name="person" size={20} color={colors.primary} />
@@ -219,8 +225,14 @@ function ProgressRing({ progress, size, strokeWidth }: { progress: number; size:
     position: 'relative' as const,
   };
 
+  const progressPercentRounded = Math.round(clampedProgress * 100);
+
   return (
-    <View style={ringStyle}>
+    <View
+      style={ringStyle}
+      accessible={true}
+      accessibilityLabel={`Progress: ${progressPercentRounded} percent`}
+    >
       {/* Filled arc overlay */}
       <View
         style={{
@@ -238,7 +250,7 @@ function ProgressRing({ progress, size, strokeWidth }: { progress: number; size:
         }}
       />
       <Text style={{ fontSize: 18, fontWeight: '800', color: colors.text }}>
-        {Math.round(clampedProgress * 100)}
+        {progressPercentRounded}
       </Text>
       <Text style={{ fontSize: 10, color: colors.textSecondary, fontWeight: '600' }}>%</Text>
     </View>
@@ -363,7 +375,7 @@ function TodayDashboard() {
     return (
       <SafeAreaView style={styles.container} edges={['top']}>
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={colors.primary} />
+          <ActivityIndicator size="large" color={colors.primary} accessibilityLabel="Loading dashboard" />
           <Text style={styles.loadingText}>Loading your dashboard...</Text>
           {loadTimeout && (
             <TouchableOpacity
@@ -373,6 +385,8 @@ function TodayDashboard() {
                 fetchData();
               }}
               style={styles.retryButton}
+              accessibilityLabel="Retry loading dashboard"
+              accessibilityRole="button"
             >
               <Text style={styles.retryButtonText}>Taking too long? Retry</Text>
             </TouchableOpacity>
@@ -395,6 +409,8 @@ function TodayDashboard() {
               console.log('[Today] Empty state — Start Setup tapped');
               handleStartJourney();
             }}
+            accessibilityLabel="Start your 90-day journey setup"
+            accessibilityRole="button"
           >
             <Text style={styles.retryButtonText}>Start Setup</Text>
           </TouchableOpacity>
@@ -407,6 +423,11 @@ function TodayDashboard() {
   const dayText = `Day ${currentDay} of 90`;
   const xpText = `${totalXP} XP`;
   const progressBarWidth = `${Math.round(progressPercent * 100)}%`;
+
+  const continueTrainingA11yLabel = `Continue Training — Day ${currentDay} of 90`;
+  const isProLocked = !isSubscribed && !canAccess('ecct_full_program');
+  const coachA11yLabel = isProLocked ? "AI Coach — Pro feature, tap to upgrade" : "AI Coach — get personalized guidance";
+  const analyticsA11yLabel = isProLocked ? "Analytics — Pro feature, tap to upgrade" : "Analytics — view your progress trends";
 
   const ecrsScore1 = assessment?.emotional_identification ?? 0;
   const ecrsScore2 = assessment?.response_control ?? 0;
@@ -478,9 +499,14 @@ function TodayDashboard() {
 
         {/* Error state */}
         {error && (
-          <Animated.View entering={FadeInDown.duration(400)} style={styles.errorCard}>
-            <Text style={styles.errorText}>{error}</Text>
-            <TouchableOpacity onPress={() => { console.log('[Today] Retry tapped'); fetchData(); }} style={styles.retryButton}>
+          <Animated.View entering={FadeInDown.duration(400)} style={styles.errorCard} accessibilityLiveRegion="assertive">
+            <Text style={styles.errorText} accessibilityRole="alert">{error}</Text>
+            <TouchableOpacity
+              onPress={() => { console.log('[Today] Retry tapped'); fetchData(); }}
+              style={styles.retryButton}
+              accessibilityLabel="Retry loading dashboard"
+              accessibilityRole="button"
+            >
               <Text style={styles.retryButtonText}>Retry</Text>
             </TouchableOpacity>
           </Animated.View>
@@ -488,7 +514,12 @@ function TodayDashboard() {
 
         {/* Offline banner */}
         {isOffline && (
-          <Animated.View entering={FadeInDown.duration(400)} style={styles.offlineBanner}>
+          <Animated.View
+            entering={FadeInDown.duration(400)}
+            style={styles.offlineBanner}
+            accessibilityLiveRegion="polite"
+            accessibilityLabel="You are offline. Showing cached data."
+          >
             <Text style={styles.offlineBannerText}>📡  You're offline — showing cached data</Text>
           </Animated.View>
         )}
@@ -519,7 +550,13 @@ function TodayDashboard() {
 
         {/* Continue Training CTA */}
         <Animated.View entering={FadeInDown.delay(150).duration(600)}>
-          <TouchableOpacity style={styles.ctaButton} onPress={handleContinueTraining} activeOpacity={0.9}>
+          <TouchableOpacity
+            style={styles.ctaButton}
+            onPress={handleContinueTraining}
+            activeOpacity={0.9}
+            accessibilityLabel={continueTrainingA11yLabel}
+            accessibilityRole="button"
+          >
             <LinearGradient
               colors={[colors.primary, colors.secondary]}
               start={{ x: 0, y: 0 }}
@@ -535,7 +572,13 @@ function TodayDashboard() {
 
         {/* Quick Emotion Check-in */}
         <Animated.View entering={FadeInDown.delay(200).duration(600)}>
-          <TouchableOpacity style={styles.card} onPress={handleEmotionCheckin} activeOpacity={0.85}>
+          <TouchableOpacity
+            style={styles.card}
+            onPress={handleEmotionCheckin}
+            activeOpacity={0.85}
+            accessibilityLabel="Quick emotion check-in"
+            accessibilityRole="button"
+          >
             <View style={styles.cardHeader}>
               <View style={[styles.cardIconBg, { backgroundColor: '#FFF0F5' }]}>
                 <IconSymbol ios_icon_name="heart.fill" android_material_icon_name="favorite" size={20} color="#FF3B6B" />
@@ -582,7 +625,13 @@ function TodayDashboard() {
 
         {/* Action Cards Row */}
         <Animated.View entering={FadeInDown.delay(300).duration(600)} style={styles.actionCardsRow}>
-          <TouchableOpacity style={[styles.actionCard, styles.actionCardHalf]} onPress={handleOpenCoach} activeOpacity={0.85}>
+          <TouchableOpacity
+            style={[styles.actionCard, styles.actionCardHalf]}
+            onPress={handleOpenCoach}
+            activeOpacity={0.85}
+            accessibilityLabel={coachA11yLabel}
+            accessibilityRole="button"
+          >
             <LinearGradient
               colors={['#6B4CE6', '#9B59B6']}
               start={{ x: 0, y: 0 }}
@@ -600,7 +649,13 @@ function TodayDashboard() {
             </LinearGradient>
           </TouchableOpacity>
 
-          <TouchableOpacity style={[styles.actionCard, styles.actionCardHalf]} onPress={handleViewAnalytics} activeOpacity={0.85}>
+          <TouchableOpacity
+            style={[styles.actionCard, styles.actionCardHalf]}
+            onPress={handleViewAnalytics}
+            activeOpacity={0.85}
+            accessibilityLabel={analyticsA11yLabel}
+            accessibilityRole="button"
+          >
             <LinearGradient
               colors={['#27AE60', '#1ABC9C']}
               start={{ x: 0, y: 0 }}
