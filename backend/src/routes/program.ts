@@ -585,6 +585,46 @@ const DAY_MAP = new Map<number, DayContent>(PROGRAM_DAYS.map(d => [d.day_number,
 export function registerProgramRoutes(app: App) {
   const requireAuth = app.requireAuth();
 
+  // Helper function: Check if user has premium entitlement
+  async function checkPremiumEntitlement(userId: string): Promise<boolean> {
+    const profileRows = await app.db
+      .select()
+      .from(schema.userProfiles)
+      .where(eq(schema.userProfiles.userId, userId));
+
+    if (profileRows.length === 0) {
+      return false;
+    }
+
+    const entitlement = computeEntitlement(profileRows[0]);
+    return entitlement.isPremium;
+  }
+
+  // Helper function: Check progression lock for sequential day completion
+  async function checkProgressionLock(userId: string, dayNumber: number): Promise<{ locked: boolean; requiredDay: number | null }> {
+    // Day 1 is never locked
+    if (dayNumber === 1) {
+      return { locked: false, requiredDay: null };
+    }
+
+    // Check if previous day is completed
+    const prevDayRecords = await app.db
+      .select()
+      .from(schema.userDayProgress)
+      .where(and(
+        eq(schema.userDayProgress.userId, userId),
+        eq(schema.userDayProgress.dayNumber, dayNumber - 1)
+      ))
+      .limit(1);
+
+    const prevCompleted = prevDayRecords.length > 0 && prevDayRecords[0].completed === true;
+    if (!prevCompleted) {
+      return { locked: true, requiredDay: dayNumber - 1 };
+    }
+
+    return { locked: false, requiredDay: null };
+  }
+
   // GET /api/program/content — public, all days
   app.fastify.get('/api/program/content', {
     schema: {
@@ -623,16 +663,8 @@ export function registerProgramRoutes(app: App) {
       const session = await requireAuth(request, reply);
       if (!session) return; // requireAuth already sent 401
 
-      const profileRows = await app.db
-        .select()
-        .from(schema.userProfiles)
-        .where(eq(schema.userProfiles.userId, session.user.id));
-
-      const entitlement = profileRows.length > 0
-        ? computeEntitlement(profileRows[0])
-        : { isPremium: false };
-
-      if (!entitlement.isPremium) {
+      const isPremium = await checkPremiumEntitlement(session.user.id);
+      if (!isPremium) {
         app.logger.warn({ userId: session.user.id, dayNumber: num }, 'Premium required for day');
         return reply.status(403).send({
           error: 'premium_required',
@@ -700,16 +732,8 @@ export function registerProgramRoutes(app: App) {
 
     // Premium gate for days 8-90
     if (num > 7) {
-      const profileRows = await app.db
-        .select()
-        .from(schema.userProfiles)
-        .where(eq(schema.userProfiles.userId, userId));
-
-      const entitlement = profileRows.length > 0
-        ? computeEntitlement(profileRows[0])
-        : { isPremium: false };
-
-      if (!entitlement.isPremium) {
+      const isPremium = await checkPremiumEntitlement(userId);
+      if (!isPremium) {
         app.logger.warn({ userId, dayNumber: num }, 'Premium required');
         return reply.status(403).send({
           error: 'premium_required',
@@ -779,16 +803,8 @@ export function registerProgramRoutes(app: App) {
 
     // Premium gate for days 8-90
     if (num > 7) {
-      const profileRows = await app.db
-        .select()
-        .from(schema.userProfiles)
-        .where(eq(schema.userProfiles.userId, userId));
-
-      const entitlement = profileRows.length > 0
-        ? computeEntitlement(profileRows[0])
-        : { isPremium: false };
-
-      if (!entitlement.isPremium) {
+      const isPremium = await checkPremiumEntitlement(userId);
+      if (!isPremium) {
         app.logger.warn({ userId, dayNumber: num }, 'Premium required for PATCH');
         return reply.status(403).send({
           error: 'premium_required',
@@ -798,25 +814,14 @@ export function registerProgramRoutes(app: App) {
     }
 
     // Sequential progression gate: day N requires day N-1 to be completed
-    if (num > 1) {
-      const prevDayRecords = await app.db
-        .select()
-        .from(schema.userDayProgress)
-        .where(and(
-          eq(schema.userDayProgress.userId, userId),
-          eq(schema.userDayProgress.dayNumber, num - 1)
-        ))
-        .limit(1);
-
-      const prevCompleted = prevDayRecords.length > 0 && prevDayRecords[0].completed === true;
-      if (!prevCompleted) {
-        app.logger.warn({ userId, dayNumber: num, requiredDay: num - 1 }, 'Progression required');
-        return reply.status(403).send({
-          error: 'progression_required',
-          reason: 'complete_previous_day_first',
-          required_day: num - 1,
-        });
-      }
+    const progressionCheck = await checkProgressionLock(userId, num);
+    if (progressionCheck.locked) {
+      app.logger.warn({ userId, dayNumber: num, requiredDay: progressionCheck.requiredDay }, 'Progression required');
+      return reply.status(403).send({
+        error: 'progression_required',
+        reason: 'complete_previous_day_first',
+        required_day: progressionCheck.requiredDay,
+      });
     }
 
     const body = request.body as { lesson_read?: boolean; drill_completed?: boolean };
@@ -931,16 +936,8 @@ export function registerProgramRoutes(app: App) {
 
     // Premium gate for days 8-90
     if (num > 7) {
-      const profileRows = await app.db
-        .select()
-        .from(schema.userProfiles)
-        .where(eq(schema.userProfiles.userId, userId));
-
-      const entitlement = profileRows.length > 0
-        ? computeEntitlement(profileRows[0])
-        : { isPremium: false };
-
-      if (!entitlement.isPremium) {
+      const isPremium = await checkPremiumEntitlement(userId);
+      if (!isPremium) {
         app.logger.warn({ userId, dayNumber: num }, 'Premium required for complete');
         return reply.status(403).send({
           error: 'premium_required',
@@ -950,25 +947,14 @@ export function registerProgramRoutes(app: App) {
     }
 
     // Sequential progression gate: day N requires day N-1 to be completed
-    if (num > 1) {
-      const prevDayRecords = await app.db
-        .select()
-        .from(schema.userDayProgress)
-        .where(and(
-          eq(schema.userDayProgress.userId, userId),
-          eq(schema.userDayProgress.dayNumber, num - 1)
-        ))
-        .limit(1);
-
-      const prevCompleted = prevDayRecords.length > 0 && prevDayRecords[0].completed === true;
-      if (!prevCompleted) {
-        app.logger.warn({ userId, dayNumber: num, requiredDay: num - 1 }, 'Progression required for complete');
-        return reply.status(403).send({
-          error: 'progression_required',
-          reason: 'complete_previous_day_first',
-          required_day: num - 1,
-        });
-      }
+    const progressionCheck = await checkProgressionLock(userId, num);
+    if (progressionCheck.locked) {
+      app.logger.warn({ userId, dayNumber: num, requiredDay: progressionCheck.requiredDay }, 'Progression required for complete');
+      return reply.status(403).send({
+        error: 'progression_required',
+        reason: 'complete_previous_day_first',
+        required_day: progressionCheck.requiredDay,
+      });
     }
 
     const now = new Date();
