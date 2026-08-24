@@ -8,6 +8,13 @@
       "when": 1787576286026,
       "tag": "20260824125806_big_wendigo",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1787577911728,
+      "tag": "20260824132511_wet_madame_hydra",
+      "breakpoints": true
     }
   ]
 }
