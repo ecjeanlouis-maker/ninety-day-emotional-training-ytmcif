@@ -6,6 +6,9 @@ import { registerPaymentRoutes } from './routes/payments.js';
 import { registerProfileRoutes } from './routes/profiles.js';
 import { registerStripeRoutes } from './routes/stripe.js';
 import { registerAdminRoutes } from './routes/admin.js';
+import { registerOnboardingRoutes } from './routes/onboarding.js';
+import { registerAssessmentRoutes } from './routes/assessments.js';
+import { registerProgressRoutes } from './routes/progress.js';
 import { sendEmail } from './lib/email.js';
 import { bootstrapStripe } from './lib/stripe.js';
 import {
@@ -174,6 +177,9 @@ registerPaymentRoutes(app);
 registerProfileRoutes(app);
 registerStripeRoutes(app);
 registerAdminRoutes(app);
+registerOnboardingRoutes(app);
+registerAssessmentRoutes(app);
+registerProgressRoutes(app);
 
 // Bootstrap Stripe if configured - wrap in try/catch to prevent startup failure
 try {
