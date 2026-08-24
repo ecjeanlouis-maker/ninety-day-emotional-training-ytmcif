@@ -50,6 +50,13 @@
       "when": 1787588786789,
       "tag": "20260824162626_massive_mentallo",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1787591157161,
+      "tag": "20260824170557_slow_lady_bullseye",
+      "breakpoints": true
     }
   ]
 }
