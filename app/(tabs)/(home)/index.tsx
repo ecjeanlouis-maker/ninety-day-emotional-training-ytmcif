@@ -452,7 +452,7 @@ function TodayDashboard() {
   const xpText = `${totalXP} XP`;
   const progressBarWidth = `${Math.round(progressPercent * 100)}%`;
 
-  const continueTrainingA11yLabel = `Continue Training — Day ${currentDay} of 90`;
+
   const isProLocked = !isSubscribed && !canAccess('ecct_full_program');
   const coachA11yLabel = isProLocked ? "AI Coach — Pro feature, tap to upgrade" : "AI Coach — get personalized guidance";
   const analyticsA11yLabel = isProLocked ? "Analytics — Pro feature, tap to upgrade" : "Analytics — view your progress trends";
@@ -485,7 +485,7 @@ function TodayDashboard() {
             <View style={styles.dashboardHeaderContent}>
               <View style={styles.dashboardHeaderText}>
                 <Text style={styles.greetingText}>{greeting},</Text>
-                <Text style={styles.greetingName}>{displayName}</Text>
+                <Text style={styles.greetingName} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>{displayName}</Text>
                 <Text style={styles.dayProgressText}>{dayText}</Text>
               </View>
               <View style={styles.progressRingContainer}>
@@ -612,35 +612,43 @@ function TodayDashboard() {
           </TouchableOpacity>
         </Animated.View>
 
-        {/* Progress Strip */}
+        {/* Progress Strip — XP · Weekly · Milestone */}
         <Animated.View
           entering={reducedMotion ? undefined : FadeInDown.delay(175).duration(600)}
           style={styles.progressStrip}
-          accessibilityLabel={`${progressPct}% complete — ${totalDaysCompleted} of 90 days done, ${currentStreak}-day streak, ${daysToMilestone} days to ${milestoneLabel}`}
-          accessibilityRole="summary"
+          accessibilityLabel={`${totalXP} XP earned. ${daysToMilestone > 0 ? `${daysToMilestone} days to ${milestoneLabel}` : `${milestoneLabel} reached`}.`}
+          accessibilityRole="none"
         >
-          {/* Streak */}
+          {/* XP */}
           <View style={styles.progressStripItem}>
-            <Text style={styles.progressStripValue} adjustsFontSizeToFit numberOfLines={1}>{currentStreak}</Text>
-            <Text style={styles.progressStripLabel} allowFontScaling={false}>🔥 Streak</Text>
+            <Text style={styles.progressStripValue} adjustsFontSizeToFit numberOfLines={1}>
+              {totalXP}<Text style={styles.progressStripValueSub}> XP</Text>
+            </Text>
+            <Text style={styles.progressStripLabel} allowFontScaling={false}>⚡ Earned</Text>
           </View>
           <View style={styles.progressStripDivider} />
-          {/* Days done */}
-          <View style={styles.progressStripItem}>
-            <Text style={styles.progressStripValue} adjustsFontSizeToFit numberOfLines={1}>{totalDaysCompleted}<Text style={styles.progressStripValueSub}>/90</Text></Text>
-            <Text style={styles.progressStripLabel} allowFontScaling={false}>Days Done</Text>
-          </View>
-          <View style={styles.progressStripDivider} />
-          {/* Percentage */}
-          <View style={styles.progressStripItem}>
-            <Text style={styles.progressStripValue} adjustsFontSizeToFit numberOfLines={1}>{progressPct}<Text style={styles.progressStripValueSub}>%</Text></Text>
-            <Text style={styles.progressStripLabel} allowFontScaling={false}>Complete</Text>
+          {/* 7-day completion dots */}
+          <View style={[styles.progressStripItem, { flex: 2 }]}>
+            <View style={styles.weekDotsRow}>
+              {(progress?.weekly_completion ?? Array(7).fill({ completed: false })).slice(-7).map((day: { completed: boolean }, i: number) => (
+                <View
+                  key={i}
+                  style={[styles.weekDot, day.completed && styles.weekDotFilled]}
+                  accessibilityLabel={day.completed ? `Day ${i + 1} complete` : `Day ${i + 1} incomplete`}
+                />
+              ))}
+            </View>
+            <Text style={styles.progressStripLabel} allowFontScaling={false}>This Week</Text>
           </View>
           <View style={styles.progressStripDivider} />
           {/* Next milestone */}
           <View style={styles.progressStripItem}>
-            <Text style={[styles.progressStripValue, { color: colors.primary }]} adjustsFontSizeToFit numberOfLines={1}>{daysToMilestone > 0 ? daysToMilestone : '✓'}</Text>
-            <Text style={styles.progressStripLabel} allowFontScaling={false}>To {milestoneLabel}</Text>
+            <Text style={[styles.progressStripValue, { color: colors.primary }]} adjustsFontSizeToFit numberOfLines={1}>
+              {daysToMilestone > 0 ? daysToMilestone : '✓'}
+            </Text>
+            <Text style={styles.progressStripLabel} allowFontScaling={false}>
+              {daysToMilestone > 0 ? `To ${milestoneLabel}` : milestoneLabel}
+            </Text>
           </View>
         </Animated.View>
 
@@ -960,11 +968,13 @@ const styles = StyleSheet.create({
   },
   statsRow: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     backgroundColor: 'rgba(255,255,255,0.15)',
     borderRadius: 12,
     padding: 12,
     justifyContent: 'space-around',
     alignItems: 'center',
+    gap: 4,
   },
   statChip: {
     alignItems: 'center',
@@ -1377,5 +1387,20 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     fontWeight: '500',
     textAlign: 'center',
+  },
+  weekDotsRow: {
+    flexDirection: 'row',
+    gap: 4,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  weekDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: colors.border,
+  },
+  weekDotFilled: {
+    backgroundColor: colors.primary,
   },
 });
