@@ -16,7 +16,7 @@ import { IconSymbol } from '@/components/IconSymbol';
 import { colors } from '@/styles/commonStyles';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
-import Animated, { FadeInDown, FadeIn } from 'react-native-reanimated';
+import Animated, { FadeInDown, FadeIn, useReducedMotion } from 'react-native-reanimated';
 import { useAuth } from '@/contexts/AuthContext';
 import { useSubscription } from '@/contexts/SubscriptionContext';
 import { useUser } from '@/contexts/UserContext';
@@ -350,6 +350,8 @@ function TodayDashboard() {
     ? `Continue Today's Drill — Day ${currentDay}, ${lessonTitle}`
     : `Start Today's Drill — Day ${currentDay}, ${lessonTitle}`;
 
+  const reducedMotion = useReducedMotion();
+
   // Progress strip derived values
   const MILESTONES = [7, 14, 30, 60, 90];
   const nextMilestone = MILESTONES.find(m => m > totalDaysCompleted) ?? 90;
@@ -575,7 +577,12 @@ function TodayDashboard() {
         )}
 
         {/* Daily Training Card */}
-        <Animated.View entering={FadeInDown.delay(150).duration(600)} style={styles.dailyCard}>
+        <Animated.View
+          entering={reducedMotion ? undefined : FadeInDown.delay(150).duration(600)}
+          style={styles.dailyCard}
+          accessibilityLabel={`Day ${currentDay} of 90 — ${lessonTitle}, ${lessonDuration}`}
+          accessibilityRole="none"
+        >
           <View style={styles.dailyCardMeta}>
             <View style={styles.dailyCardBadge}>
               <Text style={styles.dailyCardBadgeText}>DAY {currentDay} OF 90</Text>
@@ -607,33 +614,33 @@ function TodayDashboard() {
 
         {/* Progress Strip */}
         <Animated.View
-          entering={FadeInDown.delay(175).duration(600)}
+          entering={reducedMotion ? undefined : FadeInDown.delay(175).duration(600)}
           style={styles.progressStrip}
           accessibilityLabel={`${progressPct}% complete — ${totalDaysCompleted} of 90 days done, ${currentStreak}-day streak, ${daysToMilestone} days to ${milestoneLabel}`}
           accessibilityRole="summary"
         >
           {/* Streak */}
           <View style={styles.progressStripItem}>
-            <Text style={styles.progressStripValue}>{currentStreak}</Text>
-            <Text style={styles.progressStripLabel}>🔥 Streak</Text>
+            <Text style={styles.progressStripValue} adjustsFontSizeToFit numberOfLines={1}>{currentStreak}</Text>
+            <Text style={styles.progressStripLabel} allowFontScaling={false}>🔥 Streak</Text>
           </View>
           <View style={styles.progressStripDivider} />
           {/* Days done */}
           <View style={styles.progressStripItem}>
-            <Text style={styles.progressStripValue}>{totalDaysCompleted}<Text style={styles.progressStripValueSub}>/90</Text></Text>
-            <Text style={styles.progressStripLabel}>Days Done</Text>
+            <Text style={styles.progressStripValue} adjustsFontSizeToFit numberOfLines={1}>{totalDaysCompleted}<Text style={styles.progressStripValueSub}>/90</Text></Text>
+            <Text style={styles.progressStripLabel} allowFontScaling={false}>Days Done</Text>
           </View>
           <View style={styles.progressStripDivider} />
           {/* Percentage */}
           <View style={styles.progressStripItem}>
-            <Text style={styles.progressStripValue}>{progressPct}<Text style={styles.progressStripValueSub}>%</Text></Text>
-            <Text style={styles.progressStripLabel}>Complete</Text>
+            <Text style={styles.progressStripValue} adjustsFontSizeToFit numberOfLines={1}>{progressPct}<Text style={styles.progressStripValueSub}>%</Text></Text>
+            <Text style={styles.progressStripLabel} allowFontScaling={false}>Complete</Text>
           </View>
           <View style={styles.progressStripDivider} />
           {/* Next milestone */}
           <View style={styles.progressStripItem}>
-            <Text style={[styles.progressStripValue, { color: colors.primary }]}>{daysToMilestone > 0 ? daysToMilestone : '✓'}</Text>
-            <Text style={styles.progressStripLabel}>To {milestoneLabel}</Text>
+            <Text style={[styles.progressStripValue, { color: colors.primary }]} adjustsFontSizeToFit numberOfLines={1}>{daysToMilestone > 0 ? daysToMilestone : '✓'}</Text>
+            <Text style={styles.progressStripLabel} allowFontScaling={false}>To {milestoneLabel}</Text>
           </View>
         </Animated.View>
 
@@ -1280,6 +1287,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    flexWrap: 'wrap',
+    gap: 6,
   },
   dailyCardBadge: {
     backgroundColor: colors.highlight,
@@ -1308,6 +1317,8 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     color: colors.text,
     lineHeight: 26,
+    flexShrink: 1,
+    flexWrap: 'wrap',
   },
   dailyCardButton: {
     borderRadius: 14,
@@ -1319,7 +1330,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: 16,
+    minHeight: 44,
     gap: 10,
+    flexWrap: 'wrap',
   },
   dailyCardButtonText: {
     fontSize: 17,
@@ -1352,6 +1365,7 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     color: colors.text,
     lineHeight: 24,
+    includeFontPadding: false,
   },
   progressStripValueSub: {
     fontSize: 13,
