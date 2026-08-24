@@ -64,6 +64,13 @@
       "when": 1787592191757,
       "tag": "20260824172311_free_surge",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1787594468754,
+      "tag": "20260824180108_unusual_bastion",
+      "breakpoints": true
     }
   ]
 }

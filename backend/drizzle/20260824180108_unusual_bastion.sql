@@ -1,0 +1,1 @@
+ALTER TABLE "user_onboarding" ADD COLUMN "assessment_status" text DEFAULT 'not_started' NOT NULL;
