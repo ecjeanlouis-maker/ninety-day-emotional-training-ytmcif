@@ -350,6 +350,13 @@ function TodayDashboard() {
     ? `Continue Today's Drill — Day ${currentDay}, ${lessonTitle}`
     : `Start Today's Drill — Day ${currentDay}, ${lessonTitle}`;
 
+  // Progress strip derived values
+  const MILESTONES = [7, 14, 30, 60, 90];
+  const nextMilestone = MILESTONES.find(m => m > totalDaysCompleted) ?? 90;
+  const daysToMilestone = Math.max(nextMilestone - totalDaysCompleted, 0);
+  const progressPct = Math.round(progressPercent * 100);
+  const milestoneLabel = nextMilestone === 90 ? 'Program complete' : `Day ${nextMilestone}`;
+
   const handleContinueTraining = () => {
     console.log('[Today] Continue Training tapped — navigating to day:', currentDay);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
@@ -596,6 +603,38 @@ function TodayDashboard() {
               <Text style={styles.dailyCardButtonText}>{drillButtonLabel}</Text>
             </LinearGradient>
           </TouchableOpacity>
+        </Animated.View>
+
+        {/* Progress Strip */}
+        <Animated.View
+          entering={FadeInDown.delay(175).duration(600)}
+          style={styles.progressStrip}
+          accessibilityLabel={`${progressPct}% complete — ${totalDaysCompleted} of 90 days done, ${currentStreak}-day streak, ${daysToMilestone} days to ${milestoneLabel}`}
+          accessibilityRole="summary"
+        >
+          {/* Streak */}
+          <View style={styles.progressStripItem}>
+            <Text style={styles.progressStripValue}>{currentStreak}</Text>
+            <Text style={styles.progressStripLabel}>🔥 Streak</Text>
+          </View>
+          <View style={styles.progressStripDivider} />
+          {/* Days done */}
+          <View style={styles.progressStripItem}>
+            <Text style={styles.progressStripValue}>{totalDaysCompleted}<Text style={styles.progressStripValueSub}>/90</Text></Text>
+            <Text style={styles.progressStripLabel}>Days Done</Text>
+          </View>
+          <View style={styles.progressStripDivider} />
+          {/* Percentage */}
+          <View style={styles.progressStripItem}>
+            <Text style={styles.progressStripValue}>{progressPct}<Text style={styles.progressStripValueSub}>%</Text></Text>
+            <Text style={styles.progressStripLabel}>Complete</Text>
+          </View>
+          <View style={styles.progressStripDivider} />
+          {/* Next milestone */}
+          <View style={styles.progressStripItem}>
+            <Text style={[styles.progressStripValue, { color: colors.primary }]}>{daysToMilestone > 0 ? daysToMilestone : '✓'}</Text>
+            <Text style={styles.progressStripLabel}>To {milestoneLabel}</Text>
+          </View>
         </Animated.View>
 
         {/* Quick Emotion Check-in */}
@@ -1286,5 +1325,43 @@ const styles = StyleSheet.create({
     fontSize: 17,
     fontWeight: '700',
     color: '#FFFFFF',
+  },
+  progressStrip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.card,
+    borderRadius: 14,
+    paddingVertical: 14,
+    paddingHorizontal: 8,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  progressStripItem: {
+    flex: 1,
+    alignItems: 'center',
+    gap: 3,
+  },
+  progressStripDivider: {
+    width: 1,
+    height: 32,
+    backgroundColor: colors.border,
+  },
+  progressStripValue: {
+    fontSize: 20,
+    fontWeight: '800',
+    color: colors.text,
+    lineHeight: 24,
+  },
+  progressStripValueSub: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: colors.textSecondary,
+  },
+  progressStripLabel: {
+    fontSize: 11,
+    color: colors.textSecondary,
+    fontWeight: '500',
+    textAlign: 'center',
   },
 });
