@@ -139,6 +139,7 @@ export const userOnboarding = pgTable('user_onboarding', {
   primaryGoal: text('primary_goal'),
   biggestChallenge: text('biggest_challenge'),
   reminderTime: text('reminder_time'),
+  assessmentStatus: text('assessment_status').notNull().default('not_started'),
   completedAt: timestamp('completed_at', { withTimezone: true }),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),

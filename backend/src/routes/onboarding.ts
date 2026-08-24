@@ -8,6 +8,7 @@ interface OnboardingBody {
   primary_goal?: string;
   biggest_challenge?: string;
   reminder_time?: string;
+  assessment_status?: string;
 }
 
 export function registerOnboardingRoutes(app: App) {
@@ -27,6 +28,7 @@ export function registerOnboardingRoutes(app: App) {
             primary_goal: { type: "string", maxLength: 200 },
             biggest_challenge: { type: "string", maxLength: 500 },
             reminder_time: { type: "string", maxLength: 10 },
+            assessment_status: { type: "string", enum: ["not_started", "in_progress", "completed", "skipped"] },
           },
         },
         response: {
@@ -39,8 +41,13 @@ export function registerOnboardingRoutes(app: App) {
               primary_goal: { type: ["string", "null"] },
               biggest_challenge: { type: ["string", "null"] },
               reminder_time: { type: ["string", "null"] },
+              assessment_status: { type: "string" },
               completed_at: { type: ["string", "null"], format: "date-time" },
             },
+          },
+          400: {
+            type: "object",
+            properties: { error: { type: "string" } },
           },
           401: {
             type: "object",
@@ -57,7 +64,7 @@ export function registerOnboardingRoutes(app: App) {
       if (!session) return;
 
       const userId = session.user.id;
-      const { preferred_name, primary_goal, biggest_challenge, reminder_time } =
+      const { preferred_name, primary_goal, biggest_challenge, reminder_time, assessment_status } =
         request.body;
 
       if (preferred_name !== undefined && (typeof preferred_name !== 'string' || preferred_name.length > 100)) {
@@ -72,6 +79,9 @@ export function registerOnboardingRoutes(app: App) {
       if (reminder_time !== undefined && (typeof reminder_time !== 'string' || reminder_time.length > 10)) {
         return reply.status(400).send({ error: 'reminder_time is invalid' });
       }
+      if (assessment_status !== undefined && !['not_started', 'in_progress', 'completed', 'skipped'].includes(assessment_status)) {
+        return reply.status(400).send({ error: 'assessment_status must be one of: not_started, in_progress, completed, skipped' });
+      }
 
       app.logger.info(
         { userId, preferred_name, primary_goal },
@@ -81,28 +91,39 @@ export function registerOnboardingRoutes(app: App) {
       try {
         const now = new Date();
 
+        // Build insert values
+        const insertValues: any = {
+          userId,
+          preferredName: preferred_name || null,
+          primaryGoal: primary_goal || null,
+          biggestChallenge: biggest_challenge || null,
+          reminderTime: reminder_time || null,
+          assessmentStatus: assessment_status || 'not_started',
+          completedAt: now,
+          updatedAt: now,
+        };
+
+        // Build update set - only include assessment_status if explicitly provided
+        const updateSet: any = {
+          preferredName: preferred_name || null,
+          primaryGoal: primary_goal || null,
+          biggestChallenge: biggest_challenge || null,
+          reminderTime: reminder_time || null,
+          completedAt: now,
+          updatedAt: now,
+        };
+
+        if (assessment_status !== undefined) {
+          updateSet.assessmentStatus = assessment_status;
+        }
+
         // Upsert onboarding record
         const result = await app.db
           .insert(schema.userOnboarding)
-          .values({
-            userId,
-            preferredName: preferred_name || null,
-            primaryGoal: primary_goal || null,
-            biggestChallenge: biggest_challenge || null,
-            reminderTime: reminder_time || null,
-            completedAt: now,
-            updatedAt: now,
-          })
+          .values(insertValues)
           .onConflictDoUpdate({
             target: schema.userOnboarding.userId,
-            set: {
-              preferredName: preferred_name || null,
-              primaryGoal: primary_goal || null,
-              biggestChallenge: biggest_challenge || null,
-              reminderTime: reminder_time || null,
-              completedAt: now,
-              updatedAt: now,
-            },
+            set: updateSet,
           })
           .returning();
 
@@ -126,6 +147,7 @@ export function registerOnboardingRoutes(app: App) {
           primary_goal: onboarding.primaryGoal,
           biggest_challenge: onboarding.biggestChallenge,
           reminder_time: onboarding.reminderTime,
+          assessment_status: onboarding.assessmentStatus,
           completed_at: onboarding.completedAt?.toISOString() || null,
         });
       } catch (error) {
@@ -155,6 +177,7 @@ export function registerOnboardingRoutes(app: App) {
               primary_goal: { type: ["string", "null"] },
               biggest_challenge: { type: ["string", "null"] },
               reminder_time: { type: ["string", "null"] },
+              assessment_status: { type: "string" },
               completed_at: { type: ["string", "null"], format: "date-time" },
             },
           },
@@ -203,6 +226,7 @@ export function registerOnboardingRoutes(app: App) {
           primary_goal: record.primaryGoal,
           biggest_challenge: record.biggestChallenge,
           reminder_time: record.reminderTime,
+          assessment_status: record.assessmentStatus,
           completed_at: record.completedAt?.toISOString() || null,
         });
       } catch (error) {

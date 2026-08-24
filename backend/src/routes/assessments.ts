@@ -1,5 +1,5 @@
 import type { FastifyInstance, FastifyRequest, FastifyReply } from "fastify";
-import { eq, desc } from "drizzle-orm";
+import { eq, desc, sql } from "drizzle-orm";
 import * as schema from "../db/schema.js";
 import type { App } from "../index.js";
 
@@ -211,6 +211,105 @@ export function registerAssessmentRoutes(app: App) {
           "Failed to fetch latest assessment"
         );
         throw error;
+      }
+    }
+  );
+
+  // POST /api/assessments/skip - Skip the baseline assessment during onboarding
+  app.fastify.post(
+    "/api/assessments/skip",
+    {
+      schema: {
+        description: "Skip the baseline assessment during onboarding",
+        tags: ["assessments"],
+        response: {
+          200: {
+            description: "Assessment skipped successfully",
+            type: "object",
+            properties: {
+              skipped: { type: "boolean" },
+              assessment_status: { type: "string" },
+            },
+          },
+          401: {
+            type: "object",
+            properties: { error: { type: "string" } },
+          },
+          500: {
+            type: "object",
+            properties: { error: { type: "string" } },
+          },
+        },
+      },
+    },
+    async (
+      request: FastifyRequest,
+      reply: FastifyReply
+    ): Promise<void> => {
+      const session = await requireAuth(request, reply);
+      if (!session) return;
+
+      const userId = session.user.id;
+      app.logger.info({ userId }, "Skipping baseline assessment");
+
+      try {
+        const now = new Date();
+
+        // Upsert onboarding: set assessmentStatus to 'skipped', preserve or set completedAt
+        await app.db
+          .insert(schema.userOnboarding)
+          .values({
+            userId,
+            assessmentStatus: "skipped",
+            completedAt: now,
+          })
+          .onConflictDoUpdate({
+            target: schema.userOnboarding.userId,
+            set: {
+              assessmentStatus: "skipped",
+              completedAt: sql`COALESCE(${schema.userOnboarding.completedAt}, ${now})`,
+              updatedAt: now,
+            },
+          });
+
+        // Ensure user_progress record exists
+        await app.db
+          .insert(schema.userProgress)
+          .values({
+            userId,
+          })
+          .onConflictDoNothing();
+
+        // Fire-and-forget analytics event
+        app.db
+          .insert(schema.analyticsEvents)
+          .values({
+            userId,
+            eventName: "assessment_skipped",
+            properties: { source: "onboarding" },
+          })
+          .catch((error) => {
+            app.logger.warn(
+              { err: error, userId },
+              "Failed to insert analytics event for assessment_skipped"
+            );
+          });
+
+        app.logger.info(
+          { userId },
+          "Assessment skipped successfully"
+        );
+
+        return reply.status(200).send({
+          skipped: true,
+          assessment_status: "skipped",
+        });
+      } catch (error) {
+        app.logger.error(
+          { err: error, userId },
+          "Failed to skip assessment"
+        );
+        return reply.status(500).send({ error: "Failed to skip assessment" });
       }
     }
   );
