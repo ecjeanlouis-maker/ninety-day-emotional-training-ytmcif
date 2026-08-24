@@ -4,6 +4,29 @@ import * as schema from '../db/schema.js';
 import type { App } from '../index.js';
 import { computeEntitlement } from '../lib/entitlement.js';
 
+function isPremiumProfile(p: { role: string; accountType: string; subscriptionStatus: string; trialStatus: string; subscriptionEndDate: Date | null }): boolean {
+  const now = new Date();
+  const end = p.subscriptionEndDate ? new Date(p.subscriptionEndDate) : null;
+  if (p.role === 'admin') return true;
+  if (p.subscriptionStatus === 'active' && p.accountType === 'premium') return !end || end > now;
+  if (p.subscriptionStatus === 'trialing' && p.trialStatus === 'active') return !end || end > now;
+  if (p.subscriptionStatus === 'cancelled' && end && end > now) return true;
+  if (p.subscriptionStatus === 'past_due') return true;
+  return false;
+}
+
+async function getUserIsPremium(app: App, userId: string): Promise<boolean> {
+  const rows = await app.db.select().from(schema.userProfiles).where(eq(schema.userProfiles.userId, userId)).limit(1);
+  return rows.length > 0 && isPremiumProfile(rows[0]);
+}
+
+async function getPrevDayCompleted(app: App, userId: string, dayNum: number): Promise<boolean> {
+  if (dayNum <= 1) return true;
+  const rows = await app.db.select().from(schema.userDayProgress)
+    .where(and(eq(schema.userDayProgress.userId, userId), eq(schema.userDayProgress.dayNumber, dayNum - 1))).limit(1);
+  return rows.length > 0 && rows[0].completed === true;
+}
+
 // ─── Entitlement helpers (inline) ─────────────────────────────────────────────
 
 function computeEntitlementLocal(profile: {
@@ -720,7 +743,7 @@ export function registerProgramRoutes(app: App) {
       const session = await requireAuth(request, reply);
       if (!session) return; // requireAuth already sent 401
 
-      const isPremium = await checkPremiumEntitlementLocal(app, session.user.id);
+      const isPremium = await getUserIsPremium(app, session.user.id);
       if (!isPremium) {
         app.logger.warn({ userId: session.user.id, dayNumber: num }, 'Premium required for day');
         return reply.status(403).send({
@@ -901,7 +924,7 @@ export function registerProgramRoutes(app: App) {
 
     // Premium gate for days 8-90
     if (num > 7) {
-      const isPremium = await checkPremiumEntitlementLocal(app, userId);
+      const isPremium = await getUserIsPremium(app, userId);
       if (!isPremium) {
         app.logger.warn({ userId, dayNumber: num }, 'Premium required for PATCH');
         return reply.status(403).send({
@@ -912,13 +935,13 @@ export function registerProgramRoutes(app: App) {
     }
 
     // Sequential progression gate: day N requires day N-1 to be completed
-    const progressionCheck = await checkProgressionLockLocal(app, userId, num);
-    if (progressionCheck.locked) {
-      app.logger.warn({ userId, dayNumber: num, requiredDay: progressionCheck.requiredDay }, 'Progression required');
+    const prevCompleted = await getPrevDayCompleted(app, userId, num);
+    if (!prevCompleted) {
+      app.logger.warn({ userId, dayNumber: num, requiredDay: num - 1 }, 'Progression required');
       return reply.status(403).send({
         error: 'progression_required',
         reason: 'complete_previous_day_first',
-        required_day: progressionCheck.requiredDay,
+        required_day: num - 1,
       });
     }
 
@@ -1066,7 +1089,7 @@ export function registerProgramRoutes(app: App) {
 
     // Premium gate for days 8-90
     if (num > 7) {
-      const isPremium = await checkPremiumEntitlementLocal(app, userId);
+      const isPremium = await getUserIsPremium(app, userId);
       if (!isPremium) {
         app.logger.warn({ userId, dayNumber: num }, 'Premium required for complete');
         return reply.status(403).send({
@@ -1077,13 +1100,13 @@ export function registerProgramRoutes(app: App) {
     }
 
     // Sequential progression gate: day N requires day N-1 to be completed
-    const progressionCheck = await checkProgressionLockLocal(app, userId, num);
-    if (progressionCheck.locked) {
-      app.logger.warn({ userId, dayNumber: num, requiredDay: progressionCheck.requiredDay }, 'Progression required for complete');
+    const prevCompleted = await getPrevDayCompleted(app, userId, num);
+    if (!prevCompleted) {
+      app.logger.warn({ userId, dayNumber: num, requiredDay: num - 1 }, 'Progression required for complete');
       return reply.status(403).send({
         error: 'progression_required',
         reason: 'complete_previous_day_first',
-        required_day: progressionCheck.requiredDay,
+        required_day: num - 1,
       });
     }
 
