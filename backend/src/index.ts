@@ -14,6 +14,9 @@ import { registerCheckinRoutes } from './routes/checkins.js';
 import { registerJournalRoutes } from './routes/journal.js';
 import { registerEntitlementRoutes } from './routes/entitlement.js';
 import { registerWebhookRoutes } from './routes/webhooks.js';
+import { registerReminderRoutes } from './routes/reminders.js';
+import { registerAnalyticsRoutes } from './routes/analytics.js';
+import { registerAccountRoutes } from './routes/account.js';
 import { sendEmail } from './lib/email.js';
 import { bootstrapStripe } from './lib/stripe.js';
 import {
@@ -190,6 +193,9 @@ registerCheckinRoutes(app);
 registerJournalRoutes(app);
 registerWebhookRoutes(app);
 registerEntitlementRoutes(app);
+registerReminderRoutes(app);
+registerAnalyticsRoutes(app);
+registerAccountRoutes(app);
 
 // Bootstrap Stripe if configured - wrap in try/catch to prevent startup failure
 try {
