@@ -8,7 +8,6 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   RefreshControl,
-  Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { colors } from '@/styles/commonStyles';
@@ -107,6 +106,18 @@ export default function ProgramScreen() {
     fetchData();
   }, [fetchData]);
 
+  // Auto-expand the week containing the current day
+  useEffect(() => {
+    if (progress.length === 0 && days.length === 0) return;
+    const completedCount = progress.filter(p => p.completed).length;
+    const currentDay = Math.min(completedCount + 1, 90);
+    const currentDayContent = days.find(d => d.day_number === currentDay);
+    if (currentDayContent) {
+      const currentWeek = currentDayContent.week || Math.ceil(currentDay / 7);
+      setExpandedWeeks(prev => new Set([...prev, currentWeek]));
+    }
+  }, [progress, days]);
+
   const handleRefresh = () => {
     console.log('[Program] Pull-to-refresh triggered');
     setRefreshing(true);
@@ -172,6 +183,9 @@ export default function ProgramScreen() {
   });
   const weekNumbers = Object.keys(weeks).map(Number).sort((a, b) => a - b);
 
+  const completedCount = progress.filter(p => p.completed).length;
+  const currentDayNumber = Math.min(completedCount + 1, 90);
+
   if (loading) {
     return (
       <SafeAreaView style={styles.container} edges={['top']}>
@@ -219,6 +233,19 @@ export default function ProgramScreen() {
                 <Text style={styles.headerStatLabel}>Completed</Text>
               </View>
             </View>
+            {user && days.length > 0 && (
+              <TouchableOpacity
+                style={styles.resumeButton}
+                onPress={() => {
+                  console.log('[Program] Resume Day button tapped — day:', currentDayNumber);
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                  router.push(`/day/${currentDayNumber}`);
+                }}
+                activeOpacity={0.85}
+              >
+                <Text style={styles.resumeButtonText}>▶ Resume Day {currentDayNumber}</Text>
+              </TouchableOpacity>
+            )}
           </LinearGradient>
         </Animated.View>
 
@@ -442,6 +469,21 @@ const styles = StyleSheet.create({
     width: 1,
     height: 32,
     backgroundColor: 'rgba(255,255,255,0.25)',
+  },
+  resumeButton: {
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    borderRadius: 12,
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    alignSelf: 'flex-start',
+    marginTop: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.3)',
+  },
+  resumeButtonText: {
+    color: '#FFFFFF',
+    fontWeight: '700',
+    fontSize: 15,
   },
   phaseScroll: {
     marginTop: 4,

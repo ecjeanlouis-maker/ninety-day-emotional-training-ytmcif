@@ -8,7 +8,6 @@ import {
   TouchableOpacity,
   TextInput,
   ActivityIndicator,
-  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { colors } from '@/styles/commonStyles';
@@ -56,6 +55,7 @@ export default function JournalEntryScreen() {
   const [isEditing, setIsEditing] = useState(isNew);
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   // Edit state
   const [editTitle, setEditTitle] = useState('');
@@ -101,6 +101,7 @@ export default function JournalEntryScreen() {
       return;
     }
     setIsEditing(false);
+    setSaveError(null);
     setEditTitle(entry?.title || '');
     setEditContent(entry?.content || '');
     setEditMood(entry?.mood || '');
@@ -110,10 +111,11 @@ export default function JournalEntryScreen() {
   const handleSave = async () => {
     console.log('[JournalEntry] Save tapped — isNew:', isNew);
     if (!editTitle.trim() && !editContent.trim()) {
-      Alert.alert('Empty Entry', 'Please add a title or content before saving.');
+      setSaveError('Please add a title or content before saving.');
       return;
     }
     setSaving(true);
+    setSaveError(null);
     try {
       const tagsArray = editTags.split(',').map(t => t.trim()).filter(Boolean);
       const payload = {
@@ -140,39 +142,26 @@ export default function JournalEntryScreen() {
       }
     } catch (err) {
       console.error('[JournalEntry] Error saving entry:', err);
-      Alert.alert('Error', 'Unable to save journal entry. Please try again.');
+      setSaveError('Unable to save. Please try again.');
     } finally {
       setSaving(false);
     }
   };
 
-  const handleDelete = () => {
-    console.log('[JournalEntry] Delete button tapped');
-    Alert.alert(
-      'Delete Entry',
-      'Are you sure you want to delete this journal entry? This cannot be undone.',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Delete',
-          style: 'destructive',
-          onPress: async () => {
-            console.log('[JournalEntry] Confirming delete for entry:', id);
-            setDeleting(true);
-            try {
-              await authenticatedDelete(`/api/journal/${id}`);
-              console.log('[JournalEntry] Entry deleted:', id);
-              Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-              router.back();
-            } catch (err) {
-              console.error('[JournalEntry] Error deleting entry:', err);
-              Alert.alert('Error', 'Unable to delete entry. Please try again.');
-              setDeleting(false);
-            }
-          },
-        },
-      ]
-    );
+  const handleDelete = async () => {
+    console.log('[JournalEntry] Delete button tapped — deleting entry:', id);
+    setDeleting(true);
+    setSaveError(null);
+    try {
+      await authenticatedDelete(`/api/journal/${id}`);
+      console.log('[JournalEntry] Entry deleted:', id);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      router.back();
+    } catch (err) {
+      console.error('[JournalEntry] Error deleting entry:', err);
+      setSaveError('Unable to delete. Please try again.');
+      setDeleting(false);
+    }
   };
 
   const handleMoodSelect = (mood: string) => {
@@ -263,6 +252,13 @@ export default function JournalEntryScreen() {
           )}
         </View>
       </View>
+
+      {/* Inline save/delete error */}
+      {saveError ? (
+        <View style={styles.saveErrorBanner}>
+          <Text style={styles.saveErrorText}>{saveError}</Text>
+        </View>
+      ) : null}
 
       <ScrollView
         style={styles.scrollView}
@@ -438,6 +434,19 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '700',
     color: '#FFFFFF',
+  },
+  saveErrorBanner: {
+    backgroundColor: '#FFF0F0',
+    borderBottomWidth: 1,
+    borderBottomColor: '#FF3B30',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+  },
+  saveErrorText: {
+    color: '#FF3B30',
+    fontSize: 13,
+    fontWeight: '500',
+    textAlign: 'center',
   },
   scrollView: {
     flex: 1,

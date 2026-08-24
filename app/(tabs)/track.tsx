@@ -9,8 +9,6 @@ import {
   TextInput,
   ActivityIndicator,
   RefreshControl,
-  Alert,
-  Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { colors } from '@/styles/commonStyles';
@@ -91,6 +89,8 @@ export default function TrackScreen() {
   const [loadingCheckins, setLoadingCheckins] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [logError, setLogError] = useState<string | null>(null);
+  const [progressData, setProgressData] = useState<{ current_streak: number; total_days_completed: number; total_xp: number } | null>(null);
 
   const hasFullAccess = isSubscribed || canAccess('ecct_full_program');
 
@@ -118,6 +118,13 @@ export default function TrackScreen() {
     fetchCheckins();
   }, [fetchCheckins]);
 
+  useEffect(() => {
+    if (!user) return;
+    authenticatedGet<{ current_streak: number; total_days_completed: number; total_xp: number; current_day: number; weekly_completion: unknown[] }>('/api/progress')
+      .then(data => setProgressData(data))
+      .catch(() => {}); // silent — strip just won't show
+  }, [user]);
+
   const handleRefresh = () => {
     console.log('[Track] Pull-to-refresh triggered');
     setRefreshing(true);
@@ -128,6 +135,7 @@ export default function TrackScreen() {
     console.log('[Track] Emotion selected:', emotion);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     setSelectedEmotion(emotion === selectedEmotion ? null : emotion);
+    setLogError(null);
   };
 
   const handleIntensityChange = (val: number) => {
@@ -144,7 +152,7 @@ export default function TrackScreen() {
     }
     if (!selectedEmotion) {
       console.log('[Track] Log attempted without selecting emotion');
-      Alert.alert('Select an emotion', 'Please select an emotion before logging.');
+      setLogError('Please select an emotion before logging.');
       return;
     }
 
@@ -183,40 +191,31 @@ export default function TrackScreen() {
       setTriggerNote('');
       setChosenResponse('');
       setNotes('');
+      setLogError(null);
     } catch (err) {
       console.error('[Track] Error logging check-in:', err);
-      Alert.alert('Error', 'Unable to log emotion. Please try again.');
+      setLogError('Unable to log emotion. Please try again.');
     } finally {
       setSubmitting(false);
     }
   };
 
-  const handleDeleteCheckin = (id: string) => {
+  const handleDeleteCheckin = async (id: string) => {
     console.log('[Track] Delete check-in tapped:', id);
-    Alert.alert('Delete Check-in', 'Are you sure you want to delete this check-in?', [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Delete',
-        style: 'destructive',
-        onPress: async () => {
-          console.log('[Track] Confirming delete for check-in:', id);
-          try {
-            await authenticatedDelete(`/api/checkins/${id}`);
-            console.log('[Track] Check-in deleted:', id);
-            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-            setCheckins(prev => prev.filter(c => c.id !== id));
-          } catch (err) {
-            console.error('[Track] Error deleting check-in:', err);
-            Alert.alert('Error', 'Unable to delete check-in.');
-          }
-        },
-      },
-    ]);
+    try {
+      await authenticatedDelete(`/api/checkins/${id}`);
+      console.log('[Track] Check-in deleted:', id);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      setCheckins(prev => prev.filter(c => c.id !== id));
+    } catch (err) {
+      console.error('[Track] Error deleting check-in:', err);
+      setError('Unable to delete check-in.');
+    }
   };
 
   const selectedEmotionConfig = EMOTIONS.find(e => e.label === selectedEmotion);
   const intensityLabel = INTENSITY_LABELS[intensity] || '';
-  const intensityBarWidth = `${(intensity / 5) * 100}%`;
+  const intensityBarWidth = `${(intensity / 5) * 100}%` as `${number}%`;
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
@@ -256,6 +255,26 @@ export default function TrackScreen() {
               <Text style={styles.guestBannerText}>Sign in to save your emotional tracking history</Text>
             </TouchableOpacity>
           </Animated.View>
+        )}
+
+        {/* Progress strip */}
+        {user && progressData && (
+          <View style={styles.progressStrip}>
+            <View style={styles.progressStripCell}>
+              <Text style={styles.progressStripValue}>🔥 {progressData.current_streak}</Text>
+              <Text style={styles.progressStripLabel}>Streak</Text>
+            </View>
+            <View style={styles.progressStripDivider} />
+            <View style={styles.progressStripCell}>
+              <Text style={styles.progressStripValue}>{progressData.total_days_completed}/90</Text>
+              <Text style={styles.progressStripLabel}>Days Done</Text>
+            </View>
+            <View style={styles.progressStripDivider} />
+            <View style={styles.progressStripCell}>
+              <Text style={styles.progressStripValue}>{progressData.total_xp} XP</Text>
+              <Text style={styles.progressStripLabel}>Total XP</Text>
+            </View>
+          </View>
         )}
 
         {/* Log Emotion Section */}
@@ -349,6 +368,10 @@ export default function TrackScreen() {
             onFocus={() => console.log('[Track] Notes input focused')}
           />
 
+          {logError ? (
+            <Text style={styles.logErrorText}>{logError}</Text>
+          ) : null}
+
           <TouchableOpacity
             style={[styles.logButton, (!selectedEmotion || submitting) && styles.logButtonDisabled]}
             onPress={handleLogEmotion}
@@ -388,7 +411,7 @@ export default function TrackScreen() {
             ) : (
               checkins.slice(0, 10).map(checkin => {
                 const emotionConfig = EMOTIONS.find(e => e.label === checkin.emotion);
-                const checkinIntensityWidth = `${(checkin.intensity / 5) * 100}%`;
+                const checkinIntensityWidth = `${(checkin.intensity / 5) * 100}%` as `${number}%`;
                 const timeAgoText = timeAgo(checkin.created_at);
 
                 return (
@@ -469,6 +492,36 @@ const styles = StyleSheet.create({
     color: colors.primary,
     fontWeight: '600',
     textAlign: 'center',
+  },
+  progressStrip: {
+    flexDirection: 'row',
+    backgroundColor: colors.card,
+    borderRadius: 14,
+    marginHorizontal: 16,
+    borderWidth: 1,
+    borderColor: colors.border,
+    overflow: 'hidden',
+  },
+  progressStripCell: {
+    flex: 1,
+    alignItems: 'center',
+    paddingVertical: 12,
+    gap: 2,
+  },
+  progressStripDivider: {
+    width: 1,
+    backgroundColor: colors.border,
+    marginVertical: 8,
+  },
+  progressStripValue: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: colors.text,
+  },
+  progressStripLabel: {
+    fontSize: 11,
+    color: colors.textSecondary,
+    fontWeight: '500',
   },
   section: {
     backgroundColor: colors.card,
@@ -569,6 +622,11 @@ const styles = StyleSheet.create({
     color: colors.text,
     minHeight: 60,
     textAlignVertical: 'top',
+  },
+  logErrorText: {
+    color: '#FF3B30',
+    fontSize: 13,
+    textAlign: 'center',
   },
   logButton: {
     flexDirection: 'row',
