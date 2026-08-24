@@ -97,22 +97,19 @@ export function SubscriptionProvider({ children }: { children: React.ReactNode }
   }, [user?.id]);
 
   const restorePurchases = useCallback(async () => {
-    console.log('[SubscriptionContext] User tapped Restore Purchases');
+    console.log('[SubscriptionContext] Restoring purchases');
     if (Platform.OS === 'web') return;
     const apiKey = Platform.OS === 'ios' ? REVENUECAT_APPLE_KEY : REVENUECAT_GOOGLE_KEY;
     if (!apiKey) {
       console.log('[SubscriptionContext] No API key — cannot restore');
       return;
     }
-    try {
-      const info = await Purchases.restorePurchases();
-      const active = typeof info.entitlements.active[ENTITLEMENT_ID] !== 'undefined';
-      console.log('[SubscriptionContext] Restore complete — isSubscribed:', active);
-      setCustomerInfo(info);
-      setIsSubscribed(active);
-    } catch (e) {
-      console.warn('[SubscriptionContext] Restore failed:', e);
-    }
+    // Let errors propagate so the paywall can catch and show an error message
+    const info = await Purchases.restorePurchases();
+    const active = typeof info.entitlements.active[ENTITLEMENT_ID] !== 'undefined';
+    console.log('[SubscriptionContext] Restore complete — isSubscribed:', active);
+    setCustomerInfo(info);
+    setIsSubscribed(active);
   }, []);
 
   const refreshSubscription = useCallback(async () => {

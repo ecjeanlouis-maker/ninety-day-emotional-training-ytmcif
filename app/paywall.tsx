@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -59,26 +59,16 @@ function derivePlanType(identifier: string): 'lifetime' | 'yearly' | 'monthly' {
   return 'monthly';
 }
 
-function deriveEndDate(planType: 'lifetime' | 'yearly' | 'monthly'): string | null {
-  if (planType === 'lifetime') return null;
-  const now = new Date();
-  if (planType === 'yearly') {
-    now.setDate(now.getDate() + 365);
-  } else {
-    now.setDate(now.getDate() + 30);
-  }
-  return now.toISOString();
-}
-
 export default function PaywallScreen() {
   const router = useRouter();
   const { isSubscribed, restorePurchases, refreshSubscription, isConfigured } = useSubscription();
-  const { refreshEntitlement, refreshProfile, profile, isTrialing, trialDaysRemaining, startTrial } = useUser();
+  const { refreshEntitlement, refreshProfile, profile, entitlement, isTrialing, trialDaysRemaining, startTrial } = useUser();
   const [packages, setPackages] = useState<PurchasesPackage[]>([]);
   const [selectedPackage, setSelectedPackage] = useState<PurchasesPackage | null>(null);
   const [loadingPackages, setLoadingPackages] = useState(true);
   const [purchasing, setPurchasing] = useState(false);
   const [restoring, setRestoring] = useState(false);
+  const [verifying, setVerifying] = useState(false);
   const [startingTrial, setStartingTrial] = useState(false);
   const [feedbackModal, setFeedbackModal] = useState<{
     visible: boolean;
@@ -87,6 +77,12 @@ export default function PaywallScreen() {
     type: 'error' | 'success';
     onDismiss?: () => void;
   }>({ visible: false, title: '', message: '', type: 'error' });
+
+  // Keep a ref to the latest entitlement so polling can read updated state
+  const entitlementRef = useRef(entitlement);
+  useEffect(() => {
+    entitlementRef.current = entitlement;
+  }, [entitlement]);
 
   const showFeedback = (
     title: string,
@@ -131,8 +127,28 @@ export default function PaywallScreen() {
     }
   };
 
+  /**
+   * Poll GET /api/entitlement via refreshEntitlement() until is_premium is true
+   * or maxAttempts is exhausted. Returns true if confirmed premium.
+   */
+  const waitForPremium = async (maxAttempts: number, intervalMs: number): Promise<boolean> => {
+    console.log('[Paywall] Starting backend verification polling — maxAttempts:', maxAttempts, 'intervalMs:', intervalMs);
+    for (let i = 0; i < maxAttempts; i++) {
+      console.log('[Paywall] Polling attempt', i + 1, 'of', maxAttempts);
+      await refreshEntitlement();
+      await new Promise<void>((resolve) => setTimeout(resolve, intervalMs));
+      if (entitlementRef.current?.is_premium === true) {
+        console.log('[Paywall] Backend confirmed is_premium: true on attempt', i + 1);
+        return true;
+      }
+      console.log('[Paywall] Backend not yet premium after attempt', i + 1, '— entitlement:', entitlementRef.current);
+    }
+    console.log('[Paywall] Polling exhausted — backend did not confirm premium within timeout');
+    return false;
+  };
+
   const handlePurchase = async () => {
-    if (!selectedPackage) return;
+    if (!selectedPackage || purchasing || verifying) return;
     console.log('[Paywall] User tapped purchase:', selectedPackage.identifier);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     setPurchasing(true);
@@ -140,50 +156,82 @@ export default function PaywallScreen() {
       const { customerInfo } = await Purchases.purchasePackage(selectedPackage);
       console.log('[Paywall] Purchase complete — entitlements:', Object.keys(customerInfo.entitlements.active));
       await refreshSubscription();
+      setPurchasing(false);
+      setVerifying(true);
 
-      // Refresh server-side entitlement and profile — best-effort, non-blocking
-      try {
-        await refreshEntitlement();
-        await refreshProfile();
-        console.log('[Paywall] Entitlement and profile refreshed after purchase');
-      } catch (syncErr) {
-        console.warn('[Paywall] Entitlement/profile refresh failed (non-fatal):', syncErr);
+      // Refresh profile alongside polling (best-effort, non-blocking)
+      refreshProfile().catch((e) => console.warn('[Paywall] Profile refresh failed (non-fatal):', e));
+
+      const confirmed = await waitForPremium(5, 2000);
+      setVerifying(false);
+
+      if (confirmed) {
+        console.log('[Paywall] Purchase verified by backend — showing success');
+        showFeedback('🎉 Welcome to Premium!', 'Your full 90-day program is now unlocked.', 'success', () => router.back());
+      } else {
+        console.log('[Paywall] Purchase not yet confirmed by backend — showing pending message');
+        showFeedback(
+          'Purchase Recorded',
+          "Your access will activate shortly. If it doesn't appear within a few minutes, tap Restore Purchases.",
+          'success'
+        );
       }
     } catch (e: any) {
+      setPurchasing(false);
+      setVerifying(false);
       if (!e.userCancelled) {
         console.warn('[Paywall] Purchase failed:', e);
         showFeedback('Purchase Failed', e.message ?? 'Something went wrong. Please try again.', 'error');
       } else {
-        console.log('[Paywall] User cancelled purchase');
+        console.log('[Paywall] User cancelled purchase — not an error');
       }
-    } finally {
-      setPurchasing(false);
     }
   };
 
   const handleRestore = async () => {
+    if (restoring || verifying) return;
     console.log('[Paywall] User tapped Restore Purchases');
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     setRestoring(true);
-    await restorePurchases();
-    // Refresh server-side entitlement and profile after restore — best-effort
     try {
-      await refreshEntitlement();
-      await refreshProfile();
-      console.log('[Paywall] Entitlement and profile refreshed after restore');
-    } catch (syncErr) {
-      console.warn('[Paywall] Entitlement/profile refresh after restore failed (non-fatal):', syncErr);
+      await restorePurchases();
+      setRestoring(false);
+      setVerifying(true);
+
+      // Refresh profile alongside polling (best-effort, non-blocking)
+      refreshProfile().catch((e) => console.warn('[Paywall] Profile refresh failed (non-fatal):', e));
+
+      const confirmed = await waitForPremium(3, 2000);
+      setVerifying(false);
+
+      if (confirmed) {
+        console.log('[Paywall] Restore verified by backend — showing success');
+        showFeedback('Purchases Restored', 'Your premium access has been restored.', 'success', () => router.back());
+      } else {
+        console.log('[Paywall] Restore not confirmed by backend — no active subscription found');
+        showFeedback(
+          'No Active Subscription Found',
+          'No active subscription was found for this account. If you believe this is an error, contact support.',
+          'error'
+        );
+      }
+    } catch (e) {
+      setRestoring(false);
+      setVerifying(false);
+      console.warn('[Paywall] Restore failed:', e);
+      showFeedback('Restore Failed', 'Could not restore purchases. Please try again.', 'error');
     }
-    setRestoring(false);
   };
 
   const handleClose = () => {
+    if (verifying) return;
     console.log('[Paywall] User closed paywall');
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     router.back();
   };
 
   const handleStartTrial = async () => {
+    if (verifying) return;
     console.log('[Paywall] User tapped Start Free Trial');
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     setStartingTrial(true);
@@ -249,6 +297,8 @@ export default function PaywallScreen() {
     ? `Start Premium, ${selectedPrice}`
     : 'Select a plan first';
 
+  const isAnyActionBusy = purchasing || restoring || verifying;
+
   return (
     <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
       <ScrollView
@@ -262,6 +312,7 @@ export default function PaywallScreen() {
             style={styles.closeButton}
             onPress={handleClose}
             activeOpacity={0.7}
+            disabled={verifying}
             accessibilityLabel="Close"
             accessibilityRole="button"
           >
@@ -317,9 +368,9 @@ export default function PaywallScreen() {
               ))}
             </View>
             <TouchableOpacity
-              style={[styles.trialButton, startingTrial && styles.trialButtonDisabled]}
+              style={[styles.trialButton, (startingTrial || verifying) && styles.trialButtonDisabled]}
               onPress={handleStartTrial}
-              disabled={startingTrial}
+              disabled={startingTrial || verifying}
               activeOpacity={0.9}
               accessibilityLabel="Start free 7-day trial"
               accessibilityRole="button"
@@ -399,6 +450,7 @@ export default function PaywallScreen() {
                     setSelectedPackage(pkg);
                   }}
                   activeOpacity={0.8}
+                  disabled={isAnyActionBusy}
                   accessibilityLabel={pkgAccessibilityLabel}
                   accessibilityRole="radio"
                   accessibilityState={{ selected: isSelected }}
@@ -437,13 +489,13 @@ export default function PaywallScreen() {
         {isConfigured && (
           <View style={styles.ctaContainer}>
             <TouchableOpacity
-              style={[styles.ctaButton, (purchasing || !selectedPackage) && styles.ctaButtonDisabled]}
+              style={[styles.ctaButton, (isAnyActionBusy || !selectedPackage) && styles.ctaButtonDisabled]}
               onPress={handlePurchase}
-              disabled={purchasing || !selectedPackage}
+              disabled={isAnyActionBusy || !selectedPackage}
               activeOpacity={0.9}
               accessibilityLabel={ctaAccessibilityLabel}
               accessibilityRole="button"
-              accessibilityState={{ disabled: purchasing || !selectedPackage, busy: purchasing }}
+              accessibilityState={{ disabled: isAnyActionBusy || !selectedPackage, busy: purchasing }}
             >
               {purchasing ? (
                 <View style={styles.ctaLoadingWrapper}>
@@ -461,12 +513,20 @@ export default function PaywallScreen() {
               )}
             </TouchableOpacity>
 
+            {/* Verifying indicator */}
+            {verifying && (
+              <View style={styles.verifyingContainer}>
+                <ActivityIndicator size="small" color={colors.primary} />
+                <Text style={styles.verifyingText}>Verifying with server…</Text>
+              </View>
+            )}
+
             <Text style={styles.trustLine}>Secure payment · Cancel anytime · No hidden fees</Text>
 
             <TouchableOpacity
               style={styles.restoreButton}
               onPress={handleRestore}
-              disabled={restoring}
+              disabled={isAnyActionBusy}
               activeOpacity={0.7}
               accessibilityLabel="Restore previous purchases"
               accessibilityRole="button"
@@ -475,7 +535,7 @@ export default function PaywallScreen() {
               {restoring ? (
                 <ActivityIndicator size="small" color={colors.textSecondary} />
               ) : (
-                <Text style={styles.restoreText}>Restore Purchases</Text>
+                <Text style={[styles.restoreText, verifying && styles.restoreTextDisabled]}>Restore Purchases</Text>
               )}
             </TouchableOpacity>
 
@@ -847,6 +907,18 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     letterSpacing: 0.3,
   },
+  verifyingContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingVertical: 4,
+  },
+  verifyingText: {
+    fontSize: 13,
+    color: colors.primary,
+    fontWeight: '600',
+  },
   trustLine: {
     fontSize: 12,
     color: colors.textSecondary,
@@ -861,6 +933,9 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
     color: colors.textSecondary,
+  },
+  restoreTextDisabled: {
+    opacity: 0.4,
   },
   legalText: {
     fontSize: 11,
