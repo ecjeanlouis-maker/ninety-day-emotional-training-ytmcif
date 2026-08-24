@@ -4,6 +4,77 @@ import * as schema from '../db/schema.js';
 import type { App } from '../index.js';
 import { computeEntitlement } from '../lib/entitlement.js';
 
+// ─── Entitlement helpers (inline) ─────────────────────────────────────────────
+
+function computeEntitlementLocal(profile: {
+  role: string;
+  accountType: string;
+  subscriptionStatus: string;
+  trialStatus: string;
+  subscriptionEndDate: Date | null;
+  paymentStatus: string;
+}): { isPremium: boolean; status: string; validUntil: string | null; reason: string } {
+  const now = new Date();
+  const endDate = profile.subscriptionEndDate ? new Date(profile.subscriptionEndDate) : null;
+
+  if (profile.role === 'admin') {
+    return { isPremium: true, status: 'active', validUntil: null, reason: 'admin_role' };
+  }
+  if (profile.subscriptionStatus === 'active' && profile.accountType === 'premium') {
+    if (!endDate || endDate > now) {
+      return { isPremium: true, status: 'active', validUntil: endDate?.toISOString() ?? null, reason: 'subscription_active' };
+    }
+    return { isPremium: false, status: 'expired', validUntil: endDate.toISOString(), reason: 'subscription_expired' };
+  }
+  if (profile.subscriptionStatus === 'trialing' && profile.trialStatus === 'active') {
+    if (!endDate || endDate > now) {
+      return { isPremium: true, status: 'trialing', validUntil: endDate?.toISOString() ?? null, reason: 'trial_active' };
+    }
+    return { isPremium: false, status: 'expired', validUntil: endDate?.toISOString() ?? null, reason: 'trial_expired' };
+  }
+  if (profile.subscriptionStatus === 'cancelled' && endDate && endDate > now) {
+    return { isPremium: true, status: 'grace', validUntil: endDate.toISOString(), reason: 'canceled_period_end' };
+  }
+  if (profile.subscriptionStatus === 'past_due') {
+    return { isPremium: true, status: 'past_due', validUntil: endDate?.toISOString() ?? null, reason: 'payment_past_due' };
+  }
+  if (profile.subscriptionStatus === 'refunded' || profile.paymentStatus === 'refunded') {
+    return { isPremium: false, status: 'refunded_or_revoked', validUntil: null, reason: 'payment_refunded' };
+  }
+  if (profile.subscriptionStatus === 'paused') {
+    return { isPremium: false, status: 'paused', validUntil: endDate?.toISOString() ?? null, reason: 'subscription_paused' };
+  }
+  if (profile.subscriptionStatus === 'expired') {
+    return { isPremium: false, status: 'expired', validUntil: endDate?.toISOString() ?? null, reason: 'subscription_expired' };
+  }
+  return { isPremium: false, status: 'free', validUntil: null, reason: 'no_subscription' };
+}
+
+async function checkPremiumEntitlementLocal(app: App, userId: string): Promise<boolean> {
+  const profileRows = await app.db
+    .select()
+    .from(schema.userProfiles)
+    .where(eq(schema.userProfiles.userId, userId))
+    .limit(1);
+  if (profileRows.length === 0) return false;
+  return computeEntitlementLocal(profileRows[0]).isPremium;
+}
+
+async function checkProgressionLockLocal(app: App, userId: string, dayNumber: number): Promise<{ locked: boolean; requiredDay: number }> {
+  if (dayNumber <= 1) return { locked: false, requiredDay: 0 };
+  const prevDay = dayNumber - 1;
+  const prevRecords = await app.db
+    .select()
+    .from(schema.userDayProgress)
+    .where(and(
+      eq(schema.userDayProgress.userId, userId),
+      eq(schema.userDayProgress.dayNumber, prevDay)
+    ))
+    .limit(1);
+  const prevCompleted = prevRecords.length > 0 && prevRecords[0].completed === true;
+  return { locked: !prevCompleted, requiredDay: prevDay };
+}
+
 interface DayContent {
   day_number: number;
   title: string;
@@ -585,46 +656,6 @@ const DAY_MAP = new Map<number, DayContent>(PROGRAM_DAYS.map(d => [d.day_number,
 export function registerProgramRoutes(app: App) {
   const requireAuth = app.requireAuth();
 
-  // Helper function: Check if user has premium entitlement
-  async function checkPremiumEntitlement(userId: string): Promise<boolean> {
-    const profileRows = await app.db
-      .select()
-      .from(schema.userProfiles)
-      .where(eq(schema.userProfiles.userId, userId));
-
-    if (profileRows.length === 0) {
-      return false;
-    }
-
-    const entitlement = computeEntitlement(profileRows[0]);
-    return entitlement.isPremium;
-  }
-
-  // Helper function: Check progression lock for sequential day completion
-  async function checkProgressionLock(userId: string, dayNumber: number): Promise<{ locked: boolean; requiredDay: number | null }> {
-    // Day 1 is never locked
-    if (dayNumber === 1) {
-      return { locked: false, requiredDay: null };
-    }
-
-    // Check if previous day is completed
-    const prevDayRecords = await app.db
-      .select()
-      .from(schema.userDayProgress)
-      .where(and(
-        eq(schema.userDayProgress.userId, userId),
-        eq(schema.userDayProgress.dayNumber, dayNumber - 1)
-      ))
-      .limit(1);
-
-    const prevCompleted = prevDayRecords.length > 0 && prevDayRecords[0].completed === true;
-    if (!prevCompleted) {
-      return { locked: true, requiredDay: dayNumber - 1 };
-    }
-
-    return { locked: false, requiredDay: null };
-  }
-
   // GET /api/program/content — public, all days
   app.fastify.get('/api/program/content', {
     schema: {
@@ -663,7 +694,7 @@ export function registerProgramRoutes(app: App) {
       const session = await requireAuth(request, reply);
       if (!session) return; // requireAuth already sent 401
 
-      const isPremium = await checkPremiumEntitlement(session.user.id);
+      const isPremium = await checkPremiumEntitlementLocal(app, session.user.id);
       if (!isPremium) {
         app.logger.warn({ userId: session.user.id, dayNumber: num }, 'Premium required for day');
         return reply.status(403).send({
@@ -732,7 +763,7 @@ export function registerProgramRoutes(app: App) {
 
     // Premium gate for days 8-90
     if (num > 7) {
-      const isPremium = await checkPremiumEntitlement(userId);
+      const isPremium = await checkPremiumEntitlementLocal(app, userId);
       if (!isPremium) {
         app.logger.warn({ userId, dayNumber: num }, 'Premium required');
         return reply.status(403).send({
@@ -803,7 +834,7 @@ export function registerProgramRoutes(app: App) {
 
     // Premium gate for days 8-90
     if (num > 7) {
-      const isPremium = await checkPremiumEntitlement(userId);
+      const isPremium = await checkPremiumEntitlementLocal(app, userId);
       if (!isPremium) {
         app.logger.warn({ userId, dayNumber: num }, 'Premium required for PATCH');
         return reply.status(403).send({
@@ -814,7 +845,7 @@ export function registerProgramRoutes(app: App) {
     }
 
     // Sequential progression gate: day N requires day N-1 to be completed
-    const progressionCheck = await checkProgressionLock(userId, num);
+    const progressionCheck = await checkProgressionLockLocal(app, userId, num);
     if (progressionCheck.locked) {
       app.logger.warn({ userId, dayNumber: num, requiredDay: progressionCheck.requiredDay }, 'Progression required');
       return reply.status(403).send({
@@ -936,7 +967,7 @@ export function registerProgramRoutes(app: App) {
 
     // Premium gate for days 8-90
     if (num > 7) {
-      const isPremium = await checkPremiumEntitlement(userId);
+      const isPremium = await checkPremiumEntitlementLocal(app, userId);
       if (!isPremium) {
         app.logger.warn({ userId, dayNumber: num }, 'Premium required for complete');
         return reply.status(403).send({
@@ -947,7 +978,7 @@ export function registerProgramRoutes(app: App) {
     }
 
     // Sequential progression gate: day N requires day N-1 to be completed
-    const progressionCheck = await checkProgressionLock(userId, num);
+    const progressionCheck = await checkProgressionLockLocal(app, userId, num);
     if (progressionCheck.locked) {
       app.logger.warn({ userId, dayNumber: num, requiredDay: progressionCheck.requiredDay }, 'Progression required for complete');
       return reply.status(403).send({
