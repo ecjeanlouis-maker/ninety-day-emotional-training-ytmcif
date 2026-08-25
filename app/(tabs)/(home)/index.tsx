@@ -72,6 +72,7 @@ function GuestWelcomeScreen() {
   const handleSurveyComplete = (recommendedPrograms: ProgramType[]) => {
     console.log('[Home] Guest survey completed with recommendations:', recommendedPrograms);
     setShowSurvey(false);
+    router.push('/(tabs)/program');
   };
 
   const handleSurveyBack = () => {
