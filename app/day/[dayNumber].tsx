@@ -1,5 +1,6 @@
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
+import AudioCompanion from '@/components/AudioCompanion';
 import {
   View,
   Text,
@@ -139,6 +140,9 @@ export default function DayDetailScreen() {
   // ── Step state ──
   const [currentStep, setCurrentStep] = useState(0);
   const [stepError, setStepError] = useState<string | null>(null);
+
+  // ── Audio companion ──
+  const [showAudio, setShowAudio] = useState(false);
 
   // ── Step 0: Lesson ──
   const [markingRead, setMarkingRead] = useState(false);
@@ -507,7 +511,20 @@ export default function DayDetailScreen() {
           <IconSymbol ios_icon_name="chevron.left" android_material_icon_name="arrow-back" size={24} color={colors.primary} />
         </TouchableOpacity>
         <Text style={styles.topNavTitle}>{dayTitle}</Text>
-        <View style={styles.topNavSpacer} />
+        <TouchableOpacity
+          style={styles.audioToggleButton}
+          onPress={() => {
+            console.log('[DayDetail] Read Aloud toggle tapped — showAudio:', !showAudio, 'day:', dayNum);
+            setShowAudio(prev => !prev);
+          }}
+          accessibilityLabel={showAudio ? 'Hide audio player' : 'Read aloud'}
+          accessibilityRole="button"
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+        >
+          <Text style={[styles.audioToggleText, showAudio && styles.audioToggleTextActive]}>
+            🔊
+          </Text>
+        </TouchableOpacity>
       </View>
 
       {/* Step indicator */}
@@ -523,6 +540,18 @@ export default function DayDetailScreen() {
             keyboardShouldPersistTaps="handled"
           >
             <SessionHeader dayNum={dayNum} phase={content.phase} />
+
+            {showAudio && (
+              <AudioCompanion
+                dayNumber={dayNum}
+                title={content.title}
+                lessonContent={content.lesson_content}
+                drillInstructions={content.drill_instructions}
+                reflectionPrompt={content.reflection_prompt}
+                challenge={content.challenge}
+                currentStep={currentStep}
+              />
+            )}
 
             <View style={styles.section}>
               <View style={styles.sectionHeader}>
@@ -895,6 +924,21 @@ const styles = StyleSheet.create({
   },
   topNavSpacer: {
     width: 40,
+  },
+  audioToggleButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: colors.highlight,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  audioToggleText: {
+    fontSize: 18,
+    opacity: 0.5,
+  },
+  audioToggleTextActive: {
+    opacity: 1,
   },
 
   // Step indicator

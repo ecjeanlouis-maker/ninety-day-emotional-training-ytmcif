@@ -10,7 +10,9 @@ export type AnalyticsEventName =
   | 'paywall_viewed' | 'purchase_started' | 'purchase_canceled' | 'purchase_verification_pending'
   | 'purchase_verified' | 'purchase_failed' | 'restore_started' | 'restore_verified' | 'restore_failed'
   | 'journal_entry_created' | 'account_export_requested' | 'account_deletion_requested' | 'account_deletion_completed'
-  | 'assessment_skipped' | 'program_intro_viewed' | 'start_journey_tapped' | 'program_card_opened' | 'day_start_routed';
+  | 'assessment_skipped' | 'program_intro_viewed' | 'start_journey_tapped' | 'program_card_opened' | 'day_start_routed'
+  | 'narration_started' | 'narration_completed' | 'narration_stopped'
+  | 'music_enabled' | 'music_disabled' | 'audio_error';
 
 // Safe properties — no free text, no sensitive data
 export type SafeEventProperties = Record<string, string | number | boolean | null>;

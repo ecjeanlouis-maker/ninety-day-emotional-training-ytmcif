@@ -18,6 +18,12 @@ export default function ProfileScreen() {
   const { isSubscribed, restorePurchases } = useSubscription();
   const { role, profile, isAdmin, isTrialing, trialDaysRemaining } = useUser();
 
+  const handleAudioSettings = () => {
+    console.log('[Profile] Audio & Narration tapped');
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    router.push('/audio-settings');
+  };
+
   const handleReminders = () => {
     console.log('[Profile] Reminders tapped');
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -278,6 +284,32 @@ export default function ProfileScreen() {
                 />
                 <Text style={[styles.menuItemText, { color: theme.colors.text }]}>Restore Purchases</Text>
               </View>
+            </TouchableOpacity>
+
+            <View style={styles.menuDivider} />
+
+            <TouchableOpacity
+              style={styles.menuItem}
+              onPress={handleAudioSettings}
+              activeOpacity={0.7}
+              accessibilityLabel="Audio and Narration settings"
+              accessibilityRole="button"
+            >
+              <View style={styles.menuItemLeft}>
+                <IconSymbol
+                  ios_icon_name="speaker.wave.2.fill"
+                  android_material_icon_name="volume-up"
+                  size={20}
+                  color={theme.colors.primary}
+                />
+                <Text style={[styles.menuItemText, { color: theme.colors.text }]}>Audio & Narration</Text>
+              </View>
+              <IconSymbol
+                ios_icon_name="chevron.right"
+                android_material_icon_name="arrow-forward"
+                size={20}
+                color={theme.dark ? '#98989D' : '#666'}
+              />
             </TouchableOpacity>
 
             <View style={styles.menuDivider} />
