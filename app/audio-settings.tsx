@@ -13,6 +13,7 @@ import { useRouter } from 'expo-router';
 import { useTheme } from '@react-navigation/native';
 import { GlassView } from 'expo-glass-effect';
 import * as Haptics from 'expo-haptics';
+import * as Speech from 'expo-speech';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { IconSymbol } from '@/components/IconSymbol';
 import { colors } from '@/styles/commonStyles';
@@ -34,7 +35,7 @@ interface AudioPrefs {
 
 const DEFAULT_PREFS: AudioPrefs = {
   narrationEnabled: false,
-  rate: 1.0,
+  rate: 0.9,
   musicEnabled: false,
   musicChoice: 'Calm',
   musicVolume: 0.3,
@@ -48,6 +49,7 @@ export default function AudioSettingsScreen() {
 
   const [prefs, setPrefs] = useState<AudioPrefs>(DEFAULT_PREFS);
   const [loaded, setLoaded] = useState(false);
+  const [isPreviewing, setIsPreviewing] = useState(false);
 
   useEffect(() => {
     loadPrefs();
@@ -56,6 +58,11 @@ export default function AudioSettingsScreen() {
   useEffect(() => {
     if (loaded) savePrefs();
   }, [prefs, loaded]);
+
+  // Cleanup speech on unmount
+  useEffect(() => {
+    return () => { Speech.stop(); };
+  }, []);
 
   async function loadPrefs() {
     try {
@@ -121,6 +128,28 @@ export default function AudioSettingsScreen() {
     updatePref('musicVolume', next);
   }
 
+  async function handlePreviewVoice() {
+    console.log('[AudioSettings] Preview voice tapped — rate:', prefs.rate);
+    if (isPreviewing) {
+      Speech.stop();
+      setIsPreviewing(false);
+      return;
+    }
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setIsPreviewing(true);
+    const sample = 'Welcome to your daily practice. Take a comfortable breath and settle in.';
+    try {
+      Speech.speak(sample, {
+        rate: prefs.rate,
+        pitch: 1.0,
+        onDone: () => setIsPreviewing(false),
+        onError: () => setIsPreviewing(false),
+      });
+    } catch {
+      setIsPreviewing(false);
+    }
+  }
+
   const volumePct = Math.round(prefs.musicVolume * 100);
   const isDark = theme.dark;
   const textColor = theme.colors.text;
@@ -128,6 +157,11 @@ export default function AudioSettingsScreen() {
   const glassStyle = Platform.OS !== 'ios'
     ? { backgroundColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)' }
     : {};
+
+  const previewButtonLabel = isPreviewing ? 'Stop Preview' : 'Preview Voice';
+  const previewIosIcon = isPreviewing ? 'stop.circle.fill' : 'play.circle.fill';
+  const previewAndroidIcon = isPreviewing ? 'stop' : 'play-arrow';
+  const previewIconColor = isPreviewing ? '#fff' : colors.primary;
 
   return (
     <SafeAreaView style={[styles.safeArea, { backgroundColor: theme.colors.background }]} edges={['top']}>
@@ -215,6 +249,33 @@ export default function AudioSettingsScreen() {
                 );
               })}
             </View>
+          </View>
+
+          <View style={styles.divider} />
+
+          {/* Preview voice */}
+          <View style={styles.previewRow}>
+            <TouchableOpacity
+              style={[styles.previewButton, isPreviewing && styles.previewButtonActive]}
+              onPress={handlePreviewVoice}
+              accessibilityLabel={isPreviewing ? 'Stop voice preview' : 'Preview voice and speed'}
+              accessibilityRole="button"
+              accessibilityHint="Plays a short sample sentence with the current speed setting"
+              activeOpacity={0.7}
+            >
+              <IconSymbol
+                ios_icon_name={previewIosIcon}
+                android_material_icon_name={previewAndroidIcon}
+                size={18}
+                color={previewIconColor}
+              />
+              <Text style={[styles.previewButtonText, isPreviewing && styles.previewButtonTextActive]}>
+                {previewButtonLabel}
+              </Text>
+            </TouchableOpacity>
+            <Text style={[styles.previewHint, { color: secondaryColor }]}>
+              Hear how narration will sound
+            </Text>
           </View>
 
           <View style={styles.divider} />
@@ -519,6 +580,39 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     minWidth: 44,
     textAlign: 'center',
+  },
+  previewRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    paddingVertical: 8,
+    flexWrap: 'wrap',
+  },
+  previewButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 22,
+    borderWidth: 1.5,
+    borderColor: colors.primary,
+    minHeight: 44,
+  },
+  previewButtonActive: {
+    backgroundColor: colors.primary,
+  },
+  previewButtonText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: colors.primary,
+  },
+  previewButtonTextActive: {
+    color: '#fff',
+  },
+  previewHint: {
+    fontSize: 12,
+    fontStyle: 'italic',
   },
   resetButton: {
     marginTop: 16,

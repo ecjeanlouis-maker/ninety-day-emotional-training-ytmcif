@@ -44,13 +44,36 @@ const SPEED_OPTIONS = [0.75, 1.0, 1.25, 1.5];
 
 function normalizeText(raw: string): string {
   return raw
+    // Strip HTML tags
     .replace(/<[^>]*>/g, '')
-    .replace(/[*_#`]/g, '')
+    // Strip markdown
+    .replace(/[*_#`~]/g, '')
+    // HTML entities
     .replace(/&apos;/g, "'")
-    .replace(/&amp;/g, '&')
-    .replace(/&lt;/g, '<')
-    .replace(/&gt;/g, '>')
-    .replace(/(\d+)\. /g, 'Step $1. ')
+    .replace(/&amp;/g, 'and')
+    .replace(/&lt;/g, '')
+    .replace(/&gt;/g, '')
+    .replace(/&nbsp;/g, ' ')
+    // Remove emoji (Unicode ranges)
+    .replace(/[\u{1F300}-\u{1FFFF}]/gu, '')
+    .replace(/[\u{2600}-\u{26FF}]/gu, '')
+    .replace(/[\u{2700}-\u{27BF}]/gu, '')
+    // Remove URLs
+    .replace(/https?:\/\/\S+/g, '')
+    // Expand common abbreviations for natural speech
+    .replace(/\be\.g\./gi, 'for example')
+    .replace(/\bi\.e\./gi, 'that is')
+    .replace(/\betc\./gi, 'and so on')
+    .replace(/\bvs\./gi, 'versus')
+    .replace(/\bapprox\./gi, 'approximately')
+    // Numbered steps: "1." → "Step 1."
+    .replace(/^(\d+)\.\s/gm, 'Step $1. ')
+    // Add natural pause after section headers (colon at end of short phrase)
+    .replace(/([A-Z][^.!?]{0,40}):\s/g, '$1. ')
+    // Collapse multiple spaces/newlines
+    .replace(/\n{2,}/g, '. ')
+    .replace(/\n/g, '. ')
+    .replace(/\s{2,}/g, ' ')
     .trim();
 }
 
@@ -78,17 +101,74 @@ function buildSectionText(
   const { title, lessonContent, drillInstructions, reflectionPrompt, challenge, safetyNote, dayNumber } = props;
   switch (section) {
     case 0:
-      return normalizeText(`${title}. Today's objective. ${lessonContent}`);
+      // Title pause, then objective intro, then lesson
+      return normalizeText(
+        `${title}. ... Today's focus. ${lessonContent}`
+      );
     case 1:
-      return normalizeText(`Guided practice. ${drillInstructions}`);
+      // Guided practice with step-by-step pacing
+      return normalizeText(
+        `Guided practice. ... ${drillInstructions}`
+      );
     case 2:
-      return normalizeText(`Reflection. ${reflectionPrompt}. Real-world action: ${challenge}`);
+      // Reflection with pause before prompt, then real-world action
+      return normalizeText(
+        `Reflection. ... Take a moment. ${reflectionPrompt}. ... Your real-world action for today. ${challenge}`
+      );
     case 3: {
-      const closing = `Great work completing Day ${dayNumber}.`;
-      return normalizeText(safetyNote ? `${safetyNote}. ${closing}` : closing);
+      const closing = `Well done completing Day ${dayNumber}. Take a breath and notice how you feel.`;
+      return normalizeText(safetyNote ? `${safetyNote}. ... ${closing}` : closing);
     }
     default:
       return '';
+  }
+}
+
+// ─── Voice selection ──────────────────────────────────────────────────────────
+
+/**
+ * Select the best available calm, professional system voice.
+ * Priority: high-quality neural/enhanced voices → standard voices → undefined (OS default).
+ * Never assumes a specific named voice exists. Falls back gracefully.
+ */
+async function selectBestVoice(): Promise<string | undefined> {
+  try {
+    const voices = await Speech.getAvailableVoicesAsync();
+    if (!voices || voices.length === 0) return undefined;
+
+    // Prefer voices with quality indicators in their identifier/name
+    const qualityKeywords = ['premium', 'enhanced', 'neural', 'natural', 'siri', 'eloquence'];
+    // Avoid theatrical/character voices
+    const avoidKeywords = ['whisper', 'novelty', 'bad', 'good', 'trinoids', 'zarvox', 'cellos', 'bells', 'boing', 'bubbles', 'deranged', 'hysterical', 'junior', 'kathy', 'organ', 'pipe', 'princess', 'ralph', 'robot', 'wobble'];
+
+    const locale = 'en'; // match app locale prefix
+
+    // Filter to English voices only
+    const englishVoices = voices.filter(v =>
+      v.language?.toLowerCase().startsWith(locale)
+    );
+    const pool = englishVoices.length > 0 ? englishVoices : voices;
+
+    // Score each voice
+    const scored = pool.map(v => {
+      const id = (v.identifier ?? '').toLowerCase();
+      const name = (v.name ?? '').toLowerCase();
+      const combined = id + ' ' + name;
+      let score = 0;
+      if (avoidKeywords.some(k => combined.includes(k))) score -= 100;
+      if (qualityKeywords.some(k => combined.includes(k))) score += 10;
+      // Prefer en-US or en-GB
+      if (v.language?.toLowerCase() === 'en-us') score += 5;
+      if (v.language?.toLowerCase() === 'en-gb') score += 3;
+      return { voice: v, score };
+    });
+
+    scored.sort((a, b) => b.score - a.score);
+    const best = scored[0];
+    if (best && best.score > -100) return best.voice.identifier;
+    return undefined; // fall back to OS default
+  } catch {
+    return undefined;
   }
 }
 
@@ -99,7 +179,7 @@ export default function AudioCompanion(props: AudioCompanionProps) {
 
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentSection, setCurrentSection] = useState(currentStep);
-  const [rate, setRate] = useState(1.0);
+  const [rate, setRate] = useState(0.9);
   const [musicEnabled, setMusicEnabled] = useState(false);
   const [musicVolume, setMusicVolume] = useState(0.3);
   const [isLoading, setIsLoading] = useState(false);
@@ -107,6 +187,7 @@ export default function AudioCompanion(props: AudioCompanionProps) {
   const [voiceUnavailable, setVoiceUnavailable] = useState(false);
   const [screenReaderActive, setScreenReaderActive] = useState(false);
   const [screenReaderDismissed, setScreenReaderDismissed] = useState(false);
+  const [selectedVoice, setSelectedVoice] = useState<string | undefined>(undefined);
 
   const chunksRef = useRef<string[]>([]);
   const chunkIndexRef = useRef(0);
@@ -160,6 +241,9 @@ export default function AudioCompanion(props: AudioCompanionProps) {
     } catch {
       // ignore
     }
+    // Select best voice after loading prefs
+    const voice = await selectBestVoice();
+    if (mountedRef.current) setSelectedVoice(voice);
   }
 
   async function savePrefs() {
@@ -205,6 +289,8 @@ export default function AudioCompanion(props: AudioCompanionProps) {
       chunkIndexRef.current = index;
       Speech.speak(chunks[index], {
         rate,
+        pitch: 1.0,
+        voice: selectedVoice,
         onStart: () => {
           if (mountedRef.current) setIsLoading(false);
         },
@@ -225,7 +311,7 @@ export default function AudioCompanion(props: AudioCompanionProps) {
         },
       });
     },
-    [rate, dayNumber]
+    [rate, selectedVoice, dayNumber]
   );
 
   const handlePlayPause = async () => {
@@ -323,6 +409,25 @@ export default function AudioCompanion(props: AudioCompanionProps) {
     const next = Math.min(1, Math.round((musicVolume + 0.1) * 10) / 10);
     console.log('[AudioCompanion] Volume up:', next, 'day:', dayNumber);
     setMusicVolume(next);
+  };
+
+  const handlePreviewVoice = async () => {
+    if (isLoading || isPlaying) return;
+    console.log('[AudioCompanion] Preview voice tapped — rate:', rate, 'voice:', selectedVoice);
+    const sample = 'Welcome to your daily practice. Take a comfortable breath and settle in.';
+    try {
+      await Speech.stop();
+      Speech.speak(sample, {
+        rate,
+        pitch: 1.0,
+        voice: selectedVoice,
+        onError: () => {
+          if (mountedRef.current) setError('Preview not available on this device.');
+        },
+      });
+    } catch {
+      setError('Preview not available on this device.');
+    }
   };
 
   // ── Status text ──
@@ -439,6 +544,20 @@ export default function AudioCompanion(props: AudioCompanionProps) {
           );
         })}
       </View>
+
+      {/* Preview voice */}
+      <TouchableOpacity
+        style={styles.previewButton}
+        onPress={handlePreviewVoice}
+        disabled={isLoading || isPlaying}
+        accessibilityLabel="Preview voice and speed"
+        accessibilityRole="button"
+        accessibilityHint="Plays a short sample sentence with the current voice and speed settings"
+      >
+        <Text style={[styles.previewButtonText, (isLoading || isPlaying) && styles.previewButtonDisabled]}>
+          🔊 Preview Voice
+        </Text>
+      </TouchableOpacity>
 
       {/* Music section */}
       <View style={styles.musicRow}>
@@ -583,6 +702,24 @@ const styles = StyleSheet.create({
   },
   speedChipTextSelected: {
     color: '#FFFFFF',
+  },
+  previewButton: {
+    alignSelf: 'flex-start',
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 20,
+    borderWidth: 1.5,
+    borderColor: 'rgba(107, 76, 230, 0.4)',
+    minHeight: 44,
+    justifyContent: 'center',
+  },
+  previewButtonText: {
+    fontSize: 13,
+    color: colors.primary,
+    fontWeight: '600',
+  },
+  previewButtonDisabled: {
+    opacity: 0.4,
   },
   musicRow: {
     flexDirection: 'row',
