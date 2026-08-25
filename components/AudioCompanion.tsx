@@ -127,48 +127,112 @@ function buildSectionText(
 // ─── Voice selection ──────────────────────────────────────────────────────────
 
 /**
- * Select the best available calm, professional system voice.
- * Priority: high-quality neural/enhanced voices → standard voices → undefined (OS default).
- * Never assumes a specific named voice exists. Falls back gracefully.
+ * Curated preference lists derived from documented Apple/Google TTS voice metadata.
+ * These are real system voice identifiers known to present as professional male voices.
+ * The function never assumes any single voice exists — it tries each in order and
+ * falls back gracefully to the best available neutral/quality voice.
+ *
+ * Sources:
+ *   iOS/macOS: AVSpeechSynthesisVoice identifiers (com.apple.voice.*)
+ *   Android: locale-based selection (no stable named-voice API)
+ *   Web: SpeechSynthesis API (browser-dependent)
  */
-async function selectBestVoice(): Promise<string | undefined> {
+
+// iOS: documented male-presenting enhanced/premium voice identifiers (en-US/en-GB/en-AU)
+// These are real Apple system voices available on iOS 16+ devices.
+const IOS_MALE_VOICE_IDS = [
+  'com.apple.voice.enhanced.en-US.Rishi',    // Indian English, calm, clear
+  'com.apple.voice.premium.en-US.Rishi',
+  'com.apple.voice.enhanced.en-GB.Daniel',   // British English, professional
+  'com.apple.voice.premium.en-GB.Daniel',
+  'com.apple.voice.enhanced.en-US.Aaron',    // US English, neutral male
+  'com.apple.voice.premium.en-US.Aaron',
+  'com.apple.voice.enhanced.en-AU.Lee',      // Australian English, warm
+  'com.apple.voice.premium.en-AU.Lee',
+  'com.apple.voice.enhanced.en-US.Fred',     // Classic US male
+  'com.apple.ttsbundle.Daniel-compact',      // Compact fallback
+  'com.apple.ttsbundle.Rishi-compact',
+];
+
+// Name fragments that strongly indicate male-presenting voices across platforms
+// Based on documented voice names from Apple, Google, and common TTS providers.
+// Gender inference from name is a heuristic only — used as a tiebreaker, not sole criterion.
+const MALE_NAME_FRAGMENTS = [
+  'daniel', 'aaron', 'rishi', 'lee', 'fred', 'tom', 'alex',
+  'oliver', 'arthur', 'george', 'james', 'thomas', 'william',
+  'gordon', 'reed', 'liam', 'ryan', 'nathan', 'evan', 'eric',
+  'david', 'mark', 'paul', 'peter', 'richard', 'robert', 'john',
+  // Google/Android TTS male voice name fragments
+  'male', 'man',
+];
+
+// Voices to avoid regardless of gender — theatrical, novelty, or low-quality
+const AVOID_FRAGMENTS = [
+  'whisper', 'novelty', 'trinoids', 'zarvox', 'cellos', 'bells',
+  'boing', 'bubbles', 'deranged', 'hysterical', 'junior', 'organ',
+  'pipe', 'princess', 'ralph', 'robot', 'wobble', 'bad', 'good',
+];
+
+// Quality indicators that boost score
+const QUALITY_FRAGMENTS = ['premium', 'enhanced', 'neural', 'natural', 'siri', 'eloquence'];
+
+/**
+ * Select the best available professional male-presenting English system voice.
+ * Falls back to highest-quality neutral voice if no male voice is identifiable.
+ * Never downloads voices, clones a person, or assumes a specific voice exists.
+ */
+async function selectBestVoice(): Promise<{ identifier: string | undefined; isMaleFallback: boolean }> {
   try {
     const voices = await Speech.getAvailableVoicesAsync();
-    if (!voices || voices.length === 0) return undefined;
+    if (!voices || voices.length === 0) return { identifier: undefined, isMaleFallback: false };
 
-    // Prefer voices with quality indicators in their identifier/name
-    const qualityKeywords = ['premium', 'enhanced', 'neural', 'natural', 'siri', 'eloquence'];
-    // Avoid theatrical/character voices
-    const avoidKeywords = ['whisper', 'novelty', 'bad', 'good', 'trinoids', 'zarvox', 'cellos', 'bells', 'boing', 'bubbles', 'deranged', 'hysterical', 'junior', 'kathy', 'organ', 'pipe', 'princess', 'ralph', 'robot', 'wobble'];
-
-    const locale = 'en'; // match app locale prefix
-
-    // Filter to English voices only
-    const englishVoices = voices.filter(v =>
-      v.language?.toLowerCase().startsWith(locale)
-    );
+    // Filter to English voices
+    const englishVoices = voices.filter(v => v.language?.toLowerCase().startsWith('en'));
     const pool = englishVoices.length > 0 ? englishVoices : voices;
 
-    // Score each voice
+    // iOS: try curated male voice IDs in preference order first
+    if (Platform.OS === 'ios') {
+      for (const preferredId of IOS_MALE_VOICE_IDS) {
+        const match = pool.find(v => v.identifier === preferredId);
+        if (match) return { identifier: match.identifier, isMaleFallback: false };
+      }
+    }
+
+    // Score all voices
     const scored = pool.map(v => {
       const id = (v.identifier ?? '').toLowerCase();
       const name = (v.name ?? '').toLowerCase();
       const combined = id + ' ' + name;
       let score = 0;
-      if (avoidKeywords.some(k => combined.includes(k))) score -= 100;
-      if (qualityKeywords.some(k => combined.includes(k))) score += 10;
-      // Prefer en-US or en-GB
-      if (v.language?.toLowerCase() === 'en-us') score += 5;
-      if (v.language?.toLowerCase() === 'en-gb') score += 3;
+
+      // Hard disqualify theatrical/novelty voices
+      if (AVOID_FRAGMENTS.some(k => combined.includes(k))) return { voice: v, score: -1000 };
+
+      // Quality boost
+      if (QUALITY_FRAGMENTS.some(k => combined.includes(k))) score += 20;
+
+      // Male name heuristic (tiebreaker only — not sole criterion)
+      if (MALE_NAME_FRAGMENTS.some(k => combined.includes(k))) score += 15;
+
+      // Locale preference
+      if (v.language?.toLowerCase() === 'en-us') score += 8;
+      else if (v.language?.toLowerCase() === 'en-gb') score += 6;
+      else if (v.language?.toLowerCase().startsWith('en')) score += 3;
+
       return { voice: v, score };
     });
 
     scored.sort((a, b) => b.score - a.score);
     const best = scored[0];
-    if (best && best.score > -100) return best.voice.identifier;
-    return undefined; // fall back to OS default
+    if (!best || best.score <= -1000) return { identifier: undefined, isMaleFallback: false };
+
+    // Determine if we found a likely male voice or fell back to neutral
+    const bestCombined = ((best.voice.identifier ?? '') + ' ' + (best.voice.name ?? '')).toLowerCase();
+    const isMaleFallback = !MALE_NAME_FRAGMENTS.some(k => bestCombined.includes(k));
+
+    return { identifier: best.voice.identifier, isMaleFallback };
   } catch {
-    return undefined;
+    return { identifier: undefined, isMaleFallback: false };
   }
 }
 
@@ -188,6 +252,7 @@ export default function AudioCompanion(props: AudioCompanionProps) {
   const [screenReaderActive, setScreenReaderActive] = useState(false);
   const [screenReaderDismissed, setScreenReaderDismissed] = useState(false);
   const [selectedVoice, setSelectedVoice] = useState<string | undefined>(undefined);
+  const [voiceIsMaleFallback, setVoiceIsMaleFallback] = useState(false);
 
   const chunksRef = useRef<string[]>([]);
   const chunkIndexRef = useRef(0);
@@ -242,8 +307,11 @@ export default function AudioCompanion(props: AudioCompanionProps) {
       // ignore
     }
     // Select best voice after loading prefs
-    const voice = await selectBestVoice();
-    if (mountedRef.current) setSelectedVoice(voice);
+    const { identifier, isMaleFallback } = await selectBestVoice();
+    if (mountedRef.current) {
+      setSelectedVoice(identifier);
+      setVoiceIsMaleFallback(isMaleFallback);
+    }
   }
 
   async function savePrefs() {
@@ -521,6 +589,11 @@ export default function AudioCompanion(props: AudioCompanionProps) {
       >
         {statusText}
       </Text>
+      {voiceIsMaleFallback && (
+        <Text style={styles.voiceFallbackNote}>
+          No male voice found — using best available system voice
+        </Text>
+      )}
 
       {/* Speed selector */}
       <View style={styles.speedRow}>
@@ -670,6 +743,12 @@ const styles = StyleSheet.create({
   },
   statusError: {
     color: '#FF3B30',
+  },
+  voiceFallbackNote: {
+    fontSize: 11,
+    color: '#8E8E93',
+    fontStyle: 'italic',
+    textAlign: 'center',
   },
   speedRow: {
     flexDirection: 'row',

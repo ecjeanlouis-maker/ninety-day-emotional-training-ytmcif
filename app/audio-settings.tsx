@@ -289,7 +289,7 @@ export default function AudioSettingsScreen() {
               color={secondaryColor}
             />
             <Text style={[styles.noteText, { color: secondaryColor }]}>
-              Uses your device's installed voices. Voice quality varies by platform.
+              Default: professional male voice when available. Uses your device's installed voices — quality varies by platform.
             </Text>
           </View>
 
