@@ -372,9 +372,15 @@ function TodayDashboard() {
   };
 
   const handleStartJourney = () => {
-    console.log('[Today] Start Your Journey tapped — navigating to onboarding');
+    console.log('[Today] Complete Your Setup tapped — navigating to program-intro');
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    router.push('/onboarding');
+    router.push('/program-intro');
+  };
+
+  const handleViewProgramOverview = () => {
+    console.log('[Today] View Program Overview tapped — navigating to program-intro');
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    router.push('/program-intro');
   };
 
   const handleOpenCoach = () => {
@@ -408,9 +414,21 @@ function TodayDashboard() {
   if (loading) {
     return (
       <SafeAreaView style={styles.container} edges={['top']}>
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={colors.primary} accessibilityLabel="Loading dashboard" />
-          <Text style={styles.loadingText}>Loading your dashboard...</Text>
+        <ScrollView
+          style={styles.scrollView}
+          contentContainerStyle={styles.dashboardScrollContent}
+          showsVerticalScrollIndicator={false}
+        >
+          {/* Skeleton header card */}
+          <View style={styles.skeletonHeader} accessibilityLabel="Loading dashboard" />
+          {/* Skeleton content cards */}
+          <View style={styles.skeletonCard} />
+          <View style={styles.skeletonCard} />
+          {/* Spinner + text below skeleton */}
+          <View style={styles.skeletonSpinnerRow}>
+            <ActivityIndicator size="small" color={colors.primary} accessibilityLabel="Loading dashboard" />
+            <Text style={styles.loadingText}>Loading your dashboard...</Text>
+          </View>
           {loadTimeout && (
             <TouchableOpacity
               onPress={() => {
@@ -425,7 +443,7 @@ function TodayDashboard() {
               <Text style={styles.retryButtonText}>Taking too long? Retry</Text>
             </TouchableOpacity>
           )}
-        </View>
+        </ScrollView>
       </SafeAreaView>
     );
   }
@@ -563,7 +581,7 @@ function TodayDashboard() {
         {/* Onboarding prompt */}
         {!onboardingComplete && (
           <Animated.View entering={FadeInDown.delay(100).duration(600)}>
-            <TouchableOpacity style={styles.onboardingCard} onPress={handleStartJourney} activeOpacity={0.85}>
+            <TouchableOpacity style={styles.onboardingCard} onPress={handleStartJourney} activeOpacity={0.85} accessibilityLabel="Complete Your Setup" accessibilityRole="button">
               <LinearGradient
                 colors={['#FFB84D', '#FF8C42']}
                 start={{ x: 0, y: 0 }}
@@ -571,7 +589,7 @@ function TodayDashboard() {
                 style={styles.onboardingCardGradient}
               >
                 <View style={styles.onboardingCardContent}>
-                  <Text style={styles.onboardingCardTitle}>Start Your Journey</Text>
+                  <Text style={styles.onboardingCardTitle}>Complete Your Setup</Text>
                   <Text style={styles.onboardingCardSubtitle}>Complete your profile to personalize your 90-day program</Text>
                   <View style={styles.onboardingCardButton}>
                     <Text style={styles.onboardingCardButtonText}>Begin Setup</Text>
@@ -618,6 +636,21 @@ function TodayDashboard() {
               <IconSymbol ios_icon_name="play.fill" android_material_icon_name="play-arrow" size={20} color="#FFFFFF" />
               <Text style={styles.dailyCardButtonText}>{drillButtonLabel}</Text>
             </LinearGradient>
+          </TouchableOpacity>
+        </Animated.View>
+
+        {/* View Program Overview link */}
+        <Animated.View entering={reducedMotion ? undefined : FadeInDown.delay(160).duration(600)}>
+          <TouchableOpacity
+            style={styles.programOverviewLink}
+            onPress={handleViewProgramOverview}
+            activeOpacity={0.7}
+            accessibilityLabel="View Program Overview"
+            accessibilityRole="button"
+          >
+            <IconSymbol ios_icon_name="map" android_material_icon_name="map" size={15} color={colors.primary} />
+            <Text style={styles.programOverviewLinkText}>View Program Overview</Text>
+            <IconSymbol ios_icon_name="chevron.right" android_material_icon_name="arrow-forward" size={14} color={colors.textSecondary} />
           </TouchableOpacity>
         </Animated.View>
 
@@ -1418,5 +1451,47 @@ const styles = StyleSheet.create({
   },
   weekDotFilled: {
     backgroundColor: colors.primary,
+  },
+
+  // Skeleton loading
+  skeletonHeader: {
+    height: 120,
+    backgroundColor: 'rgba(0,0,0,0.15)',
+    borderRadius: 20,
+    marginHorizontal: 16,
+    marginBottom: 12,
+    marginTop: 8,
+  },
+  skeletonCard: {
+    height: 80,
+    backgroundColor: 'rgba(0,0,0,0.15)',
+    borderRadius: 16,
+    marginHorizontal: 16,
+    marginBottom: 12,
+  },
+  skeletonSpinnerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 10,
+    marginTop: 8,
+    marginBottom: 12,
+  },
+
+  // Program overview link
+  programOverviewLink: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 10,
+    marginHorizontal: 16,
+    marginBottom: 4,
+    minHeight: 44,
+  },
+  programOverviewLinkText: {
+    fontSize: 14,
+    color: colors.primary,
+    fontWeight: '600',
   },
 });

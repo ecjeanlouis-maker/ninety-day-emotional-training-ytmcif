@@ -63,18 +63,47 @@ export default function AuthCallbackScreen() {
     console.log("[Auth Callback] routing post-login user");
     try {
       const { authenticatedGet } = await import("@/utils/api");
-      await authenticatedGet("/api/profile");
-      console.log("[Auth Callback] profile found — routing to /(tabs)/(home)");
-      router.replace("/(tabs)/(home)");
-    } catch (err: any) {
-      const msg = err?.message ?? "";
-      if (msg.includes("404") || msg.includes("profile_not_found")) {
-        console.log("[Auth Callback] no profile found — routing to /onboarding");
-        router.replace("/onboarding");
-      } else {
-        console.warn("[Auth Callback] profile fetch error, defaulting to /(tabs)/(home):", msg);
-        router.replace("/(tabs)/(home)");
+      // Check if profile exists
+      let profileExists = false;
+      try {
+        await authenticatedGet("/api/profile");
+        profileExists = true;
+        console.log("[Auth Callback] profile found");
+      } catch (profileErr: any) {
+        const msg = profileErr?.message ?? "";
+        if (msg.includes("404") || msg.includes("profile_not_found")) {
+          console.log("[Auth Callback] no profile found — routing to /program-intro");
+          router.replace("/program-intro");
+          return;
+        }
+        console.warn("[Auth Callback] profile fetch error, defaulting to /program-intro:", msg);
+        router.replace("/program-intro");
+        return;
       }
+
+      if (!profileExists) {
+        console.log("[Auth Callback] no profile — routing to /program-intro");
+        router.replace("/program-intro");
+        return;
+      }
+
+      // Profile exists — check onboarding completion
+      try {
+        const onboarding = await authenticatedGet<{ completed_at: string | null }>("/api/onboarding");
+        if (onboarding?.completed_at) {
+          console.log("[Auth Callback] onboarding complete — routing to /(tabs)/(home)");
+          router.replace("/(tabs)/(home)");
+        } else {
+          console.log("[Auth Callback] onboarding incomplete — routing to /program-intro");
+          router.replace("/program-intro");
+        }
+      } catch {
+        console.log("[Auth Callback] onboarding check failed (404) — routing to /program-intro");
+        router.replace("/program-intro");
+      }
+    } catch (err: any) {
+      console.warn("[Auth Callback] unexpected error, defaulting to /program-intro:", err?.message);
+      router.replace("/program-intro");
     }
   };
 

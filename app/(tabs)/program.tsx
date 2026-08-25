@@ -21,6 +21,7 @@ import { useSubscription } from '@/contexts/SubscriptionContext';
 import { authenticatedGet, BACKEND_URL } from '@/utils/api';
 import { IconSymbol } from '@/components/IconSymbol';
 import { canAccessDay } from '@/lib/access';
+import { trackEvent } from '@/utils/analytics';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -170,6 +171,8 @@ export default function ProgramScreen() {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
       return;
     }
+    console.log('[Program] Routing to day:', dayNumber);
+    trackEvent('day_start_routed', { day_number: dayNumber });
     router.push(`/day/${dayNumber}`);
   };
 
@@ -308,6 +311,32 @@ export default function ProgramScreen() {
           </View>
         )}
 
+        {/* Guest sign-in nudge banner */}
+        {!user && (
+          <Animated.View entering={FadeInDown.delay(125).duration(500)}>
+            <View style={styles.guestNudgeBanner}>
+              <View style={styles.guestNudgeContent}>
+                <Text style={styles.guestNudgeText}>
+                  Sign in to save your progress and unlock your full 90-day journey.
+                </Text>
+                <TouchableOpacity
+                  style={styles.guestNudgeButton}
+                  onPress={() => {
+                    console.log('[Program] Guest nudge Sign In tapped');
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    router.push('/auth');
+                  }}
+                  activeOpacity={0.85}
+                  accessibilityLabel="Sign in to save progress"
+                  accessibilityRole="button"
+                >
+                  <Text style={styles.guestNudgeButtonText}>Sign In</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </Animated.View>
+        )}
+
         {/* Premium upgrade banner — shown when entitlement is loaded and days 8-90 are locked */}
         {!hasDays8to90Access && user && (
           <Animated.View entering={FadeInDown.delay(150).duration(500)}>
@@ -379,6 +408,7 @@ export default function ProgramScreen() {
 
               const handleCardPress = () => {
                 console.log('[Program] Phase card tapped:', phase.key, '— isPremiumLocked:', isPremiumLocked, 'isProgressionLocked:', isProgressionLocked);
+                trackEvent('program_card_opened', { phase_number: phaseNumber, phase_name: phase.key });
                 if (isPremiumLocked) {
                   Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
                   router.push('/paywall');
@@ -390,6 +420,8 @@ export default function ProgramScreen() {
                 }
                 Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                 handlePhaseSelect(phase.key);
+                console.log('[Program] Routing to first available day:', firstAvailableDay, 'for phase:', phase.key);
+                trackEvent('day_start_routed', { day_number: firstAvailableDay });
                 router.push(`/day/${firstAvailableDay}`);
               };
 
@@ -989,5 +1021,41 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     color: '#FFFFFF',
     letterSpacing: 0.5,
+  },
+
+  // Guest nudge banner
+  guestNudgeBanner: {
+    marginHorizontal: 16,
+    backgroundColor: colors.highlight,
+    borderRadius: 14,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  guestNudgeContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  guestNudgeText: {
+    flex: 1,
+    fontSize: 13,
+    color: colors.text,
+    lineHeight: 18,
+    fontWeight: '500',
+  },
+  guestNudgeButton: {
+    backgroundColor: colors.primary,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 10,
+    minHeight: 44,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  guestNudgeButtonText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#FFFFFF',
   },
 });
