@@ -5,7 +5,6 @@ import {
   TouchableOpacity,
   StyleSheet,
   Platform,
-  AccessibilityInfo,
 } from 'react-native';
 import * as Speech from 'expo-speech';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -38,6 +37,7 @@ interface AudioPrefs {
 }
 
 const PREFS_KEY = 'audio_prefs';
+const VOICE_SELECTED_KEY = 'audio_voice_selected';
 const SECTION_LABELS = ['Lesson', 'Practice', 'Reflection', 'Closing'];
 const SPEED_OPTIONS = [0.75, 1.0, 1.25, 1.5];
 
@@ -170,8 +170,68 @@ const AVOID_FRAGMENTS = [
 
 const QUALITY_FRAGMENTS = ['premium', 'enhanced', 'neural', 'natural', 'siri', 'eloquence'];
 
+const WEB_MALE_VOICE_NAMES = [
+  'microsoft david', 'microsoft mark', 'microsoft guy', 'microsoft james',
+  'google uk english male', 'google us english male',
+  'david', 'mark', 'guy', 'james', 'daniel', 'aaron', 'fred',
+  'male', 'man',
+];
+
+async function getWebVoices(): Promise<SpeechSynthesisVoice[]> {
+  const synth = window.speechSynthesis;
+  let voices = synth.getVoices();
+  if (voices.length > 0) return voices;
+  // Retry up to 3 times, 300ms apart, waiting for voiceschanged
+  for (let i = 0; i < 3; i++) {
+    await new Promise<void>(resolve => {
+      const onChanged = () => { synth.removeEventListener('voiceschanged', onChanged); resolve(); };
+      synth.addEventListener('voiceschanged', onChanged);
+      setTimeout(resolve, 300);
+    });
+    voices = synth.getVoices();
+    if (voices.length > 0) return voices;
+  }
+  return voices;
+}
+
 async function selectBestVoice(): Promise<{ identifier: string | undefined; isMaleFallback: boolean }> {
   try {
+    // ── Web: use SpeechSynthesis API directly with retry loop ──
+    if (Platform.OS === 'web') {
+      const webVoices = await getWebVoices();
+      const englishWebVoices = webVoices.filter(v => v.lang?.toLowerCase().startsWith('en'));
+      const pool = englishWebVoices.length > 0 ? englishWebVoices : webVoices;
+
+      const scored = pool.map(v => {
+        const name = (v.name ?? '').toLowerCase();
+        if (AVOID_FRAGMENTS.some(k => name.includes(k))) return { voice: v, score: -1000 };
+        let score = 0;
+        const exactMatch = WEB_MALE_VOICE_NAMES.find(m => name === m);
+        if (exactMatch) {
+          score += 30;
+        } else {
+          const partialMatch = WEB_MALE_VOICE_NAMES.find(m => name.includes(m));
+          if (partialMatch) score += 20;
+        }
+        return { voice: v, score };
+      });
+
+      scored.sort((a, b) => b.score - a.score);
+      const best = scored[0];
+      if (!best || best.score <= 0) {
+        console.log('[AudioCompanion] Web: no male voice found, using fallback');
+        const result = { identifier: undefined, isMaleFallback: true };
+        await AsyncStorage.setItem(VOICE_SELECTED_KEY, JSON.stringify({ identifier: undefined, platform: 'web', timestamp: Date.now() }));
+        return result;
+      }
+
+      const identifier = best.voice.voiceURI ?? best.voice.name;
+      console.log('[AudioCompanion] Web: selected voice:', best.voice.name);
+      await AsyncStorage.setItem(VOICE_SELECTED_KEY, JSON.stringify({ identifier, platform: 'web', timestamp: Date.now() }));
+      return { identifier, isMaleFallback: false };
+    }
+
+    // ── iOS: curated list fast-path ──
     const voices = await Speech.getAvailableVoicesAsync();
     if (!voices || voices.length === 0) return { identifier: undefined, isMaleFallback: false };
 
@@ -181,10 +241,15 @@ async function selectBestVoice(): Promise<{ identifier: string | undefined; isMa
     if (Platform.OS === 'ios') {
       for (const preferredId of IOS_MALE_VOICE_IDS) {
         const match = pool.find(v => v.identifier === preferredId);
-        if (match) return { identifier: match.identifier, isMaleFallback: false };
+        if (match) {
+          console.log('[AudioCompanion] iOS: selected curated voice:', match.identifier);
+          await AsyncStorage.setItem(VOICE_SELECTED_KEY, JSON.stringify({ identifier: match.identifier, platform: 'ios', timestamp: Date.now() }));
+          return { identifier: match.identifier, isMaleFallback: false };
+        }
       }
     }
 
+    // ── Android (and iOS fallback): name-fragment scoring ──
     const scored = pool.map(v => {
       const id = (v.identifier ?? '').toLowerCase();
       const name = (v.name ?? '').toLowerCase();
@@ -208,6 +273,8 @@ async function selectBestVoice(): Promise<{ identifier: string | undefined; isMa
     const bestCombined = ((best.voice.identifier ?? '') + ' ' + (best.voice.name ?? '')).toLowerCase();
     const isMaleFallback = !MALE_NAME_FRAGMENTS.some(k => bestCombined.includes(k));
 
+    console.log('[AudioCompanion] Selected voice:', best.voice.identifier, 'isMaleFallback:', isMaleFallback);
+    await AsyncStorage.setItem(VOICE_SELECTED_KEY, JSON.stringify({ identifier: best.voice.identifier, platform: Platform.OS, timestamp: Date.now() }));
     return { identifier: best.voice.identifier, isMaleFallback };
   } catch {
     return { identifier: undefined, isMaleFallback: false };
@@ -227,8 +294,6 @@ export default function AudioCompanion(props: AudioCompanionProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [voiceUnavailable, setVoiceUnavailable] = useState(false);
-  const [screenReaderActive, setScreenReaderActive] = useState(false);
-  const [screenReaderDismissed, setScreenReaderDismissed] = useState(false);
   const [selectedVoice, setSelectedVoice] = useState<string | undefined>(undefined);
   const [voiceIsMaleFallback, setVoiceIsMaleFallback] = useState(false);
   // Internal gesture unlock state (for "Begin Guided Lesson" button flow)
@@ -251,7 +316,6 @@ export default function AudioCompanion(props: AudioCompanionProps) {
   useEffect(() => {
     mountedRef.current = true;
     loadPrefsAndAutoStart();
-    checkScreenReader();
     return () => {
       mountedRef.current = false;
       stopSpeech();
@@ -305,8 +369,36 @@ export default function AudioCompanion(props: AudioCompanionProps) {
     } catch {
       // ignore
     }
-    // Select best voice after loading prefs
-    const { identifier, isMaleFallback } = await selectBestVoice();
+    // Validate saved voice or select fresh
+    let identifier: string | undefined;
+    let isMaleFallback = false;
+    try {
+      const savedRaw = await AsyncStorage.getItem(VOICE_SELECTED_KEY);
+      if (savedRaw) {
+        const saved = JSON.parse(savedRaw);
+        const savedId: string = saved.identifier ?? '';
+        const isStillMale = MALE_NAME_FRAGMENTS.some(f => savedId.toLowerCase().includes(f));
+        if (savedId && isStillMale) {
+          console.log('[AudioCompanion] Using saved voice:', savedId);
+          identifier = savedId;
+          isMaleFallback = false;
+        } else {
+          console.log('[AudioCompanion] Saved voice failed male check, re-selecting');
+          await AsyncStorage.removeItem(VOICE_SELECTED_KEY);
+          const result = await selectBestVoice();
+          identifier = result.identifier;
+          isMaleFallback = result.isMaleFallback;
+        }
+      } else {
+        const result = await selectBestVoice();
+        identifier = result.identifier;
+        isMaleFallback = result.isMaleFallback;
+      }
+    } catch {
+      const result = await selectBestVoice();
+      identifier = result.identifier;
+      isMaleFallback = result.isMaleFallback;
+    }
     if (mountedRef.current) {
       setSelectedVoice(identifier);
       setVoiceIsMaleFallback(isMaleFallback);
@@ -329,15 +421,6 @@ export default function AudioCompanion(props: AudioCompanionProps) {
     try {
       const prefs: AudioPrefs = { rate, musicEnabled, musicVolume };
       await AsyncStorage.setItem(PREFS_KEY, JSON.stringify(prefs));
-    } catch {
-      // ignore
-    }
-  }
-
-  async function checkScreenReader() {
-    try {
-      const active = await AccessibilityInfo.isScreenReaderEnabled();
-      if (mountedRef.current) setScreenReaderActive(active);
     } catch {
       // ignore
     }
@@ -540,28 +623,6 @@ export default function AudioCompanion(props: AudioCompanionProps) {
     statusText = 'Narration not available on this device';
   } else if (hasStartedOnceRef.current && userPausedRef.current) {
     statusText = '⏸ Paused — tap Resume to continue';
-  }
-
-  // ── Screen reader warning ──
-  if (screenReaderActive && !screenReaderDismissed) {
-    return (
-      <View style={styles.srWarning}>
-        <Text style={styles.srWarningText}>
-          Screen reader detected — narration may conflict with VoiceOver/TalkBack. Tap to dismiss and use written text.
-        </Text>
-        <TouchableOpacity
-          style={styles.srDismissButton}
-          onPress={() => {
-            console.log('[AudioCompanion] Screen reader warning dismissed');
-            setScreenReaderDismissed(true);
-          }}
-          accessibilityLabel="Dismiss screen reader warning"
-          accessibilityRole="button"
-        >
-          <Text style={styles.srDismissText}>Dismiss</Text>
-        </TouchableOpacity>
-      </View>
-    );
   }
 
   // ── "Begin Guided Lesson" gate (cold-start / gesture not yet unlocked) ──
@@ -880,35 +941,6 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     minWidth: 36,
     textAlign: 'center',
-  },
-  // Screen reader warning
-  srWarning: {
-    backgroundColor: '#FFF8E1',
-    borderRadius: 10,
-    padding: 14,
-    borderWidth: 1,
-    borderColor: '#FFD54F',
-    marginBottom: 16,
-    gap: 10,
-  },
-  srWarningText: {
-    fontSize: 14,
-    color: '#E65100',
-    lineHeight: 20,
-  },
-  srDismissButton: {
-    alignSelf: 'flex-end',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    backgroundColor: '#E65100',
-    borderRadius: 8,
-    minHeight: 44,
-    justifyContent: 'center',
-  },
-  srDismissText: {
-    color: '#FFFFFF',
-    fontWeight: '700',
-    fontSize: 14,
   },
   // Begin Guided Lesson button
   beginButton: {

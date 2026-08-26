@@ -21,12 +21,20 @@ import { colors } from '@/styles/commonStyles';
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 const PREFS_KEY = 'audio_prefs';
+const VOICE_SELECTED_KEY = 'audio_voice_selected';
 const SPEED_OPTIONS = [0.75, 1.0, 1.25, 1.5];
 const MUSIC_CHOICES = ['Calm', 'Warm', 'Focus'] as const;
+
+const MALE_NAME_FRAGMENTS = [
+  'daniel', 'aaron', 'rishi', 'lee', 'fred', 'tom', 'alex',
+  'oliver', 'arthur', 'george', 'james', 'thomas', 'william',
+  'gordon', 'reed', 'liam', 'ryan', 'nathan', 'evan', 'eric',
+  'david', 'mark', 'paul', 'peter', 'richard', 'robert', 'john',
+  'male', 'man',
+];
 type MusicChoice = typeof MUSIC_CHOICES[number];
 
 interface AudioPrefs {
-  narrationEnabled: boolean;
   rate: number;
   musicEnabled: boolean;
   musicChoice: MusicChoice;
@@ -34,7 +42,6 @@ interface AudioPrefs {
 }
 
 const DEFAULT_PREFS: AudioPrefs = {
-  narrationEnabled: false,
   rate: 0.9,
   musicEnabled: false,
   musicChoice: 'Calm',
@@ -138,10 +145,40 @@ export default function AudioSettingsScreen() {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     setIsPreviewing(true);
     const sample = 'Welcome to your daily practice. Take a comfortable breath and settle in.';
+
+    // Resolve the best male voice to use for preview
+    let voiceIdentifier: string | undefined;
+    try {
+      const savedRaw = await AsyncStorage.getItem(VOICE_SELECTED_KEY);
+      if (savedRaw) {
+        const saved = JSON.parse(savedRaw);
+        const savedId: string = saved.identifier ?? '';
+        const isStillMale = MALE_NAME_FRAGMENTS.some(f => savedId.toLowerCase().includes(f));
+        if (savedId && isStillMale) {
+          voiceIdentifier = savedId;
+          console.log('[AudioSettings] Preview using saved voice:', savedId);
+        }
+      }
+      if (!voiceIdentifier) {
+        const available = await Speech.getAvailableVoicesAsync();
+        const englishVoices = available.filter(v => v.language?.toLowerCase().startsWith('en'));
+        const pool = englishVoices.length > 0 ? englishVoices : available;
+        const maleVoice = pool.find(v => {
+          const combined = ((v.identifier ?? '') + ' ' + (v.name ?? '')).toLowerCase();
+          return MALE_NAME_FRAGMENTS.some(f => combined.includes(f));
+        });
+        voiceIdentifier = maleVoice?.identifier;
+        console.log('[AudioSettings] Preview fallback voice:', voiceIdentifier);
+      }
+    } catch {
+      // ignore — proceed without a specific voice
+    }
+
     try {
       Speech.speak(sample, {
         rate: prefs.rate,
         pitch: 1.0,
+        voice: voiceIdentifier,
         onDone: () => setIsPreviewing(false),
         onError: () => setIsPreviewing(false),
       });
@@ -196,32 +233,6 @@ export default function AudioSettingsScreen() {
         {/* ── Narration section ── */}
         <Text style={[styles.sectionHeading, { color: secondaryColor }]}>NARRATION</Text>
         <GlassView style={[styles.card, glassStyle]} glassEffectStyle="regular">
-          {/* Enable narration */}
-          <View style={styles.row}>
-            <View style={styles.rowLeft}>
-              <IconSymbol
-                ios_icon_name="speaker.wave.2.fill"
-                android_material_icon_name="volume-up"
-                size={20}
-                color={colors.primary}
-              />
-              <Text style={[styles.rowLabel, { color: textColor }]}>Enable Narration</Text>
-            </View>
-            <Switch
-              value={prefs.narrationEnabled}
-              onValueChange={(val) => {
-                console.log('[AudioSettings] Narration toggle:', val);
-                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                updatePref('narrationEnabled', val);
-              }}
-              trackColor={{ false: '#ccc', true: colors.primary }}
-              thumbColor="#fff"
-              accessibilityLabel="Enable narration"
-            />
-          </View>
-
-          <View style={styles.divider} />
-
           {/* Speed */}
           <View style={styles.speedSection}>
             <Text style={[styles.rowLabel, { color: textColor }]}>Playback Speed</Text>
@@ -289,7 +300,7 @@ export default function AudioSettingsScreen() {
               color={secondaryColor}
             />
             <Text style={[styles.noteText, { color: secondaryColor }]}>
-              Default: professional male voice when available. Uses your device's installed voices — quality varies by platform.
+              Professional male narrator (when available on your device). Narration uses installed system voices — quality varies by platform.
             </Text>
           </View>
 
