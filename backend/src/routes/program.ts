@@ -782,21 +782,73 @@ export function registerProgramRoutes(app: App) {
     return reply.send({ phases: PHASE_REGISTRY });
   });
 
-  // GET /api/program/content — public, all days
-  app.fastify.get('/api/program/content', {
+  // GET /api/program/catalog — public, preview metadata only (no lesson body)
+  app.fastify.get('/api/program/catalog', {
     schema: {
-      description: 'Get all 90 days of program content',
+      description: 'Public catalog: day titles, phase, estimated time, lock status only',
       tags: ['program'],
+      response: {
+        200: {
+          type: 'object',
+          properties: {
+            days: {
+              type: 'array',
+              items: {
+                type: 'object',
+                properties: {
+                  day_number: { type: 'integer' },
+                  title: { type: 'string' },
+                  phase: { type: 'string' },
+                  phase_number: { type: 'integer' },
+                  week: { type: 'integer' },
+                  estimated_time: { type: 'string' },
+                  is_premium: { type: 'boolean' },
+                },
+              },
+            },
+          },
+        },
+      },
     },
   }, async (_request: FastifyRequest, reply: FastifyReply) => {
-    app.logger.info({}, 'GET /api/program/content');
+    app.logger.info({}, 'GET /api/program/catalog');
+    const catalog = PROGRAM_DAYS.map(d => ({
+      day_number: d.day_number,
+      title: d.title,
+      phase: d.phase,
+      phase_number: d.phase_number,
+      week: d.week,
+      estimated_time: d.estimated_time || '5–10 min',
+      is_premium: d.day_number > 7,
+    }));
+    return reply.send({ days: catalog });
+  });
+
+  // GET /api/program/content — auth required, all days
+  app.fastify.get('/api/program/content', {
+    schema: {
+      description: 'Auth required: all 90 days of program content',
+      tags: ['program'],
+      response: {
+        200: {
+          type: 'array',
+          items: { type: 'object' },
+        },
+        401: { type: 'object', properties: { error: { type: 'string' } } },
+      },
+    },
+  }, async (request: FastifyRequest, reply: FastifyReply) => {
+    const session = await requireAuth(request, reply);
+    if (!session) return;
+
+    app.logger.info({ userId: session.user.id }, 'GET /api/program/content');
     return reply.send({ days: PROGRAM_DAYS });
   });
 
-  // GET /api/program/content/:dayNumber — public for days 1-7, auth+premium for days 8-90
+  // GET /api/program/content/:dayNumber — auth required for all days, premium for days 8-90
   app.fastify.get('/api/program/content/:dayNumber', {
     schema: {
-      description: 'Get content for a specific day',
+      description: 'Get content for a specific day (auth required; premium required for days 8-90)',
       tags: ['program'],
       params: {
         type: 'object',
@@ -830,10 +882,13 @@ export function registerProgramRoutes(app: App) {
       },
     },
   }, async (request: FastifyRequest, reply: FastifyReply) => {
+    const session = await requireAuth(request, reply);
+    if (!session) return;
+
     const { dayNumber } = request.params as { dayNumber: string };
     const num = parseInt(dayNumber, 10);
 
-    app.logger.info({ dayNumber: num }, 'GET /api/program/content/:dayNumber');
+    app.logger.info({ userId: session.user.id, dayNumber: num }, 'GET /api/program/content/:dayNumber');
 
     const day = DAY_MAP.get(num);
     if (!day) {
@@ -841,18 +896,15 @@ export function registerProgramRoutes(app: App) {
       return reply.status(404).send({ error: 'day_not_found' });
     }
 
-    // Days 8-90 require auth and premium
+    // Days 8-90 require premium
     if (num > 7) {
-      const session = await requireAuth(request, reply);
-      if (!session) return; // requireAuth already sent 401
-
       const isPremium = await userIsPremium(app, session.user.id);
       if (!isPremium) {
         app.logger.warn({ userId: session.user.id, dayNumber: num }, 'Premium required for day');
         return reply.status(403).send({
           error: 'premium_required',
           reason: 'days_8_90_require_premium',
-          days_1_7_access: true,
+          days_1_7_access: false,
         });
       }
     }
