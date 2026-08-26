@@ -6,7 +6,6 @@ import {
   StyleSheet,
   Platform,
   AccessibilityInfo,
-  Switch,
 } from 'react-native';
 import * as Speech from 'expo-speech';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -28,6 +27,8 @@ interface AudioCompanionProps {
   safetyNote?: string;
   currentStep: number; // 0=Lesson, 1=Drill, 2=Reflect, 3=Complete
   onSectionChange?: (section: number) => void;
+  autoStart?: boolean;       // if true, start narrating after voice loads
+  gestureUnlocked?: boolean; // if false, show "Begin Guided Lesson" button first
 }
 
 interface AudioPrefs {
@@ -39,6 +40,9 @@ interface AudioPrefs {
 const PREFS_KEY = 'audio_prefs';
 const SECTION_LABELS = ['Lesson', 'Practice', 'Reflection', 'Closing'];
 const SPEED_OPTIONS = [0.75, 1.0, 1.25, 1.5];
+
+// Phase colors for section dots
+const SECTION_COLORS = ['#6B4CE6', '#3B82F6', '#27AE60', '#F5A623'];
 
 // ─── Text helpers ─────────────────────────────────────────────────────────────
 
@@ -101,17 +105,14 @@ function buildSectionText(
   const { title, lessonContent, drillInstructions, reflectionPrompt, challenge, safetyNote, dayNumber } = props;
   switch (section) {
     case 0:
-      // Title pause, then objective intro, then lesson
       return normalizeText(
         `${title}. ... Today's focus. ${lessonContent}`
       );
     case 1:
-      // Guided practice with step-by-step pacing
       return normalizeText(
         `Guided practice. ... ${drillInstructions}`
       );
     case 2:
-      // Reflection with pause before prompt, then real-world action
       return normalizeText(
         `Reflection. ... Take a moment. ${reflectionPrompt}. ... Your real-world action for today. ${challenge}`
       );
@@ -139,58 +140,44 @@ function buildSectionText(
  */
 
 // iOS: documented male-presenting enhanced/premium voice identifiers (en-US/en-GB/en-AU)
-// These are real Apple system voices available on iOS 16+ devices.
 const IOS_MALE_VOICE_IDS = [
-  'com.apple.voice.enhanced.en-US.Rishi',    // Indian English, calm, clear
+  'com.apple.voice.enhanced.en-US.Rishi',
   'com.apple.voice.premium.en-US.Rishi',
-  'com.apple.voice.enhanced.en-GB.Daniel',   // British English, professional
+  'com.apple.voice.enhanced.en-GB.Daniel',
   'com.apple.voice.premium.en-GB.Daniel',
-  'com.apple.voice.enhanced.en-US.Aaron',    // US English, neutral male
+  'com.apple.voice.enhanced.en-US.Aaron',
   'com.apple.voice.premium.en-US.Aaron',
-  'com.apple.voice.enhanced.en-AU.Lee',      // Australian English, warm
+  'com.apple.voice.enhanced.en-AU.Lee',
   'com.apple.voice.premium.en-AU.Lee',
-  'com.apple.voice.enhanced.en-US.Fred',     // Classic US male
-  'com.apple.ttsbundle.Daniel-compact',      // Compact fallback
+  'com.apple.voice.enhanced.en-US.Fred',
+  'com.apple.ttsbundle.Daniel-compact',
   'com.apple.ttsbundle.Rishi-compact',
 ];
 
-// Name fragments that strongly indicate male-presenting voices across platforms
-// Based on documented voice names from Apple, Google, and common TTS providers.
-// Gender inference from name is a heuristic only — used as a tiebreaker, not sole criterion.
 const MALE_NAME_FRAGMENTS = [
   'daniel', 'aaron', 'rishi', 'lee', 'fred', 'tom', 'alex',
   'oliver', 'arthur', 'george', 'james', 'thomas', 'william',
   'gordon', 'reed', 'liam', 'ryan', 'nathan', 'evan', 'eric',
   'david', 'mark', 'paul', 'peter', 'richard', 'robert', 'john',
-  // Google/Android TTS male voice name fragments
   'male', 'man',
 ];
 
-// Voices to avoid regardless of gender — theatrical, novelty, or low-quality
 const AVOID_FRAGMENTS = [
   'whisper', 'novelty', 'trinoids', 'zarvox', 'cellos', 'bells',
   'boing', 'bubbles', 'deranged', 'hysterical', 'junior', 'organ',
   'pipe', 'princess', 'ralph', 'robot', 'wobble', 'bad', 'good',
 ];
 
-// Quality indicators that boost score
 const QUALITY_FRAGMENTS = ['premium', 'enhanced', 'neural', 'natural', 'siri', 'eloquence'];
 
-/**
- * Select the best available professional male-presenting English system voice.
- * Falls back to highest-quality neutral voice if no male voice is identifiable.
- * Never downloads voices, clones a person, or assumes a specific voice exists.
- */
 async function selectBestVoice(): Promise<{ identifier: string | undefined; isMaleFallback: boolean }> {
   try {
     const voices = await Speech.getAvailableVoicesAsync();
     if (!voices || voices.length === 0) return { identifier: undefined, isMaleFallback: false };
 
-    // Filter to English voices
     const englishVoices = voices.filter(v => v.language?.toLowerCase().startsWith('en'));
     const pool = englishVoices.length > 0 ? englishVoices : voices;
 
-    // iOS: try curated male voice IDs in preference order first
     if (Platform.OS === 'ios') {
       for (const preferredId of IOS_MALE_VOICE_IDS) {
         const match = pool.find(v => v.identifier === preferredId);
@@ -198,23 +185,15 @@ async function selectBestVoice(): Promise<{ identifier: string | undefined; isMa
       }
     }
 
-    // Score all voices
     const scored = pool.map(v => {
       const id = (v.identifier ?? '').toLowerCase();
       const name = (v.name ?? '').toLowerCase();
       const combined = id + ' ' + name;
       let score = 0;
 
-      // Hard disqualify theatrical/novelty voices
       if (AVOID_FRAGMENTS.some(k => combined.includes(k))) return { voice: v, score: -1000 };
-
-      // Quality boost
       if (QUALITY_FRAGMENTS.some(k => combined.includes(k))) score += 20;
-
-      // Male name heuristic (tiebreaker only — not sole criterion)
       if (MALE_NAME_FRAGMENTS.some(k => combined.includes(k))) score += 15;
-
-      // Locale preference
       if (v.language?.toLowerCase() === 'en-us') score += 8;
       else if (v.language?.toLowerCase() === 'en-gb') score += 6;
       else if (v.language?.toLowerCase().startsWith('en')) score += 3;
@@ -226,7 +205,6 @@ async function selectBestVoice(): Promise<{ identifier: string | undefined; isMa
     const best = scored[0];
     if (!best || best.score <= -1000) return { identifier: undefined, isMaleFallback: false };
 
-    // Determine if we found a likely male voice or fell back to neutral
     const bestCombined = ((best.voice.identifier ?? '') + ' ' + (best.voice.name ?? '')).toLowerCase();
     const isMaleFallback = !MALE_NAME_FRAGMENTS.some(k => bestCombined.includes(k));
 
@@ -239,7 +217,7 @@ async function selectBestVoice(): Promise<{ identifier: string | undefined; isMa
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export default function AudioCompanion(props: AudioCompanionProps) {
-  const { dayNumber, currentStep, onSectionChange } = props;
+  const { dayNumber, currentStep, onSectionChange, autoStart, gestureUnlocked } = props;
 
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentSection, setCurrentSection] = useState(currentStep);
@@ -253,24 +231,35 @@ export default function AudioCompanion(props: AudioCompanionProps) {
   const [screenReaderDismissed, setScreenReaderDismissed] = useState(false);
   const [selectedVoice, setSelectedVoice] = useState<string | undefined>(undefined);
   const [voiceIsMaleFallback, setVoiceIsMaleFallback] = useState(false);
+  // Internal gesture unlock state (for "Begin Guided Lesson" button flow)
+  const [internalGestureUnlocked, setInternalGestureUnlocked] = useState(
+    gestureUnlocked !== false
+  );
 
   const chunksRef = useRef<string[]>([]);
   const chunkIndexRef = useRef(0);
   const playingRef = useRef(false);
   const mountedRef = useRef(true);
+  // Prevents double auto-start on re-renders
+  const autoStartedRef = useRef(false);
+  // Tracks whether narration has ever been started this session
+  const hasStartedOnceRef = useRef(false);
+  // Tracks whether the user explicitly stopped narration
+  const userPausedRef = useRef(false);
 
   // ── Load prefs on mount ──
   useEffect(() => {
     mountedRef.current = true;
-    loadPrefs();
+    loadPrefsAndAutoStart();
     checkScreenReader();
     return () => {
       mountedRef.current = false;
       stopSpeech();
     };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // ── Sync section with currentStep prop ──
+  // ── Sync section with currentStep prop — auto-advance if started ──
   const isPlayingRef = useRef(isPlaying);
   isPlayingRef.current = isPlaying;
   const currentSectionRef = useRef(currentSection);
@@ -278,13 +267,23 @@ export default function AudioCompanion(props: AudioCompanionProps) {
 
   useEffect(() => {
     if (currentSectionRef.current !== currentStep) {
-      if (isPlayingRef.current) {
-        stopSpeech();
-        setIsPlaying(false);
-      }
+      console.log('[AudioCompanion] Step changed to:', currentStep, 'day:', dayNumber);
+      stopSpeech();
+      setIsPlaying(false);
       setCurrentSection(currentStep);
+
+      // Auto-advance to new section if narration was started and user hasn't stopped
+      if (autoStart && hasStartedOnceRef.current && !userPausedRef.current) {
+        const timer = setTimeout(() => {
+          if (mountedRef.current) {
+            console.log('[AudioCompanion] Auto-advancing narration to step:', currentStep, 'day:', dayNumber);
+            triggerPlay(currentStep);
+          }
+        }, 400);
+        return () => clearTimeout(timer);
+      }
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentStep]);
 
   // ── Save prefs on change ──
@@ -292,7 +291,7 @@ export default function AudioCompanion(props: AudioCompanionProps) {
     savePrefs();
   }, [rate, musicEnabled, musicVolume]);
 
-  async function loadPrefs() {
+  async function loadPrefsAndAutoStart() {
     try {
       const raw = await AsyncStorage.getItem(PREFS_KEY);
       if (raw) {
@@ -311,6 +310,18 @@ export default function AudioCompanion(props: AudioCompanionProps) {
     if (mountedRef.current) {
       setSelectedVoice(identifier);
       setVoiceIsMaleFallback(isMaleFallback);
+    }
+
+    // Auto-start narration if enabled and gesture is unlocked
+    if (
+      autoStart &&
+      gestureUnlocked !== false &&
+      !autoStartedRef.current &&
+      mountedRef.current
+    ) {
+      autoStartedRef.current = true;
+      console.log('[AudioCompanion] Auto-starting narration for day:', dayNumber, 'step:', currentStep);
+      triggerPlay(currentStep);
     }
   }
 
@@ -382,6 +393,42 @@ export default function AudioCompanion(props: AudioCompanionProps) {
     [rate, selectedVoice, dayNumber]
   );
 
+  // Internal play trigger — accepts an explicit section to narrate
+  const triggerPlay = useCallback(async (section: number) => {
+    if (!mountedRef.current) return;
+
+    try {
+      const available = await Speech.getAvailableVoicesAsync();
+      if (Platform.OS !== 'web' && available.length === 0) {
+        if (mountedRef.current) {
+          setVoiceUnavailable(true);
+          trackEvent('audio_error', { day_number: dayNumber, reason: 'tts_unavailable' });
+        }
+        return;
+      }
+    } catch {
+      // On web, getAvailableVoicesAsync may not be supported — proceed anyway
+    }
+
+    if (!mountedRef.current) return;
+
+    setError(null);
+    setIsLoading(true);
+    setIsPlaying(true);
+    playingRef.current = true;
+    hasStartedOnceRef.current = true;
+    userPausedRef.current = false;
+
+    const text = buildSectionText(section, props);
+    const chunks = chunkText(text);
+    chunksRef.current = chunks;
+    chunkIndexRef.current = 0;
+
+    trackEvent('narration_started', { day_number: dayNumber });
+    speakChunks(chunks, 0);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [speakChunks, dayNumber]);
+
   const handlePlayPause = async () => {
     if (isLoading) return;
     console.log('[AudioCompanion] Play/Pause tapped — isPlaying:', isPlaying, 'day:', dayNumber);
@@ -393,30 +440,16 @@ export default function AudioCompanion(props: AudioCompanionProps) {
       return;
     }
 
-    // Check TTS availability
-    try {
-      const available = await Speech.getAvailableVoicesAsync();
-      if (Platform.OS !== 'web' && available.length === 0) {
-        setVoiceUnavailable(true);
-        trackEvent('audio_error', { day_number: dayNumber, reason: 'tts_unavailable' });
-        return;
-      }
-    } catch {
-      // On web, getAvailableVoicesAsync may not be supported — proceed anyway
-    }
+    await triggerPlay(currentSection);
+  };
 
-    setError(null);
-    setIsLoading(true);
-    setIsPlaying(true);
-    playingRef.current = true;
-
-    const text = buildSectionText(currentSection, props);
-    const chunks = chunkText(text);
-    chunksRef.current = chunks;
-    chunkIndexRef.current = 0;
-
-    trackEvent('narration_started', { day_number: dayNumber });
-    speakChunks(chunks, 0);
+  const handleStop = () => {
+    console.log('[AudioCompanion] Stop narration tapped — day:', dayNumber);
+    userPausedRef.current = true;
+    stopSpeech();
+    setIsPlaying(false);
+    setIsLoading(false);
+    trackEvent('narration_stopped', { day_number: dayNumber, reason: 'user_stop' });
   };
 
   const handleRestart = () => {
@@ -427,24 +460,11 @@ export default function AudioCompanion(props: AudioCompanionProps) {
     setError(null);
   };
 
-  const handlePrevSection = () => {
-    const next = Math.max(0, currentSection - 1);
-    console.log('[AudioCompanion] Prev section tapped — going to section:', next, 'day:', dayNumber);
-    stopSpeech();
-    setIsPlaying(false);
-    setIsLoading(false);
-    setCurrentSection(next);
-    onSectionChange?.(next);
-  };
-
-  const handleNextSection = () => {
-    const next = Math.min(3, currentSection + 1);
-    console.log('[AudioCompanion] Next section tapped — going to section:', next, 'day:', dayNumber);
-    stopSpeech();
-    setIsPlaying(false);
-    setIsLoading(false);
-    setCurrentSection(next);
-    onSectionChange?.(next);
+  const handleBeginGuidedLesson = async () => {
+    console.log('[AudioCompanion] Begin Guided Lesson tapped — day:', dayNumber);
+    setInternalGestureUnlocked(true);
+    autoStartedRef.current = true;
+    await triggerPlay(currentSection);
   };
 
   const handleSpeedSelect = (speed: number) => {
@@ -479,6 +499,8 @@ export default function AudioCompanion(props: AudioCompanionProps) {
     setMusicVolume(next);
   };
 
+  // handlePreviewVoice is kept for use in audio-settings.tsx
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const handlePreviewVoice = async () => {
     if (isLoading || isPlaying) return;
     console.log('[AudioCompanion] Preview voice tapped — rate:', rate, 'voice:', selectedVoice);
@@ -498,15 +520,27 @@ export default function AudioCompanion(props: AudioCompanionProps) {
     }
   };
 
-  // ── Status text ──
-  let statusText = 'Ready';
-  if (isLoading) statusText = 'Loading...';
-  else if (isPlaying) statusText = 'Playing...';
-  else if (error) statusText = error;
-  else if (voiceUnavailable) statusText = 'Narration not available on this device';
-
+  // ── Derived display values ──
   const sectionLabel = SECTION_LABELS[currentSection] ?? 'Lesson';
+  const sectionColor = SECTION_COLORS[currentSection] ?? colors.primary;
   const volumePct = Math.round(musicVolume * 100);
+
+  // Status text
+  let statusText = '';
+  let statusStyle = styles.statusText;
+  if (isLoading) {
+    statusText = 'Loading narration...';
+  } else if (isPlaying) {
+    statusText = `● Narrating — ${sectionLabel}`;
+    statusStyle = StyleSheet.flatten([styles.statusText, { color: sectionColor, fontWeight: '700' as const }]);
+  } else if (error) {
+    statusText = error;
+    statusStyle = StyleSheet.flatten([styles.statusText, styles.statusError]);
+  } else if (voiceUnavailable) {
+    statusText = 'Narration not available on this device';
+  } else if (hasStartedOnceRef.current && userPausedRef.current) {
+    statusText = '⏸ Paused — tap Resume to continue';
+  }
 
   // ── Screen reader warning ──
   if (screenReaderActive && !screenReaderDismissed) {
@@ -530,31 +564,68 @@ export default function AudioCompanion(props: AudioCompanionProps) {
     );
   }
 
+  // ── "Begin Guided Lesson" gate (cold-start / gesture not yet unlocked) ──
+  if (!internalGestureUnlocked) {
+    return (
+      <View style={styles.container}>
+        <View style={styles.sectionDotsRow}>
+          {SECTION_LABELS.map((label, i) => (
+            <View key={label} style={styles.dotItem}>
+              <View style={[styles.dot, i === currentSection && { backgroundColor: sectionColor }]} />
+              <Text style={[styles.dotLabel, i === currentSection && { color: sectionColor, fontWeight: '700' }]}>
+                {label}
+              </Text>
+            </View>
+          ))}
+        </View>
+        <TouchableOpacity
+          style={[styles.beginButton, { backgroundColor: sectionColor }]}
+          onPress={handleBeginGuidedLesson}
+          accessibilityLabel="Begin guided lesson narration"
+          accessibilityRole="button"
+        >
+          <Text style={styles.beginButtonText}>▶ Begin Guided Lesson</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
+
   return (
     <View style={styles.container}>
-      {/* Section label */}
-      <View style={styles.sectionRow}>
-        <Text style={styles.sectionLabel}>Section:</Text>
-        <Text style={styles.sectionValue}>{sectionLabel}</Text>
+      {/* Section sync dots */}
+      <View style={styles.sectionDotsRow}>
+        {SECTION_LABELS.map((label, i) => (
+          <View key={label} style={styles.dotItem}>
+            <View style={[styles.dot, i === currentSection && { backgroundColor: sectionColor }]} />
+            <Text style={[styles.dotLabel, i === currentSection && { color: sectionColor, fontWeight: '700' }]}>
+              {label}
+            </Text>
+          </View>
+        ))}
       </View>
 
-      {/* Transport controls */}
+      {/* Status */}
+      {statusText.length > 0 && (
+        <Text
+          style={statusStyle}
+          accessibilityLiveRegion="polite"
+        >
+          {statusText}
+        </Text>
+      )}
+      {voiceIsMaleFallback && (
+        <Text style={styles.voiceFallbackNote}>
+          No male voice found — using best available system voice
+        </Text>
+      )}
+
+      {/* Primary transport: Pause/Resume */}
       <View style={styles.transportRow}>
         <TouchableOpacity
-          style={styles.controlButton}
-          onPress={handlePrevSection}
-          accessibilityLabel="Previous section"
-          accessibilityRole="button"
-          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-        >
-          <Text style={styles.controlIcon}>⏮</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={[styles.playButton, isLoading && styles.playButtonDisabled]}
+          style={[styles.playButton, isLoading && styles.playButtonDisabled, { backgroundColor: sectionColor }]}
           onPress={handlePlayPause}
           disabled={isLoading}
-          accessibilityLabel={isPlaying ? 'Pause narration' : 'Play narration'}
+          accessibilityLabel={isPlaying ? 'Pause guided narration' : 'Resume guided narration'}
           accessibilityRole="button"
           accessibilityState={{ selected: isPlaying }}
         >
@@ -562,38 +633,25 @@ export default function AudioCompanion(props: AudioCompanionProps) {
         </TouchableOpacity>
 
         <TouchableOpacity
-          style={styles.controlButton}
+          style={styles.restartButton}
           onPress={handleRestart}
-          accessibilityLabel="Restart section"
+          accessibilityLabel="Restart section narration"
           accessibilityRole="button"
           hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
         >
-          <Text style={styles.controlIcon}>⟳</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={styles.controlButton}
-          onPress={handleNextSection}
-          accessibilityLabel="Next section"
-          accessibilityRole="button"
-          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-        >
-          <Text style={styles.controlIcon}>⏭</Text>
+          <Text style={[styles.restartIcon, { color: sectionColor }]}>⟳</Text>
         </TouchableOpacity>
       </View>
 
-      {/* Status */}
-      <Text
-        style={[styles.statusText, error ? styles.statusError : null]}
-        accessibilityLiveRegion="polite"
+      {/* Stop narration link */}
+      <TouchableOpacity
+        onPress={handleStop}
+        accessibilityLabel="Stop narration for this lesson"
+        accessibilityRole="button"
+        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
       >
-        {statusText}
-      </Text>
-      {voiceIsMaleFallback && (
-        <Text style={styles.voiceFallbackNote}>
-          No male voice found — using best available system voice
-        </Text>
-      )}
+        <Text style={styles.stopLink}>Stop for this lesson</Text>
+      </TouchableOpacity>
 
       {/* Speed selector */}
       <View style={styles.speedRow}>
@@ -604,7 +662,7 @@ export default function AudioCompanion(props: AudioCompanionProps) {
           return (
             <TouchableOpacity
               key={speed}
-              style={[styles.speedChip, isSelected && styles.speedChipSelected]}
+              style={[styles.speedChip, isSelected && { backgroundColor: sectionColor, borderColor: sectionColor }]}
               onPress={() => handleSpeedSelect(speed)}
               accessibilityLabel={`Speed ${speedLabel}`}
               accessibilityRole="button"
@@ -618,20 +676,6 @@ export default function AudioCompanion(props: AudioCompanionProps) {
         })}
       </View>
 
-      {/* Preview voice */}
-      <TouchableOpacity
-        style={styles.previewButton}
-        onPress={handlePreviewVoice}
-        disabled={isLoading || isPlaying}
-        accessibilityLabel="Preview voice and speed"
-        accessibilityRole="button"
-        accessibilityHint="Plays a short sample sentence with the current voice and speed settings"
-      >
-        <Text style={[styles.previewButtonText, (isLoading || isPlaying) && styles.previewButtonDisabled]}>
-          🔊 Preview Voice
-        </Text>
-      </TouchableOpacity>
-
       {/* Music section */}
       <View style={styles.musicRow}>
         <Text style={styles.musicLabel}>Music:</Text>
@@ -641,13 +685,6 @@ export default function AudioCompanion(props: AudioCompanionProps) {
           <Text style={styles.musicUnavailable}>Coming soon</Text>
         ) : (
           <>
-            <Switch
-              value={musicEnabled}
-              onValueChange={handleMusicToggle}
-              trackColor={{ false: '#ccc', true: colors.primary }}
-              thumbColor="#fff"
-              accessibilityLabel="Toggle background music"
-            />
             {musicEnabled && (
               <View style={styles.volumeRow}>
                 <TouchableOpacity
@@ -690,52 +727,73 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(107, 76, 230, 0.2)',
     gap: 12,
   },
-  sectionRow: {
+  // Section sync dots
+  sectionDotsRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    justifyContent: 'space-between',
+    gap: 4,
   },
-  sectionLabel: {
-    fontSize: 13,
+  dotItem: {
+    flex: 1,
+    alignItems: 'center',
+    gap: 4,
+  },
+  dot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: 'rgba(107, 76, 230, 0.2)',
+    borderWidth: 1,
+    borderColor: 'rgba(107, 76, 230, 0.3)',
+  },
+  dotLabel: {
+    fontSize: 10,
     color: '#8E8E93',
     fontWeight: '500',
+    textAlign: 'center',
   },
-  sectionValue: {
-    fontSize: 13,
-    color: colors.primary,
-    fontWeight: '700',
-  },
+  // Transport
   transportRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
     gap: 16,
   },
-  controlButton: {
-    width: 44,
-    height: 44,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  controlIcon: {
-    fontSize: 22,
-    color: colors.primary,
-  },
   playButton: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
+    flex: 1,
+    height: 52,
+    borderRadius: 14,
     backgroundColor: colors.primary,
     alignItems: 'center',
     justifyContent: 'center',
+    flexDirection: 'row',
+    gap: 8,
   },
   playButtonDisabled: {
     opacity: 0.5,
   },
   playIcon: {
-    fontSize: 22,
+    fontSize: 20,
     color: '#FFFFFF',
   },
+  restartButton: {
+    width: 44,
+    height: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  restartIcon: {
+    fontSize: 24,
+    color: colors.primary,
+  },
+  // Stop link
+  stopLink: {
+    fontSize: 13,
+    color: '#8E8E93',
+    textDecorationLine: 'underline',
+    textAlign: 'center',
+  },
+  // Status
   statusText: {
     fontSize: 13,
     color: '#8E8E93',
@@ -750,6 +808,7 @@ const styles = StyleSheet.create({
     fontStyle: 'italic',
     textAlign: 'center',
   },
+  // Speed
   speedRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -770,10 +829,6 @@ const styles = StyleSheet.create({
     minWidth: 44,
     alignItems: 'center',
   },
-  speedChipSelected: {
-    backgroundColor: colors.primary,
-    borderColor: colors.primary,
-  },
   speedChipText: {
     fontSize: 13,
     color: colors.primary,
@@ -782,24 +837,7 @@ const styles = StyleSheet.create({
   speedChipTextSelected: {
     color: '#FFFFFF',
   },
-  previewButton: {
-    alignSelf: 'flex-start',
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 20,
-    borderWidth: 1.5,
-    borderColor: 'rgba(107, 76, 230, 0.4)',
-    minHeight: 44,
-    justifyContent: 'center',
-  },
-  previewButtonText: {
-    fontSize: 13,
-    color: colors.primary,
-    fontWeight: '600',
-  },
-  previewButtonDisabled: {
-    opacity: 0.4,
-  },
+  // Music
   musicRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -843,6 +881,7 @@ const styles = StyleSheet.create({
     minWidth: 36,
     textAlign: 'center',
   },
+  // Screen reader warning
   srWarning: {
     backgroundColor: '#FFF8E1',
     borderRadius: 10,
@@ -870,5 +909,17 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontWeight: '700',
     fontSize: 14,
+  },
+  // Begin Guided Lesson button
+  beginButton: {
+    borderRadius: 14,
+    paddingVertical: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  beginButtonText: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#FFFFFF',
   },
 });

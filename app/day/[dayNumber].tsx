@@ -141,9 +141,6 @@ export default function DayDetailScreen() {
   const [currentStep, setCurrentStep] = useState(0);
   const [stepError, setStepError] = useState<string | null>(null);
 
-  // ── Audio companion ──
-  const [showAudio, setShowAudio] = useState(false);
-
   // ── Step 0: Lesson ──
   const [markingRead, setMarkingRead] = useState(false);
 
@@ -511,20 +508,7 @@ export default function DayDetailScreen() {
           <IconSymbol ios_icon_name="chevron.left" android_material_icon_name="arrow-back" size={24} color={colors.primary} />
         </TouchableOpacity>
         <Text style={styles.topNavTitle}>{dayTitle}</Text>
-        <TouchableOpacity
-          style={styles.audioToggleButton}
-          onPress={() => {
-            console.log('[DayDetail] Read Aloud toggle tapped — showAudio:', !showAudio, 'day:', dayNum);
-            setShowAudio(prev => !prev);
-          }}
-          accessibilityLabel={showAudio ? 'Hide audio player' : 'Read aloud'}
-          accessibilityRole="button"
-          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-        >
-          <Text style={[styles.audioToggleText, showAudio && styles.audioToggleTextActive]}>
-            🔊
-          </Text>
-        </TouchableOpacity>
+        <View style={styles.topNavSpacer} />
       </View>
 
       {/* Step indicator */}
@@ -541,17 +525,17 @@ export default function DayDetailScreen() {
           >
             <SessionHeader dayNum={dayNum} phase={content.phase} />
 
-            {showAudio && (
-              <AudioCompanion
-                dayNumber={dayNum}
-                title={content.title}
-                lessonContent={content.lesson_content}
-                drillInstructions={content.drill_instructions}
-                reflectionPrompt={content.reflection_prompt}
-                challenge={content.challenge}
-                currentStep={currentStep}
-              />
-            )}
+            <AudioCompanion
+              dayNumber={dayNum}
+              title={content.title}
+              lessonContent={content.lesson_content}
+              drillInstructions={content.drill_instructions}
+              reflectionPrompt={content.reflection_prompt}
+              challenge={content.challenge}
+              currentStep={currentStep}
+              autoStart={true}
+              gestureUnlocked={true}
+            />
 
             <View style={styles.section}>
               <View style={styles.sectionHeader}>
@@ -598,6 +582,18 @@ export default function DayDetailScreen() {
             showsVerticalScrollIndicator={false}
           >
             <SessionHeader dayNum={dayNum} phase={content.phase} />
+
+            <AudioCompanion
+              dayNumber={dayNum}
+              title={content.title}
+              lessonContent={content.lesson_content}
+              drillInstructions={content.drill_instructions}
+              reflectionPrompt={content.reflection_prompt}
+              challenge={content.challenge}
+              currentStep={currentStep}
+              autoStart={true}
+              gestureUnlocked={true}
+            />
 
             <View style={styles.section}>
               <View style={styles.sectionHeader}>
@@ -673,6 +669,18 @@ export default function DayDetailScreen() {
             showsVerticalScrollIndicator={false}
             keyboardShouldPersistTaps="handled"
           >
+            <AudioCompanion
+              dayNumber={dayNum}
+              title={content.title}
+              lessonContent={content.lesson_content}
+              drillInstructions={content.drill_instructions}
+              reflectionPrompt={content.reflection_prompt}
+              challenge={content.challenge}
+              currentStep={currentStep}
+              autoStart={true}
+              gestureUnlocked={true}
+            />
+
             <View style={styles.reflectHeaderRow}>
               <Text style={styles.reflectHeading}>Reflect & Rate</Text>
             </View>
@@ -775,6 +783,24 @@ export default function DayDetailScreen() {
 
       {currentStep === 3 && (
         <Animated.View entering={FadeIn.duration(300)} style={[styles.stepWrapper, styles.completeStepWrapper]}>
+          <ScrollView
+            style={styles.scrollView}
+            contentContainerStyle={styles.scrollContent}
+            showsVerticalScrollIndicator={false}
+          >
+            <AudioCompanion
+              dayNumber={dayNum}
+              title={content.title}
+              lessonContent={content.lesson_content}
+              drillInstructions={content.drill_instructions}
+              reflectionPrompt={content.reflection_prompt}
+              challenge={content.challenge}
+              currentStep={currentStep}
+              autoStart={true}
+              gestureUnlocked={true}
+            />
+          </ScrollView>
+
           <View style={styles.completeCenter}>
             <Text style={styles.trophyEmoji}>🏆</Text>
             <Text style={styles.completeHeading}>Day {dayNum} Complete!</Text>
