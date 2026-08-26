@@ -22,6 +22,7 @@ import { IconSymbol } from '@/components/IconSymbol';
 import CongratulationsModal from '@/components/CongratulationsModal';
 import { techniques } from '@/data/techniques';
 import { useUser } from '@/contexts/UserContext';
+import { useAuth } from '@/contexts/AuthContext';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -126,6 +127,7 @@ export default function DayDetailScreen() {
   const { dayNumber } = useLocalSearchParams<{ dayNumber: string }>();
   const dayNum = parseInt(dayNumber || '1', 10);
   const { entitlement } = useUser();
+  const { user } = useAuth();
 
   console.log('[DayDetail] Screen rendered for day:', dayNum);
 
@@ -164,6 +166,15 @@ export default function DayDetailScreen() {
   const [achievementsUnlocked, setAchievementsUnlocked] = useState<string[]>([]);
   const [showCongrats, setShowCongrats] = useState(false);
   const submittingRef = useRef(false);
+
+  // ── Guest guard — redirect unauthenticated users to auth with returnTo ──
+  useEffect(() => {
+    if (user === null) {
+      console.log('[DayDetail] Guest attempted to access day', dayNum, '— redirecting to auth');
+      trackEvent('lesson_signin_required', { day_number: dayNum });
+      router.replace(`/auth?returnTo=day_${dayNum}`);
+    }
+  }, [user, dayNum]);
 
   // ── Entitlement gate check (client-side fast path) ──
   // If entitlement is loaded and day > 7 and no days_8_90_access, show premium gate immediately
@@ -358,6 +369,18 @@ export default function DayDetailScreen() {
   const practiceSteps = techniqueData?.practiceSteps ?? [];
   const hasPracticeSteps = practiceSteps.length > 0;
   const isLastDrillStep = hasPracticeSteps ? drillSubStep >= practiceSteps.length - 1 : true;
+
+  // ── Auth loading / guest guard ──
+  if (user === undefined || user === null) {
+    return (
+      <SafeAreaView style={styles.container} edges={['top']}>
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={colors.primary} />
+          <Text style={styles.loadingText}>Loading...</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   // ── Loading / Error ──
   if (loading) {

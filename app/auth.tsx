@@ -12,14 +12,28 @@ import {
   Modal,
 } from "react-native";
 import { useAuth } from "@/contexts/AuthContext";
-import { useRouter } from "expo-router";
+import { useRouter, useLocalSearchParams } from "expo-router";
 import { colors } from "@/styles/commonStyles";
 import Animated, { FadeIn, FadeOut } from "react-native-reanimated";
 import * as Haptics from "expo-haptics";
+import { trackEvent } from "@/utils/analytics";
+
+function resolveReturnTo(returnTo: string | undefined): string | null {
+  if (!returnTo) return null;
+  const dayMatch = returnTo.match(/^day_(\d+)$/);
+  if (dayMatch) {
+    const n = parseInt(dayMatch[1], 10);
+    if (n >= 1 && n <= 90) return `/day/${n}`;
+  }
+  const allowed = ['/(tabs)/program', '/(tabs)/(home)', '/program-intro'];
+  if (allowed.includes(returnTo)) return returnTo;
+  return null;
+}
 
 export default function AuthScreen() {
   const router = useRouter();
   const { signInWithEmail, signInWithGoogle, signInWithApple, loading: authLoading } = useAuth();
+  const { returnTo, lessonTitle } = useLocalSearchParams<{ returnTo?: string; lessonTitle?: string }>();
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -78,8 +92,15 @@ export default function AuthScreen() {
     try {
       console.log("[Auth] Calling signInWithEmail...");
       await signInWithEmail(trimmedEmail, password);
-      console.log("[Auth] Sign in successful, navigating to /auth-callback");
-      router.replace("/auth-callback");
+      const destination = resolveReturnTo(returnTo);
+      if (destination) {
+        console.log("[Auth] Sign in successful, navigating to returnTo:", destination);
+        trackEvent('auth_return_completed', { destination });
+        router.replace(destination as any);
+      } else {
+        console.log("[Auth] Sign in successful, navigating to /auth-callback");
+        router.replace("/auth-callback");
+      }
     } catch (error: any) {
       const msg = error?.message ?? "";
       const isNetwork = /fetch|network|failed to fetch|timeout/i.test(msg);
@@ -122,8 +143,15 @@ export default function AuthScreen() {
       // On web, navigate to callback to process the popup token
       // On native, the OAuth deep link handles session restoration — AuthGate routes automatically
       if (Platform.OS === "web") {
-        console.log("[Auth] Social auth successful (web), navigating to /auth-callback");
-        router.replace("/auth-callback");
+        const destination = resolveReturnTo(returnTo);
+        if (destination) {
+          console.log("[Auth] Social auth successful (web), navigating to returnTo:", destination);
+          trackEvent('auth_return_completed', { destination });
+          router.replace(destination as any);
+        } else {
+          console.log("[Auth] Social auth successful (web), navigating to /auth-callback");
+          router.replace("/auth-callback");
+        }
       } else {
         console.log("[Auth] Social auth initiated (native), waiting for deep link redirect");
       }
@@ -160,6 +188,16 @@ export default function AuthScreen() {
 
           <Text style={styles.title}>Welcome Back</Text>
           <Text style={styles.subtitle}>Sign in to access your programs and progress</Text>
+
+          {returnTo?.startsWith('day_') && (
+            <View style={styles.contextualMessage}>
+              <Text style={styles.contextualMessageText}>
+                {lessonTitle
+                  ? `Sign in to begin "${lessonTitle}" and save your progress.`
+                  : 'Sign in or create an account to begin this lesson and save your progress.'}
+              </Text>
+            </View>
+          )}
 
           <TextInput
             style={styles.input}
@@ -527,5 +565,20 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: "700",
     color: "#FFFFFF",
+  },
+  contextualMessage: {
+    backgroundColor: colors.highlight,
+    borderRadius: 12,
+    padding: 14,
+    marginBottom: 20,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  contextualMessageText: {
+    fontSize: 14,
+    color: colors.text,
+    fontWeight: "500",
+    lineHeight: 20,
+    textAlign: "center",
   },
 });

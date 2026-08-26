@@ -34,6 +34,8 @@ interface DayContent {
   drill_instructions?: string;
   challenge?: string;
   reflection_prompt?: string;
+  estimated_time?: string;
+  is_premium?: boolean;
 }
 
 interface DayProgress {
@@ -91,9 +93,10 @@ export default function ProgramScreen() {
         setDays(contentRes.days || []);
         setProgress(progressRes.days || []);
       } else {
-        const contentRes = await fetch(`${BACKEND_URL}/api/program/content`);
-        if (contentRes.ok) {
-          const data = await contentRes.json();
+        console.log('[Program] Guest fetch — using catalog endpoint');
+        const catalogRes = await fetch(`${BACKEND_URL}/api/program/catalog`);
+        if (catalogRes.ok) {
+          const data = await catalogRes.json();
           setDays(data.days || []);
         }
       }
@@ -153,8 +156,10 @@ export default function ProgramScreen() {
     console.log('[Program] Day tapped:', dayNumber, '— hasDays8to90Access:', hasDays8to90Access);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     if (!user) {
-      console.log('[Program] Guest tapped day — pushing auth');
-      router.push('/auth');
+      const lessonTitle = days.find(d => d.day_number === dayNumber)?.title ?? '';
+      console.log('[Program] Guest tapped day', dayNumber, '— routing to auth with returnTo');
+      trackEvent('lesson_signin_required', { day_number: dayNumber });
+      router.push(`/auth?returnTo=day_${dayNumber}&lessonTitle=${encodeURIComponent(lessonTitle)}`);
       return;
     }
     // Use entitlement-aware canAccessDay check
@@ -378,21 +383,25 @@ export default function ProgramScreen() {
                 return s === 'current' || s === 'available';
               })?.day_number ?? phaseDays[0]?.day_number ?? phase.daysStart;
 
-              const ctaLabel = isPhaseCompleted
-                ? 'Review'
-                : isCurrentPhase
-                  ? 'Continue'
-                  : (isPremiumLocked || isProgressionLocked)
-                    ? 'Locked'
-                    : 'Start';
+              const ctaLabel = !user
+                ? 'Sign in to start'
+                : isPhaseCompleted
+                  ? 'Review'
+                  : isCurrentPhase
+                    ? 'Continue'
+                    : (isPremiumLocked || isProgressionLocked)
+                      ? 'Locked'
+                      : 'Start';
 
-              const statusText = isPhaseCompleted
-                ? 'Completed ✓'
-                : isCurrentPhase
-                  ? 'Current →'
-                  : (isPremiumLocked || isProgressionLocked)
-                    ? 'Locked 🔒'
-                    : '';
+              const statusText = !user
+                ? ''
+                : isPhaseCompleted
+                  ? 'Completed ✓'
+                  : isCurrentPhase
+                    ? 'Current →'
+                    : (isPremiumLocked || isProgressionLocked)
+                      ? 'Locked 🔒'
+                      : '';
 
               const statusColor = isPhaseCompleted
                 ? '#27AE60'
@@ -409,6 +418,12 @@ export default function ProgramScreen() {
               const handleCardPress = () => {
                 console.log('[Program] Phase card tapped:', phase.key, '— isPremiumLocked:', isPremiumLocked, 'isProgressionLocked:', isProgressionLocked);
                 trackEvent('program_card_opened', { phase_number: phaseNumber, phase_name: phase.key });
+                if (!user) {
+                  console.log('[Program] Guest tapped phase card:', phase.key, '— routing to auth with returnTo');
+                  trackEvent('lesson_signin_required', { day_number: firstAvailableDay });
+                  router.push(`/auth?returnTo=day_${firstAvailableDay}`);
+                  return;
+                }
                 if (isPremiumLocked) {
                   Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
                   router.push('/paywall');
@@ -568,15 +583,17 @@ export default function ProgramScreen() {
                     const progressionStatusText = isProgressionLocked
                       ? `Complete Day ${lastCompleted + 1} first`
                       : '';
-                    const statusText = isCompleted
-                      ? 'Completed'
-                      : isLocked
-                        ? 'Premium'
-                        : isProgressionLocked
-                          ? progressionStatusText
-                          : isCurrent
-                            ? 'Continue'
-                            : 'Available';
+                    const statusText = !user
+                      ? 'Sign in to start'
+                      : isCompleted
+                        ? 'Completed'
+                        : isLocked
+                          ? 'Premium'
+                          : isProgressionLocked
+                            ? progressionStatusText
+                            : isCurrent
+                              ? 'Continue'
+                              : 'Available';
 
                     return (
                       <TouchableOpacity

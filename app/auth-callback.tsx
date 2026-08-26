@@ -1,14 +1,28 @@
 import React, { useEffect, useRef, useState } from "react";
 import { View, Text, ActivityIndicator, TouchableOpacity, StyleSheet, Platform } from "react-native";
-import { useRouter } from "expo-router";
+import { useRouter, useLocalSearchParams } from "expo-router";
 import { useAuth } from "@/contexts/AuthContext";
 import { colors } from "@/styles/commonStyles";
+import { trackEvent } from "@/utils/analytics";
+
+function resolveReturnTo(returnTo: string | undefined): string | null {
+  if (!returnTo) return null;
+  const dayMatch = returnTo.match(/^day_(\d+)$/);
+  if (dayMatch) {
+    const n = parseInt(dayMatch[1], 10);
+    if (n >= 1 && n <= 90) return `/day/${n}`;
+  }
+  const allowed = ['/(tabs)/program', '/(tabs)/(home)', '/program-intro'];
+  if (allowed.includes(returnTo)) return returnTo;
+  return null;
+}
 
 type State = "loading" | "timeout" | "error";
 
 export default function AuthCallbackScreen() {
   const router = useRouter();
   const { user, loading } = useAuth();
+  const { returnTo } = useLocalSearchParams<{ returnTo?: string }>();
   const [state, setState] = useState<State>("loading");
   const [message, setMessage] = useState("Loading your dashboard...");
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -91,8 +105,15 @@ export default function AuthCallbackScreen() {
       try {
         const onboarding = await authenticatedGet<{ completed_at: string | null }>("/api/onboarding");
         if (onboarding?.completed_at) {
-          console.log("[Auth Callback] onboarding complete — routing to /(tabs)/(home)");
-          router.replace("/(tabs)/(home)");
+          const destination = resolveReturnTo(returnTo);
+          if (destination) {
+            console.log("[Auth Callback] onboarding complete — routing to returnTo:", destination);
+            trackEvent('auth_return_completed', { destination });
+            router.replace(destination as any);
+          } else {
+            console.log("[Auth Callback] onboarding complete — routing to /(tabs)/(home)");
+            router.replace("/(tabs)/(home)");
+          }
         } else {
           console.log("[Auth Callback] onboarding incomplete — routing to /program-intro");
           router.replace("/program-intro");
