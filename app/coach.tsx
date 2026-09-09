@@ -134,6 +134,16 @@ export default function CoachScreen() {
               <Text style={styles.emptyStateSubtitle}>
                 AI Coach is coming soon. Check back for updates.
               </Text>
+              <Text style={{
+                fontSize: 12,
+                color: colors.textSecondary,
+                textAlign: 'center',
+                lineHeight: 18,
+                marginTop: 16,
+                paddingHorizontal: 24,
+              }}>
+                This feature will provide educational wellness guidance only and is not a substitute for professional mental health care. If you are in crisis, call or text 988.
+              </Text>
               <View style={styles.suggestedPromptsContainer}>
                 <Text style={styles.suggestedPromptsTitle}>Topics we'll cover:</Text>
                 {SUGGESTED_PROMPTS.map(prompt => (

@@ -401,6 +401,17 @@ export default function OnboardingScreen() {
             </LinearGradient>
           </TouchableOpacity>
         ) : (
+          <>
+            <Text style={{
+              fontSize: 11,
+              color: colors.textSecondary,
+              textAlign: 'center',
+              lineHeight: 16,
+              marginBottom: 12,
+              paddingHorizontal: 8,
+            }}>
+              This app provides educational wellness content and is not a substitute for professional mental health care. If you are in crisis, call or text 988.
+            </Text>
           <TouchableOpacity
             style={[styles.nextButton, (submitting || skipping) && styles.nextButtonDisabled]}
             onPress={handleSubmit}
@@ -423,6 +434,7 @@ export default function OnboardingScreen() {
               )}
             </LinearGradient>
           </TouchableOpacity>
+          </>
         )}
       </View>
     </SafeAreaView>

@@ -40,7 +40,8 @@ if (Platform.OS !== 'web') {
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 interface AnalyticsConsent {
-  usage_analytics_enabled: boolean;
+  usageAnalyticsEnabled?: boolean;
+  usage_analytics_enabled?: boolean;
 }
 
 // ─── Component ────────────────────────────────────────────────────────────────
@@ -80,7 +81,7 @@ export default function AccountSettingsScreen() {
     console.log('[AccountSettings] Loading analytics consent');
     try {
       const data = await authenticatedGet<AnalyticsConsent>('/api/analytics/consent');
-      setAnalyticsEnabled(data.usage_analytics_enabled);
+      setAnalyticsEnabled(data.usageAnalyticsEnabled ?? data.usage_analytics_enabled ?? true);
     } catch (err) {
       console.warn('[AccountSettings] Failed to load consent:', err);
     } finally {
@@ -327,7 +328,7 @@ export default function AccountSettingsScreen() {
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Sessions</Text>
 
-          <TouchableOpacity style={styles.menuItem} onPress={handleSignOut} activeOpacity={0.7}>
+          <TouchableOpacity style={styles.menuItem} onPress={handleSignOut} activeOpacity={0.7} accessibilityRole="button" accessibilityLabel="Sign out of your account">
             <View style={styles.menuItemLeft}>
               <IconSymbol ios_icon_name="rectangle.portrait.and.arrow.right" android_material_icon_name="logout" size={20} color="#FF3B30" />
               <Text style={[styles.menuItemText, { color: '#FF3B30' }]}>Sign Out</Text>
@@ -341,6 +342,8 @@ export default function AccountSettingsScreen() {
             onPress={handleSignOutAll}
             disabled={signOutAllLoading}
             activeOpacity={0.7}
+            accessibilityRole="button"
+            accessibilityLabel="Sign out of all devices"
           >
             <View style={styles.menuItemLeft}>
               <IconSymbol ios_icon_name="rectangle.portrait.and.arrow.right" android_material_icon_name="logout" size={20} color="#FF3B30" />
@@ -359,6 +362,8 @@ export default function AccountSettingsScreen() {
             onPress={handleExportData}
             disabled={exportLoading}
             activeOpacity={0.7}
+            accessibilityRole="button"
+            accessibilityLabel="Download a copy of your data"
           >
             <View style={styles.menuItemLeft}>
               <IconSymbol ios_icon_name="square.and.arrow.down" android_material_icon_name="download" size={20} color={colors.primary} />
@@ -387,10 +392,33 @@ export default function AccountSettingsScreen() {
                   onValueChange={handleAnalyticsToggle}
                   trackColor={{ false: colors.border, true: colors.primary }}
                   thumbColor="#FFFFFF"
+                  accessibilityLabel="Anonymous analytics"
+                  accessibilityHint="Toggle to opt in or out of anonymous usage data collection"
                 />
               )
             }
           </View>
+
+          <View style={styles.divider} />
+          <TouchableOpacity
+            style={styles.menuItem}
+            onPress={() => {
+              const { Linking } = require('react-native');
+              Linking.openURL('https://988lifeline.org');
+            }}
+            activeOpacity={0.7}
+            accessibilityRole="link"
+            accessibilityLabel="Crisis support resources — opens 988 Suicide and Crisis Lifeline website"
+          >
+            <View style={styles.menuItemLeft}>
+              <IconSymbol ios_icon_name="heart.fill" android_material_icon_name="favorite" size={20} color="#27AE60" />
+              <View style={{ flex: 1 }}>
+                <Text style={styles.menuItemText}>Crisis Support Resources</Text>
+                <Text style={styles.toggleSubtitle}>If you are in crisis, call or text 988 (US) or visit 988lifeline.org</Text>
+              </View>
+            </View>
+            <IconSymbol ios_icon_name="arrow.up.right.square" android_material_icon_name="open-in-new" size={18} color={colors.textSecondary} />
+          </TouchableOpacity>
         </View>
 
         {/* Subscription section */}
@@ -420,6 +448,8 @@ export default function AccountSettingsScreen() {
             onPress={handleRestorePurchases}
             disabled={restoreLoading}
             activeOpacity={0.7}
+            accessibilityRole="button"
+            accessibilityLabel="Restore previous purchases"
           >
             <View style={styles.menuItemLeft}>
               <IconSymbol ios_icon_name="arrow.clockwise.circle" android_material_icon_name="refresh" size={20} color={colors.primary} />
@@ -444,6 +474,8 @@ export default function AccountSettingsScreen() {
             style={styles.deleteButton}
             onPress={handleDeleteAccount}
             activeOpacity={0.8}
+            accessibilityRole="button"
+            accessibilityLabel="Delete your account permanently"
           >
             <IconSymbol ios_icon_name="trash.fill" android_material_icon_name="delete" size={18} color="#FFFFFF" />
             <Text style={styles.deleteButtonText}>Delete Account</Text>

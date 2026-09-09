@@ -125,8 +125,6 @@ export default function JournalEntryScreen() {
         mood: editMood || undefined,
         tags: tagsArray.length > 0 ? tagsArray : undefined,
       };
-      console.log('[JournalEntry] Saving payload:', payload);
-
       if (isNew) {
         console.log('[JournalEntry] POST /api/journal');
         const newEntry = await authenticatedPost<JournalEntry>('/api/journal', payload);
@@ -226,10 +224,10 @@ export default function JournalEntryScreen() {
         <View style={styles.topBarActions}>
           {!isNew && !isEditing && (
             <>
-              <TouchableOpacity onPress={handleEdit} style={styles.topBarButton} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+              <TouchableOpacity onPress={handleEdit} style={styles.topBarButton} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }} accessibilityRole="button" accessibilityLabel="Edit journal entry">
                 <IconSymbol ios_icon_name="pencil" android_material_icon_name="edit" size={22} color={colors.primary} />
               </TouchableOpacity>
-              <TouchableOpacity onPress={handleDelete} style={styles.topBarButton} disabled={deleting} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+              <TouchableOpacity onPress={handleDelete} style={styles.topBarButton} disabled={deleting} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }} accessibilityRole="button" accessibilityLabel="Delete journal entry">
                 {deleting ? (
                   <ActivityIndicator size="small" color="#FF3B30" />
                 ) : (
@@ -240,10 +238,10 @@ export default function JournalEntryScreen() {
           )}
           {isEditing && (
             <>
-              <TouchableOpacity onPress={handleCancelEdit} style={styles.topBarButton} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+              <TouchableOpacity onPress={handleCancelEdit} style={styles.topBarButton} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }} accessibilityRole="button" accessibilityLabel="Cancel editing">
                 <Text style={styles.cancelText}>Cancel</Text>
               </TouchableOpacity>
-              <TouchableOpacity onPress={handleSave} style={styles.saveButton} disabled={saving}>
+              <TouchableOpacity onPress={handleSave} style={styles.saveButton} disabled={saving} accessibilityRole="button" accessibilityLabel="Save journal entry">
                 {saving ? (
                   <ActivityIndicator size="small" color="#FFFFFF" />
                 ) : (
@@ -293,6 +291,9 @@ export default function JournalEntryScreen() {
                       style={[styles.moodChip, isSelected && styles.moodChipSelected]}
                       onPress={() => handleMoodSelect(mood)}
                       activeOpacity={0.8}
+                      accessibilityRole="radio"
+                      accessibilityLabel={MOOD_EMOJIS[mood] + ' ' + mood}
+                      accessibilityState={{ checked: editMood === mood }}
                     >
                       <Text style={styles.moodEmoji}>{MOOD_EMOJIS[mood]}</Text>
                       <Text style={[styles.moodLabel, isSelected && styles.moodLabelSelected]}>{mood}</Text>
