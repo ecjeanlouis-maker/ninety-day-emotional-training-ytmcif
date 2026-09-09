@@ -5,7 +5,7 @@ import FloatingTabBar, { TabBarItem } from '@/components/FloatingTabBar';
 
 export default function TabLayout() {
   const tabs: TabBarItem[] = [
-    { name: '(home)', route: '/(tabs)/(home)/', icon: 'home', label: 'Today' },
+    { name: '(home)', route: '/(tabs)/(home)', icon: 'home', label: 'Today' },
     { name: 'program', route: '/(tabs)/program', icon: 'list', label: 'Program' },
     { name: 'track', route: '/(tabs)/track', icon: 'favorite', label: 'Track' },
     { name: 'journal', route: '/(tabs)/journal', icon: 'book', label: 'Journal' },

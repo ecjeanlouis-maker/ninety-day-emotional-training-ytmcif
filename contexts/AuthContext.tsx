@@ -171,7 +171,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         await fetchUser();
       } else {
         // Native: Use expo-linking to generate a proper deep link
-        const callbackURL = Platform.OS === "web"
+        const callbackURL = (Platform.OS as string) === "web"
           ? Linking.createURL("/auth-callback")
           : "controlconfidence://auth-callback";
         console.log(`[Auth] Using callback URL: ${callbackURL}`);

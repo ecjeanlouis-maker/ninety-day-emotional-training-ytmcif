@@ -99,7 +99,7 @@ export default function ProfileScreen() {
   const displayName = user?.name || user?.email?.split('@')[0] || 'Guest';
   const displayEmail = user?.email || 'Not signed in';
   const subscriptionLabel = isSubscribed ? 'Pro Member — Manage Subscription' : 'Upgrade to Pro';
-  const showUnverifiedBanner = !!user && user.emailVerified === false;
+  const showUnverifiedBanner = !!user && (user as any).emailVerified === false;
 
   const accessState = profile?.access_state;
   const subStatus = profile?.subscription_status;

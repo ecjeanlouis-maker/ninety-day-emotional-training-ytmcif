@@ -14,6 +14,8 @@ const storage = Platform.OS === "web"
       getItem: (key: string) => localStorage.getItem(key),
       setItem: (key: string, value: string) => localStorage.setItem(key, value),
       deleteItem: (key: string) => localStorage.removeItem(key),
+      getItemAsync: async (key: string) => localStorage.getItem(key),
+      setItemAsync: async (key: string, value: string) => { localStorage.setItem(key, value); },
     }
   : SecureStore;
 

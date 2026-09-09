@@ -9,6 +9,7 @@ import {
   Platform,
   ActivityIndicator,
   RefreshControl,
+  ViewStyle,
 } from 'react-native';
 import { useNetworkState } from 'expo-network';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -545,7 +546,7 @@ function TodayDashboard() {
               accessibilityRole="progressbar"
             >
               <View style={styles.overallProgressTrack}>
-                <View style={[styles.overallProgressFill, { width: progressBarWidth }]} />
+                <View style={[styles.overallProgressFill, { width: progressBarWidth } as ViewStyle]} />
               </View>
             </View>
           </LinearGradient>
@@ -726,21 +727,21 @@ function TodayDashboard() {
             <View style={styles.ecrsRow}>
               <Text style={styles.ecrsLabel}>Emotional ID</Text>
               <View style={styles.ecrsBarTrack}>
-                <View style={[styles.ecrsBarFill, { width: ecrsBar1Width, backgroundColor: colors.primary }]} />
+                <View style={[styles.ecrsBarFill, { width: ecrsBar1Width, backgroundColor: colors.primary } as ViewStyle]} />
               </View>
               <Text style={styles.ecrsScore}>{ecrsScore1}/5</Text>
             </View>
             <View style={styles.ecrsRow}>
               <Text style={styles.ecrsLabel}>Response Control</Text>
               <View style={styles.ecrsBarTrack}>
-                <View style={[styles.ecrsBarFill, { width: ecrsBar2Width, backgroundColor: '#3B82F6' }]} />
+                <View style={[styles.ecrsBarFill, { width: ecrsBar2Width, backgroundColor: '#3B82F6' } as ViewStyle]} />
               </View>
               <Text style={styles.ecrsScore}>{ecrsScore2}/5</Text>
             </View>
             <View style={styles.ecrsRow}>
               <Text style={styles.ecrsLabel}>Confidence</Text>
               <View style={styles.ecrsBarTrack}>
-                <View style={[styles.ecrsBarFill, { width: ecrsBar3Width, backgroundColor: '#27AE60' }]} />
+                <View style={[styles.ecrsBarFill, { width: ecrsBar3Width, backgroundColor: '#27AE60' } as ViewStyle]} />
               </View>
               <Text style={styles.ecrsScore}>{ecrsScore3}/5</Text>
             </View>

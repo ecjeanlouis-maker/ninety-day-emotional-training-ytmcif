@@ -256,22 +256,24 @@ export default function Survey({ onComplete, onBack }: SurveyProps) {
     };
 
     finalAnswers.forEach((answerIndex, questionIndex) => {
+      if (answerIndex === null) return;
       const question = SURVEY_QUESTIONS[questionIndex];
       const selectedOption = question.options[answerIndex];
       
       selectedOption.programs.forEach(program => {
+        if (program === null) return;
         programScores[program] = (programScores[program] || 0) + 1;
       });
     });
 
     const sortedPrograms = Object.entries(programScores)
       .sort(([, scoreA], [, scoreB]) => scoreB - scoreA)
-      .map(([program]) => program as ProgramType);
+      .map(([program]) => program);
 
     const topScore = programScores[sortedPrograms[0]];
     const recommended = sortedPrograms.filter(
       program => programScores[program] >= topScore - 1
-    ).slice(0, 3);
+    ).slice(0, 3) as ProgramType[];
 
     console.log('Recommended programs:', recommended);
     setRecommendedPrograms(recommended);
@@ -345,8 +347,8 @@ export default function Survey({ onComplete, onBack }: SurveyProps) {
             </Animated.View>
 
             <View style={styles.recommendedProgramsContainer}>
-              {recommendedPrograms.map((program, index) => {
-                const programInfo = PROGRAM_INFO[program];
+              {recommendedPrograms.filter((p): p is Exclude<ProgramType, null> => p !== null).map((program, index) => {
+                const programInfo = (PROGRAM_INFO as Record<string, typeof PROGRAM_INFO[keyof typeof PROGRAM_INFO]>)[program];
                 const delayValue = 200 + (index * 150);
                 
                 return (
@@ -378,7 +380,7 @@ export default function Survey({ onComplete, onBack }: SurveyProps) {
                         <View style={styles.resultProgramIconContainer}>
                           <IconSymbol
                             ios_icon_name={programInfo.iconIOS}
-                            android_material_icon_name={programInfo.icon}
+                            android_material_icon_name={programInfo.icon as any}
                             size={48}
                             color="#FFFFFF"
                           />
