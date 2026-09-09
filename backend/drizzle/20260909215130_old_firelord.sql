@@ -1,0 +1,1 @@
+ALTER TABLE "user_profiles" ADD COLUMN "rc_app_user_id" text;
