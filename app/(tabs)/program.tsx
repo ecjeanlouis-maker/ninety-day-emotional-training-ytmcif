@@ -13,7 +13,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { colors } from '@/styles/commonStyles';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
-import Animated, { FadeInDown } from 'react-native-reanimated';
+import Animated, { FadeInDown, useReducedMotion } from 'react-native-reanimated';
 import { useRouter } from 'expo-router';
 import { useAuth } from '@/contexts/AuthContext';
 import { useUser } from '@/contexts/UserContext';
@@ -208,6 +208,7 @@ export default function ProgramScreen() {
 
   const completedCount = progress.filter(p => p.completed).length;
   const currentDayNumber = Math.min(completedCount + 1, 90);
+  const reducedMotion = useReducedMotion();
 
   if (loading) {
     return (
@@ -231,7 +232,7 @@ export default function ProgramScreen() {
         }
       >
         {/* Header */}
-        <Animated.View entering={FadeInDown.duration(500)}>
+        <Animated.View entering={reducedMotion ? undefined : FadeInDown.duration(500)}>
           <LinearGradient
             colors={[colors.primary, colors.secondary]}
             start={{ x: 0, y: 0 }}
@@ -273,7 +274,7 @@ export default function ProgramScreen() {
         </Animated.View>
 
         {/* Phase selector */}
-        <Animated.View entering={FadeInDown.delay(100).duration(500)}>
+        <Animated.View entering={reducedMotion ? undefined : FadeInDown.delay(100).duration(500)}>
           <ScrollView
             horizontal
             showsHorizontalScrollIndicator={false}
@@ -284,6 +285,9 @@ export default function ProgramScreen() {
               style={[styles.phasePill, !selectedPhase && styles.phasePillActive]}
               onPress={() => handlePhaseSelect(null)}
               activeOpacity={0.8}
+              accessibilityRole="button"
+              accessibilityLabel="Show all phases"
+              accessibilityState={{ selected: !selectedPhase }}
             >
               <Text style={[styles.phasePillText, !selectedPhase && styles.phasePillTextActive]}>All</Text>
             </TouchableOpacity>
@@ -297,6 +301,7 @@ export default function ProgramScreen() {
                   activeOpacity={0.8}
                   accessibilityLabel={`Filter by ${phase.label} phase, Days ${phase.daysStart} to ${phase.daysEnd}`}
                   accessibilityRole="button"
+                  accessibilityState={{ selected: isActive }}
                 >
                   <Text style={styles.phasePillEmoji}>{phase.emoji}</Text>
                   <Text style={[styles.phasePillText, isActive && styles.phasePillTextActive]}>{phase.label}</Text>
@@ -318,7 +323,7 @@ export default function ProgramScreen() {
 
         {/* Guest sign-in nudge banner */}
         {!user && (
-          <Animated.View entering={FadeInDown.delay(125).duration(500)}>
+          <Animated.View entering={reducedMotion ? undefined : FadeInDown.delay(125).duration(500)}>
             <View style={styles.guestNudgeBanner}>
               <View style={styles.guestNudgeContent}>
                 <Text style={styles.guestNudgeText}>
@@ -344,7 +349,7 @@ export default function ProgramScreen() {
 
         {/* Premium upgrade banner — shown when entitlement is loaded and days 8-90 are locked */}
         {!hasDays8to90Access && user && (
-          <Animated.View entering={FadeInDown.delay(150).duration(500)}>
+          <Animated.View entering={reducedMotion ? undefined : FadeInDown.delay(150).duration(500)}>
             <TouchableOpacity
               style={styles.upgradeBanner}
               onPress={() => {
@@ -360,7 +365,7 @@ export default function ProgramScreen() {
         )}
 
         {/* Phase Overview Cards */}
-        <Animated.View entering={FadeInDown.delay(175).duration(500)}>
+        <Animated.View entering={reducedMotion ? undefined : FadeInDown.delay(175).duration(500)}>
           <Text style={styles.sectionLabel}>8 Phases</Text>
           <View style={{ paddingHorizontal: 16, gap: 12 }}>
             {PHASES.map((phase, phaseIdx) => {
@@ -532,16 +537,22 @@ export default function ProgramScreen() {
           const phaseConfig = PHASES.find(p => p.key === weekPhase);
           const phaseColor = phaseConfig?.color || colors.primary;
 
+          const daysInWeek = weekDays.length;
+          const completedInWeek = weekDays.filter(d => getDayStatus(d.day_number) === 'completed').length;
+
           return (
             <Animated.View
               key={week}
-              entering={FadeInDown.delay(200 + weekIdx * 50).duration(400)}
+              entering={reducedMotion ? undefined : FadeInDown.delay(200 + weekIdx * 50).duration(400)}
               style={styles.weekContainer}
             >
               <TouchableOpacity
                 style={styles.weekHeader}
                 onPress={() => handleWeekToggle(week)}
                 activeOpacity={0.8}
+                accessibilityRole="button"
+                accessibilityLabel={`Week ${week}, ${completedInWeek} of ${daysInWeek} days completed, ${isExpanded ? 'expanded' : 'collapsed'}`}
+                accessibilityState={{ expanded: isExpanded }}
               >
                 <View style={[styles.weekColorBar, { backgroundColor: phaseColor }]} />
                 <View style={styles.weekHeaderContent}>
@@ -606,6 +617,9 @@ export default function ProgramScreen() {
                         ]}
                         onPress={() => handleDayPress(day.day_number)}
                         activeOpacity={0.8}
+                        accessibilityRole="button"
+                        accessibilityLabel={`Day ${day.day_number}: ${day.title || `Day ${day.day_number}`}, ${isCompleted ? 'completed' : isAnyLocked ? 'locked' : 'available'}`}
+                        accessibilityState={{ disabled: isAnyLocked }}
                       >
                         <View style={[styles.dayNumber, { backgroundColor: numberBgColor }]}>
                           <Text style={styles.dayNumberText}>{day.day_number}</Text>

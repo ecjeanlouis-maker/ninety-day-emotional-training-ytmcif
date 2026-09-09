@@ -9,12 +9,15 @@ import {
   TouchableOpacity,
   TextInput,
   ActivityIndicator,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors } from '@/styles/commonStyles';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
-import Animated, { FadeInDown, FadeIn } from 'react-native-reanimated';
+import Animated, { FadeInDown, FadeIn, useReducedMotion } from 'react-native-reanimated';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { authenticatedGet, authenticatedPost, authenticatedPatch } from '@/utils/api';
 import { trackEvent } from '@/utils/analytics';
@@ -72,12 +75,21 @@ const STEP_LABELS = ['Lesson', 'Drill', 'Reflect', 'Complete'];
 
 function StepIndicator({ currentStep }: { currentStep: number }) {
   return (
-    <View style={styles.stepIndicator}>
+    <View
+      style={styles.stepIndicator}
+      accessibilityRole="progressbar"
+      accessibilityLabel={`Step ${currentStep + 1} of ${STEP_LABELS.length}: ${STEP_LABELS[currentStep]}`}
+    >
       {STEP_LABELS.map((label, index) => {
         const isCompleted = index < currentStep;
         const isCurrent = index === currentStep;
+        const stepStatus = isCompleted ? 'completed' : isCurrent ? 'current' : 'upcoming';
         return (
-          <View key={label} style={styles.stepItem}>
+          <View
+            key={label}
+            style={styles.stepItem}
+            accessibilityLabel={`Step ${index + 1} of ${STEP_LABELS.length}: ${label}, ${stepStatus}`}
+          >
             <View
               style={[
                 styles.stepDot,
@@ -130,6 +142,9 @@ export default function DayDetailScreen() {
   const { user } = useAuth();
 
   console.log('[DayDetail] Screen rendered for day:', dayNum);
+
+  const insets = useSafeAreaInsets();
+  const reducedMotion = useReducedMotion();
 
   // ── Data state ──
   const [content, setContent] = useState<DayContent | null>(null);
@@ -420,6 +435,8 @@ export default function DayDetailScreen() {
               router.push('/paywall');
             }}
             activeOpacity={0.85}
+            accessibilityRole="button"
+            accessibilityLabel="Upgrade to Premium to unlock this lesson"
           >
             <LinearGradient
               colors={[colors.primary, colors.secondary]}
@@ -437,6 +454,8 @@ export default function DayDetailScreen() {
               router.back();
             }}
             activeOpacity={0.7}
+            accessibilityRole="button"
+            accessibilityLabel="Go back to program"
           >
             <Text style={styles.gateBackText}>Go Back</Text>
           </TouchableOpacity>
@@ -471,6 +490,8 @@ export default function DayDetailScreen() {
               router.replace(`/day/${requiredDayNum}`);
             }}
             activeOpacity={0.85}
+            accessibilityRole="button"
+            accessibilityLabel={`Go to day ${requiredDayNum} to unlock this lesson`}
           >
             <LinearGradient
               colors={['#3B82F6', '#6366F1']}
@@ -488,6 +509,8 @@ export default function DayDetailScreen() {
               router.back();
             }}
             activeOpacity={0.7}
+            accessibilityRole="button"
+            accessibilityLabel="Go back to program"
           >
             <Text style={styles.gateBackText}>Go Back</Text>
           </TouchableOpacity>
@@ -520,6 +543,11 @@ export default function DayDetailScreen() {
 
   // ── Render ──
   return (
+    <KeyboardAvoidingView
+      style={{ flex: 1 }}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 24}
+    >
     <SafeAreaView style={styles.container} edges={['top']}>
       {/* Top nav row */}
       <View style={styles.topNav}>
@@ -527,6 +555,8 @@ export default function DayDetailScreen() {
           style={styles.backButtonSmall}
           onPress={handleBack}
           hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          accessibilityRole="button"
+          accessibilityLabel="Go back"
         >
           <IconSymbol ios_icon_name="chevron.left" android_material_icon_name="arrow-back" size={24} color={colors.primary} />
         </TouchableOpacity>
@@ -539,7 +569,7 @@ export default function DayDetailScreen() {
 
       {/* Step content */}
       {currentStep === 0 && (
-        <Animated.View entering={FadeIn.duration(300)} style={styles.stepWrapper}>
+        <Animated.View entering={reducedMotion ? undefined : FadeIn.duration(300)} style={styles.stepWrapper}>
           <ScrollView
             style={styles.scrollView}
             contentContainerStyle={styles.scrollContent}
@@ -573,12 +603,14 @@ export default function DayDetailScreen() {
             {stepError && <Text style={styles.inlineError}>{stepError}</Text>}
           </ScrollView>
 
-          <View style={styles.actionBar}>
+          <View style={[styles.actionBar, { paddingBottom: Math.max(24, insets.bottom + 12) }]}>
             <TouchableOpacity
               style={[styles.primaryButton, markingRead && styles.primaryButtonDisabled]}
               onPress={handleMarkRead}
               disabled={markingRead}
               activeOpacity={0.85}
+              accessibilityRole="button"
+              accessibilityLabel="Mark lesson as read and continue to drill"
             >
               <LinearGradient
                 colors={[colors.primary, '#8B6FE8']}
@@ -598,7 +630,7 @@ export default function DayDetailScreen() {
       )}
 
       {currentStep === 1 && (
-        <Animated.View entering={FadeIn.duration(300)} style={styles.stepWrapper}>
+        <Animated.View entering={reducedMotion ? undefined : FadeIn.duration(300)} style={styles.stepWrapper}>
           <ScrollView
             style={styles.scrollView}
             contentContainerStyle={styles.scrollContent}
@@ -627,7 +659,7 @@ export default function DayDetailScreen() {
               </View>
 
               {hasPracticeSteps ? (
-                <Animated.View key={drillSubStep} entering={FadeInDown.duration(300)} style={styles.drillStepCard}>
+                <Animated.View key={drillSubStep} entering={reducedMotion ? undefined : FadeInDown.duration(300)} style={styles.drillStepCard}>
                   <View style={styles.drillStepBadge}>
                     <Text style={styles.drillStepBadgeText}>Step {drillSubStep + 1} of {practiceSteps.length}</Text>
                   </View>
@@ -641,12 +673,14 @@ export default function DayDetailScreen() {
             {stepError && <Text style={styles.inlineError}>{stepError}</Text>}
           </ScrollView>
 
-          <View style={styles.actionBar}>
+          <View style={[styles.actionBar, { paddingBottom: Math.max(24, insets.bottom + 12) }]}>
             {hasPracticeSteps && !isLastDrillStep ? (
               <TouchableOpacity
                 style={styles.primaryButton}
                 onPress={handleNextDrillStep}
                 activeOpacity={0.85}
+                accessibilityRole="button"
+                accessibilityLabel={`Next drill step, step ${drillSubStep + 2} of ${practiceSteps.length}`}
               >
                 <LinearGradient
                   colors={['#3B82F6', '#6366F1']}
@@ -663,6 +697,8 @@ export default function DayDetailScreen() {
                 onPress={handleDrillComplete}
                 disabled={markingDrill}
                 activeOpacity={0.85}
+                accessibilityRole="button"
+                accessibilityLabel="Mark drill complete and continue to reflection"
               >
                 <LinearGradient
                   colors={['#27AE60', '#1ABC9C']}
@@ -685,7 +721,7 @@ export default function DayDetailScreen() {
       )}
 
       {currentStep === 2 && (
-        <Animated.View entering={FadeIn.duration(300)} style={styles.stepWrapper}>
+        <Animated.View entering={reducedMotion ? undefined : FadeIn.duration(300)} style={styles.stepWrapper}>
           <ScrollView
             style={styles.scrollView}
             contentContainerStyle={styles.scrollContent}
@@ -722,7 +758,10 @@ export default function DayDetailScreen() {
                   }}
                   multiline
                   textAlignVertical="top"
+                  returnKeyType="done"
+                  blurOnSubmit={true}
                   onFocus={() => console.log('[DayDetail] Reflection input focused')}
+                  accessibilityLabel="Reflection text input"
                 />
               </View>
             ) : (
@@ -738,7 +777,10 @@ export default function DayDetailScreen() {
                   }}
                   multiline
                   textAlignVertical="top"
+                  returnKeyType="done"
+                  blurOnSubmit={true}
                   onFocus={() => console.log('[DayDetail] Reflection input focused')}
+                  accessibilityLabel="Reflection text input"
                 />
               </View>
             )}
@@ -771,6 +813,9 @@ export default function DayDetailScreen() {
                             style={[styles.ecrsButton, isActive && styles.ecrsButtonActive]}
                             onPress={() => handleEcrsChange(dim.key, v)}
                             activeOpacity={0.8}
+                            accessibilityRole="radio"
+                            accessibilityLabel={`${dim.label}, ${v} out of 5`}
+                            accessibilityState={{ checked: isActive }}
                           >
                             <Text style={[styles.ecrsButtonText, isActive && styles.ecrsButtonTextActive]}>{v}</Text>
                           </TouchableOpacity>
@@ -785,11 +830,13 @@ export default function DayDetailScreen() {
             {stepError && <Text style={styles.inlineError}>{stepError}</Text>}
           </ScrollView>
 
-          <View style={styles.actionBar}>
+          <View style={[styles.actionBar, { paddingBottom: Math.max(24, insets.bottom + 12) }]}>
             <TouchableOpacity
               style={styles.primaryButton}
               onPress={handleContinueToComplete}
               activeOpacity={0.85}
+              accessibilityRole="button"
+              accessibilityLabel="Continue to completion step"
             >
               <LinearGradient
                 colors={[colors.primary, '#8B6FE8']}
@@ -805,7 +852,7 @@ export default function DayDetailScreen() {
       )}
 
       {currentStep === 3 && (
-        <Animated.View entering={FadeIn.duration(300)} style={[styles.stepWrapper, styles.completeStepWrapper]}>
+        <Animated.View entering={reducedMotion ? undefined : FadeIn.duration(300)} style={[styles.stepWrapper, styles.completeStepWrapper]}>
           <ScrollView
             style={styles.scrollView}
             contentContainerStyle={styles.scrollContent}
@@ -829,7 +876,7 @@ export default function DayDetailScreen() {
             <Text style={styles.completeHeading}>Day {dayNum} Complete!</Text>
 
             {completedSuccess && (
-              <Animated.View entering={FadeInDown.duration(400)} style={styles.xpRow}>
+              <Animated.View entering={reducedMotion ? undefined : FadeInDown.duration(400)} style={styles.xpRow}>
                 <Text style={styles.xpText}>+{xpEarned} XP</Text>
                 {streakCount > 0 && (
                   <Text style={styles.streakText}>🔥 {streakCount} day streak</Text>
@@ -844,7 +891,7 @@ export default function DayDetailScreen() {
             )}
           </View>
 
-          <View style={styles.actionBar}>
+          <View style={[styles.actionBar, { paddingBottom: Math.max(24, insets.bottom + 12) }]}>
             {stepError && <Text style={styles.inlineError}>{stepError}</Text>}
 
             {isAlreadyCompleted && !completedSuccess ? (
@@ -860,6 +907,8 @@ export default function DayDetailScreen() {
                     console.log('[DayDetail] Return to Today tapped');
                     router.replace('/(tabs)/(home)');
                   }}
+                  accessibilityRole="button"
+                  accessibilityLabel="Return to Today"
                 >
                   <Text style={styles.returnLinkText}>Return to Today</Text>
                 </TouchableOpacity>
@@ -874,6 +923,8 @@ export default function DayDetailScreen() {
                 onPress={handleCompleteDay}
                 disabled={completing}
                 activeOpacity={0.85}
+                accessibilityRole="button"
+                accessibilityLabel={`Complete day ${dayNum}`}
               >
                 <LinearGradient
                   colors={['#27AE60', '#1ABC9C']}
@@ -902,6 +953,7 @@ export default function DayDetailScreen() {
         categoryColor={phaseColor}
       />
     </SafeAreaView>
+    </KeyboardAvoidingView>
   );
 }
 
