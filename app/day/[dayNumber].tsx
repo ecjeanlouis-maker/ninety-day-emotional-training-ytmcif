@@ -340,7 +340,7 @@ export default function DayDetailScreen() {
           const match = msg.match(/"required_day"\s*:\s*(\d+)/);
           const requiredDay = match ? parseInt(match[1], 10) : dayNum - 1;
           console.log('[DayDetail] Complete blocked — progression_required, required day:', requiredDay);
-          setStepError(`Complete Day ${requiredDay} first before starting this day.`);
+          setProgressionRequired(requiredDay);
         } else {
           setStepError('Access denied. Please check your subscription.');
         }

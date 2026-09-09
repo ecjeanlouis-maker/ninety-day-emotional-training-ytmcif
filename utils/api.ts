@@ -93,11 +93,11 @@ export const apiCall = async <T = any>(
       const text = await response.text();
       console.error("[API] Error response:", response.status, text);
       
-      // Provide user-friendly error messages
+      // Embed status + body so callers can parse structured error codes
       if (response.status === 401) {
-        throw new Error("Authentication required. Please sign in to continue.");
+        throw new Error(`401 ${text}`);
       } else if (response.status === 403) {
-        throw new Error("Access denied. You don't have permission to perform this action.");
+        throw new Error(`403 ${text}`);
       } else if (response.status === 404) {
         throw new Error("Resource not found.");
       } else {
