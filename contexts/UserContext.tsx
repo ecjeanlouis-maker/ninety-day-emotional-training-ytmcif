@@ -154,6 +154,15 @@ export function UserProvider({ children }: { children: ReactNode }) {
     return () => subscription.remove();
   }, [user?.id, fetchEntitlement]);
 
+  // When RC reports active subscription, refresh backend entitlement
+  useEffect(() => {
+    if (isSubscribed && user?.id) {
+      console.log('[UserContext] RC isSubscribed changed to true — refreshing entitlement');
+      fetchEntitlement();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isSubscribed]);
+
   // Effective role: strictly follows the 5 access rules
   const accessState = profile?.access_state;
   const role: Role =
@@ -165,9 +174,8 @@ export function UserProvider({ children }: { children: ReactNode }) {
         || accessState === 'trialing'
         || accessState === 'past_due'
         || accessState === 'cancelled_grace'
-        || isSubscribed                              // RevenueCat fallback
-        || profile?.is_premium_active === true       // backend computed flag fallback
-        || entitlement?.is_premium === true          // entitlement authoritative source
+        || profile?.is_premium_active === true       // backend computed flag
+        || entitlement?.is_premium === true          // entitlement — authoritative source
       ? 'premium'
       // Rule 4 (expired) and inactive → free
       : 'free';

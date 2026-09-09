@@ -167,7 +167,7 @@ export default function PaywallScreen() {
       // Refresh profile alongside polling (best-effort, non-blocking)
       refreshProfile().catch((e) => console.warn('[Paywall] Profile refresh failed (non-fatal):', e));
 
-      const confirmed = await waitForPremium(5, 2000);
+      const confirmed = await waitForPremium(3, 1500);
       setVerifying(false);
 
       if (confirmed) {
@@ -210,7 +210,7 @@ export default function PaywallScreen() {
       // Refresh profile alongside polling (best-effort, non-blocking)
       refreshProfile().catch((e) => console.warn('[Paywall] Profile refresh failed (non-fatal):', e));
 
-      const confirmed = await waitForPremium(3, 2000);
+      const confirmed = await waitForPremium(3, 1500);
       setVerifying(false);
 
       if (confirmed) {

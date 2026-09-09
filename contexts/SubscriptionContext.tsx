@@ -2,6 +2,7 @@ import React, { createContext, useContext, useEffect, useState, useCallback } fr
 import Purchases, { CustomerInfo, LOG_LEVEL } from 'react-native-purchases';
 import { Platform } from 'react-native';
 import { useAuth } from '@/contexts/AuthContext';
+import { authenticatedPost } from '@/utils/api';
 
 const REVENUECAT_APPLE_KEY = process.env.EXPO_PUBLIC_REVENUECAT_APPLE_API_KEY ?? '';
 const REVENUECAT_GOOGLE_KEY = process.env.EXPO_PUBLIC_REVENUECAT_GOOGLE_API_KEY ?? '';
@@ -33,6 +34,16 @@ export function SubscriptionProvider({ children }: { children: React.ReactNode }
 
   const isConfigured = Platform.OS !== 'web' && !!(Platform.OS === 'ios' ? REVENUECAT_APPLE_KEY : REVENUECAT_GOOGLE_KEY);
 
+  const syncToBackend = useCallback(async (info: CustomerInfo) => {
+    try {
+      await authenticatedPost('/api/subscription/sync', { customerInfo: info });
+      console.log('[SubscriptionContext] Synced RC state to backend');
+    } catch (e) {
+      // Non-fatal — webhook will catch up
+      console.warn('[SubscriptionContext] Backend sync failed (non-fatal):', e);
+    }
+  }, []);
+
   useEffect(() => {
     if (Platform.OS === 'web') {
       setIsLoading(false);
@@ -63,6 +74,7 @@ export function SubscriptionProvider({ children }: { children: React.ReactNode }
       setCustomerInfo(info);
       setIsSubscribed(active);
       setIsLoading(false);
+      syncToBackend(info); // fire-and-forget — push to backend immediately
     };
 
     Purchases.addCustomerInfoUpdateListener(updateCustomerInfo);
@@ -77,7 +89,7 @@ export function SubscriptionProvider({ children }: { children: React.ReactNode }
     return () => {
       Purchases.removeCustomerInfoUpdateListener(updateCustomerInfo);
     };
-  }, []);
+  }, [syncToBackend]);
 
   useEffect(() => {
     if (Platform.OS === 'web') return;
@@ -92,9 +104,10 @@ export function SubscriptionProvider({ children }: { children: React.ReactNode }
         console.log('[SubscriptionContext] User logged in — isSubscribed:', active);
         setCustomerInfo(info);
         setIsSubscribed(active);
+        syncToBackend(info); // fire-and-forget
       })
       .catch((e) => console.warn('[SubscriptionContext] RevenueCat login failed:', e));
-  }, [user?.id]);
+  }, [user?.id, syncToBackend]);
 
   const restorePurchases = useCallback(async () => {
     console.log('[SubscriptionContext] Restoring purchases');
@@ -110,7 +123,8 @@ export function SubscriptionProvider({ children }: { children: React.ReactNode }
     console.log('[SubscriptionContext] Restore complete — isSubscribed:', active);
     setCustomerInfo(info);
     setIsSubscribed(active);
-  }, []);
+    syncToBackend(info); // fire-and-forget
+  }, [syncToBackend]);
 
   const refreshSubscription = useCallback(async () => {
     console.log('[SubscriptionContext] Refreshing subscription status');
@@ -123,10 +137,11 @@ export function SubscriptionProvider({ children }: { children: React.ReactNode }
       console.log('[SubscriptionContext] Refresh complete — isSubscribed:', active);
       setCustomerInfo(info);
       setIsSubscribed(active);
+      syncToBackend(info); // fire-and-forget
     } catch (e) {
       console.warn('[SubscriptionContext] Refresh failed:', e);
     }
-  }, []);
+  }, [syncToBackend]);
 
   return (
     <SubscriptionContext.Provider value={{ isSubscribed, isLoading, isConfigured, customerInfo, restorePurchases, refreshSubscription }}>
