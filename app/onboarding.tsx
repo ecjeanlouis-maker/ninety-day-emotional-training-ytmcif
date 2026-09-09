@@ -410,7 +410,7 @@ export default function OnboardingScreen() {
               marginBottom: 12,
               paddingHorizontal: 8,
             }}>
-              This app provides educational wellness content and is not a substitute for professional mental health care. If you are in crisis, call or text 988.
+              ECCT provides educational wellness and skills-training content. It is not a substitute for professional mental health care, diagnosis, or treatment.
             </Text>
           <TouchableOpacity
             style={[styles.nextButton, (submitting || skipping) && styles.nextButtonDisabled]}

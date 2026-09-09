@@ -467,6 +467,14 @@ export default function AccountSettingsScreen() {
           )}
         </View>
 
+        {/* About section */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>About</Text>
+          <Text style={styles.disclaimerText}>
+            ECCT provides educational wellness and skills-training content. It is not a substitute for professional mental health care, diagnosis, or treatment.
+          </Text>
+        </View>
+
         {/* Danger zone */}
         <View style={[styles.section, styles.dangerSection]}>
           <Text style={[styles.sectionTitle, { color: '#FF3B30' }]}>Danger Zone</Text>
@@ -767,5 +775,10 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '600',
     color: colors.textSecondary,
+  },
+  disclaimerText: {
+    fontSize: 13,
+    color: colors.textSecondary,
+    lineHeight: 20,
   },
 });
