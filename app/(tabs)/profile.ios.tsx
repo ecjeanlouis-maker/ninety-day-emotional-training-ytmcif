@@ -24,6 +24,12 @@ export default function ProfileScreen() {
     router.push('/profile-edit');
   };
 
+  const handleAudioSettings = () => {
+    console.log('[Profile] Audio & Narration tapped (iOS)');
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    router.push('/audio-settings');
+  };
+
   const handleAdminDashboard = () => {
     console.log('[Profile] Admin Dashboard tapped (iOS)');
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
@@ -215,6 +221,16 @@ export default function ProfileScreen() {
                 size={20}
                 color={theme.dark ? '#98989D' : '#666'}
               />
+            </TouchableOpacity>
+
+            <View style={styles.menuDivider} />
+
+            <TouchableOpacity style={styles.menuItem} onPress={handleAudioSettings} activeOpacity={0.7}>
+              <View style={styles.menuItemLeft}>
+                <IconSymbol ios_icon_name="speaker.wave.2.fill" android_material_icon_name="volume-up" size={20} color={theme.colors.primary} />
+                <Text style={[styles.menuItemText, { color: theme.colors.text }]}>Audio & Narration</Text>
+              </View>
+              <IconSymbol ios_icon_name="chevron.right" android_material_icon_name="arrow-forward" size={20} color={theme.dark ? '#98989D' : '#666'} />
             </TouchableOpacity>
 
             <View style={styles.menuDivider} />

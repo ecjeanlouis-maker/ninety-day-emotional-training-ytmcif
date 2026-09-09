@@ -28,6 +28,8 @@ const GOALS = [
   { key: 'reduce_stress', label: 'Reduce Stress', emoji: '🍃' },
   { key: 'overcome_social_anxiety', label: 'Overcome Social Anxiety', emoji: '🤝' },
   { key: 'master_thoughts', label: 'Master My Thoughts', emoji: '🧠' },
+  { key: 'improve_organization', label: 'Improve Organization', emoji: '📋' },
+  { key: 'improve_communication', label: 'Improve Communication', emoji: '💬' },
 ];
 
 const CHALLENGES = [

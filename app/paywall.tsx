@@ -23,7 +23,7 @@ const PREMIUM_FEATURES = [
   {
     icon: '🔓',
     title: 'Full 90-Day ECCT Program',
-    description: 'Every technique across all 12 weeks — Awareness, Regulation, Confidence, Communication, and more.',
+    description: 'All 90 days across 8 phases — Emotional Control, Confidence, Anger Management, Stress, Social Anxiety, Thought Regulation, Organization, and Communication.',
   },
   {
     icon: '🤖',
