@@ -123,7 +123,7 @@ export function SubscriptionProvider({ children }: { children: React.ReactNode }
     console.log('[SubscriptionContext] Restore complete — isSubscribed:', active);
     setCustomerInfo(info);
     setIsSubscribed(active);
-    syncToBackend(info); // fire-and-forget
+    await syncToBackend(info); // await — DB must be written before waitForPremium polls
   }, [syncToBackend]);
 
   const refreshSubscription = useCallback(async () => {
@@ -137,7 +137,7 @@ export function SubscriptionProvider({ children }: { children: React.ReactNode }
       console.log('[SubscriptionContext] Refresh complete — isSubscribed:', active);
       setCustomerInfo(info);
       setIsSubscribed(active);
-      syncToBackend(info); // fire-and-forget
+      await syncToBackend(info); // await — DB must be written before waitForPremium polls
     } catch (e) {
       console.warn('[SubscriptionContext] Refresh failed:', e);
     }
