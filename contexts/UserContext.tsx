@@ -66,7 +66,7 @@ interface UserContextValue {
   trialDaysRemaining: number | null;
   entitlement: EntitlementData | null;
   refreshProfile: () => Promise<void>;
-  refreshEntitlement: () => Promise<void>;
+  refreshEntitlement: () => Promise<EntitlementData | null>;
   consumeAiMessage: () => Promise<{ allowed: boolean; remaining: number | null; resetsAt?: string }>;
   canAccess: (feature: AppFeature) => boolean;
   startTrial: () => Promise<{ ok: true } | { ok: false; reason: 'already_used' | 'already_premium' | 'unknown' }>;
@@ -116,20 +116,22 @@ export function UserProvider({ children }: { children: ReactNode }) {
     }
   }, [user?.id]);
 
-  const fetchEntitlement = useCallback(async () => {
+  const fetchEntitlement = useCallback(async (): Promise<EntitlementData | null> => {
     if (!user?.id) {
       console.log('[UserContext] No user — skipping entitlement fetch');
       setEntitlement(null);
-      return;
+      return null;
     }
     console.log('[UserContext] Fetching entitlement for user:', user.id);
     try {
       const data = await authenticatedGet<EntitlementData>('/api/entitlement');
       console.log('[UserContext] Entitlement loaded:', data);
       setEntitlement(data);
+      return data;
     } catch (error: any) {
       console.error('[UserContext] Failed to fetch entitlement:', error);
       // Don't clear entitlement on error — keep stale data
+      return null;
     }
   }, [user?.id]);
 
@@ -202,9 +204,9 @@ export function UserProvider({ children }: { children: ReactNode }) {
     await fetchEntitlement();
   }, [fetchProfile, fetchEntitlement]);
 
-  const refreshEntitlement = useCallback(async () => {
+  const refreshEntitlement = useCallback(async (): Promise<EntitlementData | null> => {
     console.log('[UserContext] refreshEntitlement called');
-    await fetchEntitlement();
+    return fetchEntitlement();
   }, [fetchEntitlement]);
 
   const consumeAiMessage = useCallback(async (): Promise<{

@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -79,12 +79,6 @@ export default function PaywallScreen() {
     onDismiss?: () => void;
   }>({ visible: false, title: '', message: '', type: 'error' });
 
-  // Keep a ref to the latest entitlement so polling can read updated state
-  const entitlementRef = useRef(entitlement);
-  useEffect(() => {
-    entitlementRef.current = entitlement;
-  }, [entitlement]);
-
   const showFeedback = (
     title: string,
     message: string,
@@ -138,13 +132,15 @@ export default function PaywallScreen() {
     console.log('[Paywall] Starting backend verification polling — maxAttempts:', maxAttempts, 'intervalMs:', intervalMs);
     for (let i = 0; i < maxAttempts; i++) {
       console.log('[Paywall] Polling attempt', i + 1, 'of', maxAttempts);
-      await refreshEntitlement();
-      await new Promise<void>((resolve) => setTimeout(resolve, intervalMs));
-      if (entitlementRef.current?.is_premium === true) {
+      const result = await refreshEntitlement();
+      if (result?.is_premium === true) {
         console.log('[Paywall] Backend confirmed is_premium: true on attempt', i + 1);
         return true;
       }
-      console.log('[Paywall] Backend not yet premium after attempt', i + 1, '— entitlement:', entitlementRef.current);
+      console.log('[Paywall] Backend not yet premium after attempt', i + 1, '— entitlement:', result);
+      if (i < maxAttempts - 1) {
+        await new Promise<void>((resolve) => setTimeout(resolve, intervalMs));
+      }
     }
     console.log('[Paywall] Polling exhausted — backend did not confirm premium within timeout');
     return false;
