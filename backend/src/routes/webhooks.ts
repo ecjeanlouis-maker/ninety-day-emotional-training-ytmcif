@@ -224,6 +224,21 @@ export function registerWebhookRoutes(app: App) {
         }
       }
 
+      // Fallback: check rcAppUserId for webhook matching
+      if (!resolvedUserId) {
+        for (const candidateId of candidateIds) {
+          const profileRows = await app.db
+            .select({ userId: schema.userProfiles.userId })
+            .from(schema.userProfiles)
+            .where(eq(schema.userProfiles.rcAppUserId, candidateId))
+            .limit(1);
+          if (profileRows.length > 0) {
+            resolvedUserId = profileRows[0].userId;
+            break;
+          }
+        }
+      }
+
       if (!resolvedUserId) {
         app.logger.warn({ appUserId, originalAppUserId }, '[RC Webhook] No matching user profile found');
         await app.db.update(schema.rcWebhookEvents)

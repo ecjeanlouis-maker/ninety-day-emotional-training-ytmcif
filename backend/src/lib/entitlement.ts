@@ -128,3 +128,49 @@ export async function userIsPremium(app: App, userId: string): Promise<boolean> 
   const result = await resolveEntitlement(app, userId);
   return result.isPremium;
 }
+
+/** Sync customer info from RevenueCat client-side restore. Fast path for immediate entitlement update. */
+export async function syncFromRCCustomerInfo(
+  app: App,
+  userId: string,
+  customerInfo: {
+    entitlements?: { active?: Record<string, { expirationDate: string | null; periodType?: string }> };
+    originalAppUserId?: string;
+    activeSubscriptions?: string[];
+  }
+): Promise<void> {
+  const now = new Date();
+
+  // Store originalAppUserId as rcAppUserId for webhook matching
+  const updateData: Record<string, any> = { updatedAt: now };
+  if (customerInfo.originalAppUserId) {
+    updateData.rcAppUserId = customerInfo.originalAppUserId;
+  }
+
+  const entitlements = customerInfo.entitlements?.active || {};
+  const hasProEntitlement = 'pro' in entitlements && entitlements.pro;
+
+  if (!hasProEntitlement) {
+    // No active pro entitlement — mark as free/expired
+    updateData.accountType = 'free';
+    updateData.subscriptionStatus = 'expired';
+  } else {
+    const proEnt = entitlements.pro;
+    const isTrial = proEnt.periodType === 'TRIAL';
+
+    updateData.accountType = 'premium';
+    updateData.subscriptionStatus = isTrial ? 'trialing' : 'active';
+    updateData.trialStatus = isTrial ? 'active' : 'none';
+    updateData.paymentStatus = isTrial ? 'none' : 'succeeded';
+
+    if (proEnt.expirationDate) {
+      updateData.subscriptionEndDate = new Date(proEnt.expirationDate);
+    }
+  }
+
+  // Update user profile
+  await app.db
+    .update(schema.userProfiles)
+    .set(updateData)
+    .where(eq(schema.userProfiles.userId, userId));
+}

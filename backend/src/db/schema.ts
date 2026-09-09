@@ -73,6 +73,7 @@ export const userProfiles = pgTable('user_profiles', {
   subscriptionEndDate: timestamp('subscription_end_date', { withTimezone: true }),
   trialStatus: text('trial_status').notNull().default('none'), // 'none', 'active', 'expired', 'converted'
   paymentStatus: text('payment_status').notNull().default('none'), // 'none', 'succeeded', 'failed', 'pending', 'refunded'
+  rcAppUserId: text('rc_app_user_id'), // RevenueCat originalAppUserId for webhook matching
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 });
