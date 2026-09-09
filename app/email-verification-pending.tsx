@@ -70,7 +70,7 @@ export default function EmailVerificationPendingScreen() {
   };
 
   const userEmail = user?.email || "your email";
-  const isVerified = user?.emailVerified === true;
+  const isVerified = (user as any)?.emailVerified === true;
 
   return (
     <View style={styles.container}>

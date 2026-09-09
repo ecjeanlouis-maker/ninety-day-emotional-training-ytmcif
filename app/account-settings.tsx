@@ -26,19 +26,21 @@ import { IconSymbol } from '@/components/IconSymbol';
 // Conditionally import expo-sharing only on native
 let Sharing: typeof import('expo-sharing') | null = null;
 if (Platform.OS !== 'web') {
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
   Sharing = require('expo-sharing');
 }
 
 // Conditionally import expo-file-system/legacy only on native
 let FileSystem: typeof import('expo-file-system/legacy') | null = null;
 if (Platform.OS !== 'web') {
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
   FileSystem = require('expo-file-system/legacy');
 }
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 interface AnalyticsConsent {
-  analytics_enabled: boolean;
+  usage_analytics_enabled: boolean;
 }
 
 // ─── Component ────────────────────────────────────────────────────────────────
@@ -78,7 +80,7 @@ export default function AccountSettingsScreen() {
     console.log('[AccountSettings] Loading analytics consent');
     try {
       const data = await authenticatedGet<AnalyticsConsent>('/api/analytics/consent');
-      setAnalyticsEnabled(data.analytics_enabled);
+      setAnalyticsEnabled(data.usage_analytics_enabled);
     } catch (err) {
       console.warn('[AccountSettings] Failed to load consent:', err);
     } finally {
@@ -182,7 +184,7 @@ export default function AccountSettingsScreen() {
     setSavingConsent(true);
     try {
       console.log('[AccountSettings] PUT /api/analytics/consent');
-      await authenticatedPut('/api/analytics/consent', { analytics_enabled: value });
+      await authenticatedPut('/api/analytics/consent', { usage_analytics_enabled: value });
       console.log('[AccountSettings] Consent saved');
     } catch (err) {
       console.error('[AccountSettings] Failed to save consent:', err);
@@ -231,7 +233,7 @@ export default function AccountSettingsScreen() {
     setDeletingAccount(true);
     try {
       console.log('[AccountSettings] POST /api/account/delete');
-      await authenticatedPost('/api/account/delete', {});
+      await authenticatedPost('/api/account/delete', { confirmation: 'DELETE MY ACCOUNT' });
       console.log('[AccountSettings] Account deletion initiated');
       trackEvent('account_deletion_completed');
       setDeleteModalVisible(false);

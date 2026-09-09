@@ -178,7 +178,7 @@ export default function DayDetailScreen() {
   const [completedSuccess, setCompletedSuccess] = useState(false);
   const [xpEarned, setXpEarned] = useState(0);
   const [streakCount, setStreakCount] = useState(0);
-  const [achievementsUnlocked, setAchievementsUnlocked] = useState<string[]>([]);
+
   const [showCongrats, setShowCongrats] = useState(false);
   const submittingRef = useRef(false);
 
@@ -189,6 +189,7 @@ export default function DayDetailScreen() {
       trackEvent('lesson_signin_required', { day_number: dayNum });
       router.replace(`/auth?returnTo=day_${dayNum}`);
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, dayNum]);
 
   // ── Entitlement gate check (client-side fast path) ──
@@ -341,7 +342,7 @@ export default function DayDetailScreen() {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       setXpEarned(res.xp_earned || 0);
       setStreakCount(res.streak || 0);
-      setAchievementsUnlocked(res.achievements_unlocked || []);
+
       setCompletedSuccess(true);
       setShowCongrats(true);
     } catch (err: any) {

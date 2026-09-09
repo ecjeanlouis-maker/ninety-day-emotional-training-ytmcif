@@ -642,6 +642,17 @@ export default function ProgramScreen() {
           );
         })}
 
+        {error && (
+          <View style={styles.emptyState}>
+            <Text style={styles.emptyStateEmoji}>⚠️</Text>
+            <Text style={styles.emptyStateTitle}>Unable to load program</Text>
+            <Text style={styles.emptyStateSubtitle}>Please try again.</Text>
+            <TouchableOpacity style={styles.retryButton} onPress={() => { console.log('[Program] Retry tapped'); fetchData(); }}>
+              <Text style={styles.retryButtonText}>Retry</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+
         {days.length === 0 && !loading && !error && (
           <View style={styles.emptyState}>
             <Text style={styles.emptyStateEmoji}>📚</Text>

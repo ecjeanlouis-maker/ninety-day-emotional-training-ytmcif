@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useRef } from 'react';
 import {
   View,
   Text,
@@ -7,7 +7,6 @@ import {
   FlatList,
   TouchableOpacity,
   TextInput,
-  ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
@@ -15,9 +14,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { colors } from '@/styles/commonStyles';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
-import Animated, { FadeInDown } from 'react-native-reanimated';
 import { useRouter } from 'expo-router';
-import { authenticatedGet, authenticatedPost } from '@/utils/api';
 import { IconSymbol } from '@/components/IconSymbol';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -47,75 +44,12 @@ export default function CoachScreen() {
   const router = useRouter();
   const flatListRef = useRef<FlatList>(null);
 
-  const [messages, setMessages] = useState<CoachMessage[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [sending, setSending] = useState(false);
+  const [messages] = useState<CoachMessage[]>([]);
   const [inputText, setInputText] = useState('');
-  const [error, setError] = useState<string | null>(null);
-
-  const fetchMessages = useCallback(async () => {
-    console.log('[Coach] Fetching message history');
-    try {
-      const res = await authenticatedGet<{ messages: CoachMessage[] }>('/api/coach/messages');
-      console.log('[Coach] Loaded', res.messages?.length, 'messages');
-      setMessages(res.messages || []);
-      setError(null);
-    } catch (err) {
-      console.error('[Coach] Error fetching messages:', err);
-      setError('Unable to load conversation history.');
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    fetchMessages();
-  }, [fetchMessages]);
-
-  const handleSend = async (text?: string) => {
-    const messageText = (text || inputText).trim();
-    if (!messageText) return;
-
-    console.log('[Coach] Sending message:', messageText);
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    setInputText('');
-    setSending(true);
-
-    // Optimistic user message
-    const tempUserMsg: CoachMessage = {
-      id: `temp-${Date.now()}`,
-      role: 'user',
-      content: messageText,
-      created_at: new Date().toISOString(),
-    };
-    setMessages(prev => [...prev, tempUserMsg]);
-
-    try {
-      console.log('[Coach] POST /api/coach/messages payload:', { content: messageText });
-      const res = await authenticatedPost<{ user_message: CoachMessage; assistant_message: CoachMessage }>(
-        '/api/coach/messages',
-        { content: messageText }
-      );
-      console.log('[Coach] Response received from coach');
-      setMessages(prev => [
-        ...prev.filter(m => m.id !== tempUserMsg.id),
-        res.user_message,
-        res.assistant_message,
-      ]);
-      setTimeout(() => flatListRef.current?.scrollToEnd({ animated: true }), 100);
-    } catch (err) {
-      console.error('[Coach] Error sending message:', err);
-      setMessages(prev => prev.filter(m => m.id !== tempUserMsg.id));
-      setError('Unable to send message. Please try again.');
-    } finally {
-      setSending(false);
-    }
-  };
 
   const handleSuggestedPrompt = (prompt: string) => {
-    console.log('[Coach] Suggested prompt tapped:', prompt);
+    console.log('[Coach] Suggested prompt tapped (coming soon):', prompt);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    handleSend(prompt);
   };
 
   const isCrisisMessage = (content: string): boolean => {
@@ -185,80 +119,55 @@ export default function CoachScreen() {
           </View>
         </LinearGradient>
 
-        {/* Messages */}
-        {loading ? (
-          <View style={styles.loadingContainer}>
-            <ActivityIndicator size="large" color={colors.primary} />
-          </View>
-        ) : (
-          <FlatList
-            ref={flatListRef}
-            data={messages}
-            keyExtractor={item => item.id}
-            renderItem={renderMessage}
-            contentContainerStyle={styles.messagesList}
-            showsVerticalScrollIndicator={false}
-            onContentSizeChange={() => flatListRef.current?.scrollToEnd({ animated: false })}
-            ListEmptyComponent={
-              <View style={styles.emptyState}>
-                <Text style={styles.emptyStateEmoji}>🤖</Text>
-                <Text style={styles.emptyStateTitle}>Your AI Coach</Text>
-                <Text style={styles.emptyStateSubtitle}>
-                  Ask me anything about emotional control, confidence, or your ECCT journey.
-                </Text>
-                <View style={styles.suggestedPromptsContainer}>
-                  <Text style={styles.suggestedPromptsTitle}>Try asking:</Text>
-                  {SUGGESTED_PROMPTS.map(prompt => (
-                    <TouchableOpacity
-                      key={prompt}
-                      style={styles.suggestedPrompt}
-                      onPress={() => handleSuggestedPrompt(prompt)}
-                      activeOpacity={0.8}
-                    >
-                      <Text style={styles.suggestedPromptText}>{prompt}</Text>
-                      <IconSymbol ios_icon_name="arrow.up.circle.fill" android_material_icon_name="send" size={18} color={colors.primary} />
-                    </TouchableOpacity>
-                  ))}
-                </View>
+        {/* Messages / Coming Soon */}
+        <FlatList
+          ref={flatListRef}
+          data={messages}
+          keyExtractor={item => item.id}
+          renderItem={renderMessage}
+          contentContainerStyle={styles.messagesList}
+          showsVerticalScrollIndicator={false}
+          ListEmptyComponent={
+            <View style={styles.emptyState}>
+              <Text style={styles.emptyStateEmoji}>🤖</Text>
+              <Text style={styles.emptyStateTitle}>AI Coach Coming Soon</Text>
+              <Text style={styles.emptyStateSubtitle}>
+                AI Coach is coming soon. Check back for updates.
+              </Text>
+              <View style={styles.suggestedPromptsContainer}>
+                <Text style={styles.suggestedPromptsTitle}>Topics we'll cover:</Text>
+                {SUGGESTED_PROMPTS.map(prompt => (
+                  <View
+                    key={prompt}
+                    style={[styles.suggestedPrompt, { opacity: 0.5 }]}
+                  >
+                    <Text style={styles.suggestedPromptText}>{prompt}</Text>
+                    <IconSymbol ios_icon_name="arrow.up.circle.fill" android_material_icon_name="send" size={18} color={colors.primary} />
+                  </View>
+                ))}
               </View>
-            }
-          />
-        )}
+            </View>
+          }
+        />
 
-        {/* Error */}
-        {error && (
-          <View style={styles.errorBanner}>
-            <Text style={styles.errorText}>{error}</Text>
-            <TouchableOpacity onPress={() => setError(null)}>
-              <IconSymbol ios_icon_name="xmark" android_material_icon_name="close" size={16} color="#FF3B30" />
-            </TouchableOpacity>
-          </View>
-        )}
-
-        {/* Input bar */}
+        {/* Input bar — disabled until feature is live */}
         <View style={styles.inputBar}>
           <TextInput
-            style={styles.textInput}
-            placeholder="Ask your coach..."
+            style={[styles.textInput, { opacity: 0.5 }]}
+            placeholder="AI Coach coming soon..."
             placeholderTextColor={colors.textSecondary}
             value={inputText}
             onChangeText={setInputText}
             multiline
             maxLength={500}
-            onFocus={() => console.log('[Coach] Message input focused')}
-            onSubmitEditing={() => handleSend()}
+            editable={false}
           />
           <TouchableOpacity
-            style={[styles.sendButton, (!inputText.trim() || sending) && styles.sendButtonDisabled]}
-            onPress={() => handleSend()}
-            disabled={!inputText.trim() || sending}
+            style={[styles.sendButton, styles.sendButtonDisabled]}
+            disabled
             activeOpacity={0.85}
           >
-            {sending ? (
-              <ActivityIndicator size="small" color="#FFFFFF" />
-            ) : (
-              <IconSymbol ios_icon_name="arrow.up" android_material_icon_name="send" size={20} color="#FFFFFF" />
-            )}
+            <IconSymbol ios_icon_name="arrow.up" android_material_icon_name="send" size={20} color="#FFFFFF" />
           </TouchableOpacity>
         </View>
       </KeyboardAvoidingView>

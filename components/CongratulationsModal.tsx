@@ -1,5 +1,5 @@
 
-import React, { useEffect } from 'react';
+import { useEffect } from 'react';
 import {
   View,
   Text,
@@ -80,6 +80,7 @@ export default function CongratulationsModal({
       starScale2.value = 0;
       starScale3.value = 0;
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [visible]);
 
   const modalStyle = useAnimatedStyle(() => {

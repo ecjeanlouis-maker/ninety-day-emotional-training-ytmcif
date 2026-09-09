@@ -53,24 +53,25 @@ export default function FloatingTabBar({
     // Find the best matching tab based on the current pathname
     let bestMatch = -1;
     let bestMatchScore = 0;
+    const path = pathname as string;
 
     tabs.forEach((tab, index) => {
       let score = 0;
 
       // Exact route match gets highest score
-      if (pathname === tab.route) {
+      if (path === tab.route) {
         score = 100;
       }
       // Check if pathname starts with tab route (for nested routes)
-      else if (pathname.startsWith(tab.route as string)) {
+      else if (path.startsWith(tab.route as string)) {
         score = 80;
       }
       // Check if pathname contains the tab name
-      else if (pathname.includes(tab.name)) {
+      else if (path.includes(tab.name)) {
         score = 60;
       }
       // Check for partial matches in the route
-      else if (tab.route.includes('/(tabs)/') && pathname.includes(tab.route.split('/(tabs)/')[1])) {
+      else if ((tab.route as string).includes('/(tabs)/') && path.includes((tab.route as string).split('/(tabs)/')[1])) {
         score = 40;
       }
 

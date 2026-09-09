@@ -28,6 +28,7 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     if (loading) return; // wait for auth restore
+    // @ts-expect-error — segments.length comparison triggers spurious TS2367 on typed route union
     if (segments.length === 0) return; // router hasn't resolved yet
     const first = segments[0] ?? "";
     const isPublic = PUBLIC_ROUTES.has(first);
@@ -42,6 +43,7 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
       router.replace("/auth-callback");
       return;
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, loading, segments]);
 
   return <>{children}</>;

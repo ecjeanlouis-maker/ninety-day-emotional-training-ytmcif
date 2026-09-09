@@ -14,7 +14,6 @@ import {
   ThemeProvider,
 } from "@react-navigation/native";
 import { StatusBar } from "expo-status-bar";
-import { WidgetProvider } from "@/contexts/WidgetContext";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { SubscriptionProvider } from "@/contexts/SubscriptionContext";
 import { UserProvider } from "@/contexts/UserContext";
@@ -93,7 +92,6 @@ export default function RootLayout() {
           <AuthProvider>
             <SubscriptionProvider>
               <UserProvider>
-              <WidgetProvider>
                 <AuthGate>
                 <GestureHandlerRootView>
                   <Stack>
@@ -121,7 +119,6 @@ export default function RootLayout() {
                   <SystemBars style={"auto"} />
                 </GestureHandlerRootView>
                 </AuthGate>
-              </WidgetProvider>
               </UserProvider>
             </SubscriptionProvider>
           </AuthProvider>

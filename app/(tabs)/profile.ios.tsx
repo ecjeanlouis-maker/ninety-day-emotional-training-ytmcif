@@ -16,7 +16,7 @@ export default function ProfileScreen() {
   const router = useRouter();
   const { user, loading, signOut } = useAuth();
   const { isSubscribed, restorePurchases } = useSubscription();
-  const { role, profile, isAdmin, isTrialing, trialDaysRemaining } = useUser();
+  const { role, profile, isAdmin, trialDaysRemaining } = useUser();
 
   const handleEditProfile = () => {
     console.log('[Profile] Edit Profile tapped (iOS)');

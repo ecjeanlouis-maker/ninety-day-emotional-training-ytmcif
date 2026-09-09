@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -214,7 +214,6 @@ function ProgressRing({ progress, size, strokeWidth }: { progress: number; size:
   const circumference = 2 * Math.PI * radius;
   const clampedProgress = Math.min(Math.max(progress, 0), 1);
   const filledLength = clampedProgress * circumference;
-  const emptyLength = circumference - filledLength;
 
   // View-based ring using border trick
   const angle = clampedProgress * 360;
@@ -362,7 +361,6 @@ function TodayDashboard() {
   const MILESTONES = [7, 14, 30, 60, 90];
   const nextMilestone = MILESTONES.find(m => m > totalDaysCompleted) ?? 90;
   const daysToMilestone = Math.max(nextMilestone - totalDaysCompleted, 0);
-  const progressPct = Math.round(progressPercent * 100);
   const milestoneLabel = nextMilestone === 90 ? 'Program complete' : `Day ${nextMilestone}`;
 
   const handleContinueTraining = () => {

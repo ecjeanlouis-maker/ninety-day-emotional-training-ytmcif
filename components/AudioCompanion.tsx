@@ -5,6 +5,8 @@ import {
   TouchableOpacity,
   StyleSheet,
   Platform,
+  StyleProp,
+  TextStyle,
 } from 'react-native';
 import * as Speech from 'expo-speech';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -353,6 +355,7 @@ export default function AudioCompanion(props: AudioCompanionProps) {
   // ── Save prefs on change ──
   useEffect(() => {
     savePrefs();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [rate, musicEnabled, musicVolume]);
 
   async function loadPrefsAndAutoStart() {
@@ -610,7 +613,7 @@ export default function AudioCompanion(props: AudioCompanionProps) {
 
   // Status text
   let statusText = '';
-  let statusStyle = styles.statusText;
+  let statusStyle: StyleProp<TextStyle> = styles.statusText;
   if (isLoading) {
     statusText = 'Loading narration...';
   } else if (isPlaying) {

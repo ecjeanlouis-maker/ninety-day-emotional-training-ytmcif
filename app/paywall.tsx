@@ -111,6 +111,7 @@ export default function PaywallScreen() {
       console.log('[Paywall] User is now subscribed — closing paywall');
       router.back();
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isSubscribed]);
 
   const fetchOfferings = async () => {

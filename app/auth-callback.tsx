@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { View, Text, ActivityIndicator, TouchableOpacity, StyleSheet, Platform } from "react-native";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import { useAuth } from "@/contexts/AuthContext";
@@ -71,6 +71,7 @@ export default function AuthCallbackScreen() {
     routedRef.current = true;
     if (timerRef.current) clearTimeout(timerRef.current);
     routePostLogin();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, loading]);
 
   const routePostLogin = async () => {

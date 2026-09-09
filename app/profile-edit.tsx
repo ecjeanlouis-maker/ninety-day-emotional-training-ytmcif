@@ -99,6 +99,7 @@ export default function ProfileEditScreen() {
       setConfidenceLevel(profile.confidence_level || null);
       setEmotionalControlLevel(profile.emotional_control_level || null);
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [profile?.age_range, profile?.main_goal, profile?.confidence_level, profile?.emotional_control_level]);
 
   const [feedbackModal, setFeedbackModal] = useState<{
@@ -125,18 +126,18 @@ export default function ProfileEditScreen() {
   };
 
   const handleSaveProfile = async () => {
-    console.log("[ProfileEdit] Save Changes pressed — name:", name, "email:", email);
+    console.log("[ProfileEdit] Save Changes pressed — name:", name);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
 
-    if (!name && !email) {
-      showFeedback("Missing Fields", "Please enter at least a name or email.", "error");
+    if (!name) {
+      showFeedback("Missing Fields", "Please enter your name.", "error");
       return;
     }
 
     setSavingProfile(true);
     try {
       console.log("[ProfileEdit] Calling updateUser...");
-      const result = await authClient.updateUser({ name, email });
+      const result = await authClient.updateUser({ name });
       if (result.error) {
         throw new Error(result.error.message || "Failed to update profile.");
       }
@@ -279,7 +280,7 @@ export default function ProfileEditScreen() {
   };
 
   const displayName = user?.name || user?.email?.split("@")[0] || "User";
-  const isVerified = user?.emailVerified === true;
+  const isVerified = (user as any)?.emailVerified === true;
 
   return (
     <KeyboardAvoidingView
@@ -334,16 +335,16 @@ export default function ProfileEditScreen() {
 
           <Text style={styles.fieldLabel}>Email</Text>
           <TextInput
-            style={styles.input}
+            style={[styles.input, { opacity: 0.5 }]}
             placeholder="Your email"
             placeholderTextColor="#999"
             value={email}
-            onChangeText={setEmail}
+            editable={false}
             keyboardType="email-address"
             autoCapitalize="none"
             autoCorrect={false}
           />
-          <Text style={styles.fieldNote}>Changing email will require re-verification</Text>
+          <Text style={styles.fieldNote}>Email cannot be changed</Text>
 
           <TouchableOpacity
             style={[styles.primaryButton, savingProfile && styles.buttonDisabled]}

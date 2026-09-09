@@ -62,8 +62,8 @@ export default function ForgotPasswordScreen() {
     setLoading(true);
     try {
       const redirectTo = Linking.createURL("/reset-password");
-      console.log("[ForgotPassword] Calling forgetPassword — redirectTo:", redirectTo);
-      const result = await authClient.forgetPassword({ email, redirectTo });
+      console.log("[ForgotPassword] Calling requestPasswordReset — redirectTo:", redirectTo);
+      const result = await authClient.requestPasswordReset({ email, redirectTo });
       if (result.error) {
         throw new Error(result.error.message || "Failed to send reset link.");
       }

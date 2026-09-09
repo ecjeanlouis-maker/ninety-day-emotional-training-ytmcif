@@ -50,6 +50,7 @@ export default function AdminDashboardScreen() {
       console.warn('[Admin] Non-admin user attempted to access admin dashboard — redirecting');
       router.replace('/');
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isAdmin]);
 
   const handleBack = () => {

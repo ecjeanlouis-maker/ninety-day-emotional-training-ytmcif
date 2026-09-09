@@ -64,6 +64,7 @@ export default function AudioSettingsScreen() {
 
   useEffect(() => {
     if (loaded) savePrefs();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [prefs, loaded]);
 
   // Cleanup speech on unmount
