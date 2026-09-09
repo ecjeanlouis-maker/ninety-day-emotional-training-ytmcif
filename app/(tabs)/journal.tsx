@@ -63,6 +63,55 @@ function truncate(text: string, maxLen: number): string {
   return text.slice(0, maxLen) + '...';
 }
 
+// ─── CrisisBanner ─────────────────────────────────────────────────────────────
+
+function CrisisBanner() {
+  const { Linking } = require('react-native');
+  return (
+    <View style={{
+      marginHorizontal: 16,
+      marginTop: 8,
+      marginBottom: 4,
+      padding: 14,
+      backgroundColor: 'rgba(39,174,96,0.08)',
+      borderRadius: 12,
+      borderWidth: 1,
+      borderColor: 'rgba(39,174,96,0.18)',
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 10,
+    }}>
+      <Text style={{ fontSize: 18 }}>💚</Text>
+      <View style={{ flex: 1 }}>
+        <Text style={{
+          fontSize: 12,
+          color: '#27AE60',
+          fontWeight: '700',
+          marginBottom: 2,
+        }}>
+          ECCT is not a crisis service
+        </Text>
+        <Text style={{
+          fontSize: 11,
+          color: '#555',
+          lineHeight: 16,
+        }}>
+          If you need immediate help, call or text{' '}
+          <Text
+            style={{ color: '#27AE60', fontWeight: '700', textDecorationLine: 'underline' }}
+            onPress={() => Linking.openURL('tel:988')}
+            accessibilityRole="link"
+            accessibilityLabel="Call or text 988 Suicide and Crisis Lifeline"
+          >
+            988
+          </Text>
+          {' '}(Suicide & Crisis Lifeline, US) or your local emergency services.
+        </Text>
+      </View>
+    </View>
+  );
+}
+
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export default function JournalScreen() {
@@ -265,6 +314,7 @@ export default function JournalScreen() {
           refreshControl={
             <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={colors.primary} />
           }
+          ListFooterComponent={<CrisisBanner />}
           ListEmptyComponent={
             <View style={styles.emptyState}>
               <Text style={styles.emptyStateEmoji}>📝</Text>
@@ -273,6 +323,7 @@ export default function JournalScreen() {
               <TouchableOpacity style={styles.newEntryButtonLarge} onPress={handleNewEntry} activeOpacity={0.85}>
                 <Text style={styles.newEntryButtonLargeText}>Write First Entry</Text>
               </TouchableOpacity>
+              <CrisisBanner />
             </View>
           }
         />

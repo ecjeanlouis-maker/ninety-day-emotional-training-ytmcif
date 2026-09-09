@@ -414,7 +414,7 @@ export default function AccountSettingsScreen() {
               <IconSymbol ios_icon_name="heart.fill" android_material_icon_name="favorite" size={20} color="#27AE60" />
               <View style={{ flex: 1 }}>
                 <Text style={styles.menuItemText}>Crisis Support Resources</Text>
-                <Text style={styles.toggleSubtitle}>If you are in crisis, call or text 988 (US) or visit 988lifeline.org</Text>
+                <Text style={styles.toggleSubtitle}>ECCT is not a crisis service. If you need immediate help, call or text 988 (Suicide & Crisis Lifeline, US) or contact your local emergency services.</Text>
               </View>
             </View>
             <IconSymbol ios_icon_name="arrow.up.right.square" android_material_icon_name="open-in-new" size={18} color={colors.textSecondary} />
