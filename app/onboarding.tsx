@@ -13,7 +13,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { colors } from '@/styles/commonStyles';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
-import Animated, { FadeInDown, FadeIn } from 'react-native-reanimated';
+import Animated, { FadeInDown, FadeIn, useReducedMotion } from 'react-native-reanimated';
 import { useRouter } from 'expo-router';
 import { authenticatedPost } from '@/utils/api';
 import { IconSymbol } from '@/components/IconSymbol';
@@ -65,6 +65,7 @@ export default function OnboardingScreen() {
   const [submitting, setSubmitting] = useState(false);
   const [skipping, setSkipping] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const reducedMotion = useReducedMotion();
 
   const progressPercent = `${(step / TOTAL_STEPS) * 100}%` as `${number}%`;
 
@@ -208,7 +209,7 @@ export default function OnboardingScreen() {
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
       >
-        <Animated.View entering={FadeInDown.duration(400)} key={step}>
+        <Animated.View entering={reducedMotion ? undefined : FadeInDown.duration(400)} key={step}>
           {/* Step header */}
           <View style={styles.stepHeader}>
             <Text style={styles.stepTitle}>{stepTitles[step - 1]}</Text>
