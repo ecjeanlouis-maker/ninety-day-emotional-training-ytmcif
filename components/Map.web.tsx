@@ -1,10 +1,11 @@
+/* eslint-disable @typescript-eslint/ban-ts-comment */
 import React from 'react';
 import { StyleSheet, View, ViewStyle } from 'react-native';
-// @ts-expect-error — react-leaflet has no bundled types in this project
+// @ts-ignore — react-leaflet types are conditionally available
 import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
-// @ts-expect-error — leaflet CSS import is web-only
+// @ts-ignore — leaflet CSS is web-only
 import 'leaflet/dist/leaflet.css';
-// @ts-expect-error — leaflet has no bundled types in this project
+// @ts-ignore — leaflet default export typing varies by environment
 import L from 'leaflet';
 
 // Fix for default marker icon in leaflet
@@ -58,35 +59,45 @@ export const Map = ({
 }: MapProps) => {
 
     const zoom = 13;
+    const center: [number, number] = [initialRegion.latitude, initialRegion.longitude];
+
+    // Cast to any to avoid prop type mismatches from conditionally-available leaflet types
+    const AnyMapContainer = MapContainer as any;
+    const AnyTileLayer = TileLayer as any;
+
+    const mapElement = (
+        <AnyMapContainer
+            center={center}
+            zoom={zoom}
+            scrollWheelZoom={false}
+            style={{ height: '100%', width: '100%' }}
+        >
+            <AnyTileLayer
+                attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+                url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+            />
+            {markers.map((marker) => (
+                <Marker
+                    key={marker.id}
+                    position={[marker.latitude, marker.longitude]}
+                >
+                    <Popup>
+                        {marker.title}
+                        {' '}
+                        <br />
+                        {' '}
+                        {marker.description}
+                    </Popup>
+                </Marker>
+            ))}
+        </AnyMapContainer>
+    );
 
     return (
         <View style={[styles.container, style]}>
-            {/* MapContainer needs a fixed height/width context. React Native Web View provides flex layout, 
-          so direct child div with 100% should work */}
+            {/* MapContainer needs a fixed height/width context */}
             <div style={{ height: '100%', width: '100%', minHeight: 200 }}>
-                {typeof window !== 'undefined' && (
-                    <MapContainer
-                        center={[initialRegion.latitude, initialRegion.longitude]}
-                        zoom={zoom}
-                        scrollWheelZoom={false}
-                        style={{ height: '100%', width: '100%' }}
-                    >
-                        <TileLayer
-                            attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-                            url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-                        />
-                        {markers.map((marker) => (
-                            <Marker
-                                key={marker.id}
-                                position={[marker.latitude, marker.longitude]}
-                            >
-                                <Popup>
-                                    {marker.title} <br /> {marker.description}
-                                </Popup>
-                            </Marker>
-                        ))}
-                    </MapContainer>
-                )}
+                {typeof window !== 'undefined' && mapElement}
             </div>
         </View>
     );
