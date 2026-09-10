@@ -546,8 +546,8 @@ export default function DayDetailScreen() {
   return (
     <KeyboardAvoidingView
       style={{ flex: 1 }}
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 24}
+      behavior="padding"
+      keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 110}
     >
     <SafeAreaView style={styles.container} edges={['top']}>
       {/* Top nav row */}
