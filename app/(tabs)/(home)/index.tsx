@@ -63,6 +63,7 @@ interface OnboardingData {
 function GuestWelcomeScreen() {
   const router = useRouter();
   const [showSurvey, setShowSurvey] = useState(false);
+  const reducedMotion = useReducedMotion();
 
   const handleBeginAssessment = () => {
     console.log('[Home] Guest tapped Begin Assessment');
@@ -97,7 +98,7 @@ function GuestWelcomeScreen() {
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        <Animated.View entering={FadeIn.duration(1000)} style={styles.welcomeHero}>
+        <Animated.View entering={reducedMotion ? undefined : FadeIn.duration(1000)} style={styles.welcomeHero}>
           <LinearGradient
             colors={[colors.primary, colors.accent]}
             start={{ x: 0, y: 0 }}
@@ -120,7 +121,7 @@ function GuestWelcomeScreen() {
           </LinearGradient>
         </Animated.View>
 
-        <Animated.View entering={FadeInDown.delay(300).duration(800)} style={styles.welcomeStats}>
+        <Animated.View entering={reducedMotion ? undefined : FadeInDown.delay(300).duration(800)} style={styles.welcomeStats}>
           <View style={styles.welcomeStatItem}>
             <IconSymbol ios_icon_name="calendar" android_material_icon_name="calendar-today" size={32} color={colors.primary} />
             <Text style={styles.welcomeStatNumber}>90</Text>
@@ -140,7 +141,7 @@ function GuestWelcomeScreen() {
           </View>
         </Animated.View>
 
-        <Animated.View entering={FadeInDown.delay(450).duration(800)} style={styles.welcomeButtonContainer}>
+        <Animated.View entering={reducedMotion ? undefined : FadeInDown.delay(450).duration(800)} style={styles.welcomeButtonContainer}>
           <TouchableOpacity
             style={styles.welcomeButton}
             onPress={() => {
@@ -164,7 +165,7 @@ function GuestWelcomeScreen() {
           </TouchableOpacity>
         </Animated.View>
 
-        <Animated.View entering={FadeInDown.delay(550).duration(800)} style={styles.welcomeButtonContainer}>
+        <Animated.View entering={reducedMotion ? undefined : FadeInDown.delay(550).duration(800)} style={styles.welcomeButtonContainer}>
           <TouchableOpacity
             style={styles.createAccountButton}
             onPress={() => {
@@ -180,7 +181,7 @@ function GuestWelcomeScreen() {
           </TouchableOpacity>
         </Animated.View>
 
-        <Animated.View entering={FadeInDown.delay(650).duration(800)} style={styles.guestButtonContainer}>
+        <Animated.View entering={reducedMotion ? undefined : FadeInDown.delay(650).duration(800)} style={styles.guestButtonContainer}>
           <TouchableOpacity
             style={styles.guestButton}
             activeOpacity={0.85}
@@ -197,7 +198,7 @@ function GuestWelcomeScreen() {
           </TouchableOpacity>
         </Animated.View>
 
-        <Animated.View entering={FadeInDown.delay(750).duration(800)} style={styles.welcomeFooter}>
+        <Animated.View entering={reducedMotion ? undefined : FadeInDown.delay(750).duration(800)} style={styles.welcomeFooter}>
           <Text style={styles.welcomeFooterText}>
             Sign in to save your progress, or continue as a guest to take the assessment.
           </Text>
