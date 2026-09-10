@@ -1,12 +1,18 @@
-import React, { useEffect } from 'react';
+import React from 'react';
 import { StyleSheet, View, ViewStyle } from 'react-native';
+// @ts-expect-error — react-leaflet has no bundled types in this project
 import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
+// @ts-expect-error — leaflet CSS import is web-only
 import 'leaflet/dist/leaflet.css';
+// @ts-expect-error — leaflet has no bundled types in this project
 import L from 'leaflet';
 
 // Fix for default marker icon in leaflet
+// eslint-disable-next-line @typescript-eslint/no-require-imports
 const iconRetinaUrl = require('leaflet/dist/images/marker-icon-2x.png');
+// eslint-disable-next-line @typescript-eslint/no-require-imports
 const iconUrl = require('leaflet/dist/images/marker-icon.png');
+// eslint-disable-next-line @typescript-eslint/no-require-imports
 const shadowUrl = require('leaflet/dist/images/marker-shadow.png');
 
 // Only run on client side (safe check)

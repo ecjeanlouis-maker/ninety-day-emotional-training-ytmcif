@@ -62,7 +62,9 @@
           "androidCollapsedTitle": "Control & Confidence"
         }
       ],
-      "expo-audio"
+      "expo-audio",
+      "expo-asset",
+      "@react-native-community/datetimepicker"
     ],
     "experiments": {
       "typedRoutes": true

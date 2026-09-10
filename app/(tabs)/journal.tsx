@@ -10,6 +10,7 @@ import {
   ActivityIndicator,
   RefreshControl,
   Platform,
+  Linking,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { colors } from '@/styles/commonStyles';
@@ -66,7 +67,6 @@ function truncate(text: string, maxLen: number): string {
 // ─── CrisisBanner ─────────────────────────────────────────────────────────────
 
 function CrisisBanner() {
-  const { Linking } = require('react-native');
   return (
     <View style={{
       marginHorizontal: 16,

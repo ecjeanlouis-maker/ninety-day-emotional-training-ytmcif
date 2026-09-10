@@ -11,6 +11,7 @@ import {
   TextInput,
   Platform,
   Alert,
+  Linking,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -403,7 +404,6 @@ export default function AccountSettingsScreen() {
           <TouchableOpacity
             style={styles.menuItem}
             onPress={() => {
-              const { Linking } = require('react-native');
               Linking.openURL('https://988lifeline.org');
             }}
             activeOpacity={0.7}
