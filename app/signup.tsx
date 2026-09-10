@@ -14,7 +14,7 @@ import {
 import { useAuth } from '@/contexts/AuthContext';
 import { useRouter } from 'expo-router';
 import { colors } from '@/styles/commonStyles';
-import Animated, { FadeIn, FadeOut, FadeInRight, FadeOutLeft } from 'react-native-reanimated';
+import Animated, { FadeIn, FadeOut, FadeInRight, FadeOutLeft, useReducedMotion } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
 import { authenticatedPost } from '@/utils/api';
 
@@ -91,6 +91,7 @@ export default function SignUpScreen() {
 
   // ─── UI state ────────────────────────────────────────────────────────────
   const [loading, setLoading] = useState(false);
+  const reducedMotion = useReducedMotion();
   const [feedbackModal, setFeedbackModal] = useState<{
     visible: boolean;
     title: string;
@@ -277,7 +278,7 @@ export default function SignUpScreen() {
 
           {/* ── STEP 1 ── */}
           {step === 1 && (
-            <Animated.View entering={FadeIn.duration(300)} style={styles.stepContainer}>
+            <Animated.View entering={reducedMotion ? undefined : FadeIn.duration(300)} style={styles.stepContainer}>
               <Text style={styles.title}>Create Account</Text>
               <Text style={styles.subtitle}>Join thousands transforming their lives</Text>
 
@@ -355,7 +356,7 @@ export default function SignUpScreen() {
 
           {/* ── STEP 2 ── */}
           {step === 2 && (
-            <Animated.View entering={FadeInRight.duration(300)} style={styles.stepContainer}>
+            <Animated.View entering={reducedMotion ? undefined : FadeInRight.duration(300)} style={styles.stepContainer}>
               <Text style={styles.title}>About You</Text>
               <Text style={styles.subtitle}>Help us personalise your experience</Text>
 
@@ -501,7 +502,7 @@ export default function SignUpScreen() {
       >
         <View style={styles.modalOverlay}>
           <Animated.View
-            entering={FadeIn.duration(300)}
+            entering={reducedMotion ? undefined : FadeIn.duration(300)}
             exiting={FadeOut.duration(200)}
             style={styles.feedbackModal}
           >
