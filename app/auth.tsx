@@ -14,7 +14,7 @@ import {
 import { useAuth } from "@/contexts/AuthContext";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import { colors } from "@/styles/commonStyles";
-import Animated, { FadeIn, FadeOut } from "react-native-reanimated";
+import Animated, { FadeIn, FadeOut, useReducedMotion } from "react-native-reanimated";
 import * as Haptics from "expo-haptics";
 import { trackEvent } from "@/utils/analytics";
 
@@ -47,6 +47,7 @@ export default function AuthScreen() {
     message: string;
     type: "error" | "success";
   }>({ visible: false, title: "", message: "", type: "error" });
+  const reducedMotion = useReducedMotion();
 
   const showFeedback = (title: string, message: string, type: "error" | "success" = "error") => {
     setFeedbackModal({ visible: true, title, message, type });
@@ -316,7 +317,7 @@ export default function AuthScreen() {
       >
         <View style={styles.modalOverlay}>
           <Animated.View
-            entering={FadeIn.duration(300)}
+            entering={reducedMotion ? undefined : FadeIn.duration(300)}
             exiting={FadeOut.duration(200)}
             style={styles.feedbackModal}
             accessibilityViewIsModal={true}
