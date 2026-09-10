@@ -411,7 +411,7 @@ const styles = StyleSheet.create({
     lineHeight: 20,
   },
   input: {
-    height: 52,
+    minHeight: 52,
     borderWidth: 1,
     borderColor: colors.border,
     borderRadius: 12,
@@ -433,7 +433,7 @@ const styles = StyleSheet.create({
     fontWeight: "600",
   },
   primaryButton: {
-    height: 52,
+    minHeight: 52,
     backgroundColor: colors.primary,
     borderRadius: 12,
     justifyContent: "center",
@@ -475,7 +475,7 @@ const styles = StyleSheet.create({
     fontWeight: "500",
   },
   socialButton: {
-    height: 52,
+    minHeight: 52,
     borderWidth: 1,
     borderColor: colors.border,
     borderRadius: 12,

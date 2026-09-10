@@ -611,7 +611,7 @@ const styles = StyleSheet.create({
     lineHeight: 20,
   },
   input: {
-    height: 52,
+    minHeight: 52,
     borderWidth: 1,
     borderColor: colors.border,
     borderRadius: 12,
@@ -698,7 +698,7 @@ const styles = StyleSheet.create({
   },
   levelCircle: {
     width: 52,
-    height: 52,
+    minHeight: 52,
     borderRadius: 26,
     borderWidth: 1.5,
     borderColor: colors.border,
@@ -726,7 +726,7 @@ const styles = StyleSheet.create({
   },
   // ── Buttons ──────────────────────────────────────────────────────────────
   primaryButton: {
-    height: 52,
+    minHeight: 52,
     backgroundColor: colors.primary,
     borderRadius: 12,
     justifyContent: 'center',
@@ -736,7 +736,7 @@ const styles = StyleSheet.create({
   },
   primaryButtonFlex: {
     flex: 1,
-    height: 52,
+    minHeight: 52,
     backgroundColor: colors.primary,
     borderRadius: 12,
     justifyContent: 'center',
@@ -758,7 +758,7 @@ const styles = StyleSheet.create({
     marginBottom: 32,
   },
   backButton: {
-    height: 52,
+    minHeight: 52,
     paddingHorizontal: 20,
     borderRadius: 12,
     borderWidth: 1.5,
