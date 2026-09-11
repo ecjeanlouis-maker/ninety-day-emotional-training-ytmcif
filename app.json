@@ -4,7 +4,7 @@
     "slug": "control-confidence",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/images/newly.png",
+    "icon": "./assets/icon.png",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "scheme": "controlconfidence",
