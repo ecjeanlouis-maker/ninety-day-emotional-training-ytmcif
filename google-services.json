@@ -1,19 +1,23 @@
 {
   "project_info": {
-    "project_number": "000000000000",
-    "project_id": "placeholder",
-    "storage_bucket": "placeholder.appspot.com"
+    "project_number": "663220585669",
+    "project_id": "ecct-2026",
+    "storage_bucket": "ecct-2026.firebasestorage.app"
   },
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:000000000000:android:placeholder",
+        "mobilesdk_app_id": "1:663220585669:android:735032ab4427860c495cac",
         "android_client_info": {
           "package_name": "com.nextech.controlconfidence"
         }
       },
       "oauth_client": [],
-      "api_key": [{ "current_key": "placeholder" }],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAW80N0Tz1W0XLDKvSW8pJ6oUm_bmbf_kQ"
+        }
+      ],
       "services": {
         "appinvite_service": {
           "other_platform_oauth_client": []
