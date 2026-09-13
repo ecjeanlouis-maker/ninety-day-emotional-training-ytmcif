@@ -140,12 +140,6 @@ function normalizeRCEvent(event: RCEventBody['event']): {
 export function registerWebhookRoutes(app: App) {
   app.fastify.post(
     '/api/webhooks/revenuecat',
-    {
-      schema: {
-        description: 'RevenueCat webhook receiver',
-        tags: ['webhooks'],
-      },
-    },
     async (request: FastifyRequest, reply: FastifyReply) => {
       // 1. Verify authorization secret
       const secret = process.env.RC_WEBHOOK_SECRET;
