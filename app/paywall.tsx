@@ -548,7 +548,27 @@ export default function PaywallScreen() {
             </TouchableOpacity>
 
             <Text style={styles.legalText}>
-              Subscriptions renew automatically. Cancel anytime in your device's subscription settings. By purchasing you agree to our Terms of Service.
+              {'Subscriptions renew automatically. Cancel anytime in your device\'s subscription settings. By purchasing you agree to our '}
+              <Text
+                style={[styles.legalText, { color: colors.primary, fontWeight: '600' }]}
+                onPress={() => {
+                  console.log('[Paywall] Privacy Policy link tapped');
+                  router.push('/privacy-policy');
+                }}
+              >
+                Privacy Policy
+              </Text>
+              {' and '}
+              <Text
+                style={[styles.legalText, { color: colors.primary, fontWeight: '600' }]}
+                onPress={() => {
+                  console.log('[Paywall] Terms of Service link tapped');
+                  router.push('/terms-of-service');
+                }}
+              >
+                Terms of Service
+              </Text>
+              {'.'}
             </Text>
           </View>
         )}

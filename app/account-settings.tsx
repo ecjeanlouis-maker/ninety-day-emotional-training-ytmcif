@@ -473,6 +473,44 @@ export default function AccountSettingsScreen() {
           <Text style={styles.disclaimerText}>
             ECCT provides educational wellness and skills-training content. It is not a substitute for professional mental health care, diagnosis, or treatment.
           </Text>
+
+          <View style={styles.divider} />
+
+          <TouchableOpacity
+            style={styles.menuItem}
+            onPress={() => {
+              console.log('[AccountSettings] Privacy Policy tapped');
+              router.push('/privacy-policy');
+            }}
+            activeOpacity={0.7}
+            accessibilityRole="button"
+            accessibilityLabel="View Privacy Policy"
+          >
+            <View style={styles.menuItemLeft}>
+              <IconSymbol ios_icon_name="hand.raised.fill" android_material_icon_name="privacy-tip" size={20} color={colors.primary} />
+              <Text style={styles.menuItemText}>Privacy Policy</Text>
+            </View>
+            <IconSymbol ios_icon_name="chevron.right" android_material_icon_name="arrow-forward" size={18} color={colors.textSecondary} />
+          </TouchableOpacity>
+
+          <View style={styles.divider} />
+
+          <TouchableOpacity
+            style={styles.menuItem}
+            onPress={() => {
+              console.log('[AccountSettings] Terms of Service tapped');
+              router.push('/terms-of-service');
+            }}
+            activeOpacity={0.7}
+            accessibilityRole="button"
+            accessibilityLabel="View Terms of Service"
+          >
+            <View style={styles.menuItemLeft}>
+              <IconSymbol ios_icon_name="doc.text.fill" android_material_icon_name="description" size={20} color={colors.primary} />
+              <Text style={styles.menuItemText}>Terms of Service</Text>
+            </View>
+            <IconSymbol ios_icon_name="chevron.right" android_material_icon_name="arrow-forward" size={18} color={colors.textSecondary} />
+          </TouchableOpacity>
         </View>
 
         {/* Danger zone */}
